@@ -1,3 +1,9 @@
+# Cognitive Behavioral Prediction
+
+## Getting Started
+
+### Prerequisites
+
 # FILES
 - 'Stress_Level_v1.csv' and 'Stress_Level_v2.csv' contain self-reported stress levels during the stress protocol for each stage of the study,  respectively.
 - 'subject-info.csv' contains demographic data such as age, weight, and height for all participants.
@@ -14,5 +20,6 @@
 - Empatica signal files: the first row is the initial time of the session expressed in UTC (Empatica provides time in Unix timestamp format, but files are already converted to UTC). The second row is the sample rate expressed in Hz.
 - 'ACC.csv': data from x, y, and z axis are stored in first, second, and third column, respectively.
 - 'IBI.csv': the first column is the time (respect to the initial time) of the detected inter-beat interval expressed in seconds (s). The second column is the duration in seconds (s) of the detected inter-beat interval (i.e., the distance in seconds from the previous beat).
+
 
 
