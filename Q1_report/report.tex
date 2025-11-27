@@ -13,17 +13,17 @@
 
 \title{Impact of Physiological Signals and Human Behaviors recorded from a wearable device contributing to outcomes of self-reported stress}
 
-\author{First Author \\
+\author{Levy Sahoo \\
   {\tt slsahoo@ucsd.edu} \\\And
-  Second Author \\
+  Dhyay Thakrar \\
   {\tt dthakrar@ucsd.edu} \\\And
-  Third Author \\
+  Camille Tran \\
   {\tt ctt011@ucsd.edu} \\\And
-  Fourth Author \\
+  Selina Zhang \\
   {\tt xiz154@ucsd.edu} \\\And
-  Fifth Author \\
+  Essie Chang \\
   {\tt e3cheng@ucsd.edu} \\\And
-  Mentor Name (Always Last) \\
+  Tauhidur Rahman \\
   {\tt trahman@ucsd.edu} \\}
 
 \begin{document}
@@ -36,7 +36,7 @@
 
 \begin{abstract}
     
-    {Daily stress affects how people feel and function, and wrist-worn devices now capture signals like heartbeat patterns (HRV), skin conductance (EDA), skin temperature, and movement that reflect changes in the body when stress rises. Models trained on these signals in the lab can be very accurate during controlled tasks, but they often falter in everyday life, where routines vary and labels are noisier. In this paper, we test whether patterns learned from the Empatica E4 during induced-stress sessions (different forms of exercises) transfer to PMData’s free-living setting with daily self-reported stress, and we ask which domain adaptation method best narrows that “lab-to-life” gap. We use the PhysioNet “Wearable Device Dataset from Induced Stress and Structured Exercise Sessions” as our labeled source domain that we will train our model on and PMData (Fitbit streams plus PMSys daily wellness reports including stress) as our target. We plan to engineer a shared feature set, aggregate E4 windows into day-level embeddings to match PMData’s labels, and compare a source-only baseline with different adaptation approaches like CORAL, DANN and other feature alignment domain adaptation techniques. Our aim is a clear, practical recipe for adapting lab-trained stress models to real-world wearables with minimal new labels.}
+    {We investigate how reliably a wrist-worn wearable can quantify stress during different kinds of stress-inducing activities. We are using the PhysioNet Wearable Device Dataset from Induced Stress and Structured Exercise Sessions (Empatica E4). The E4 provides multimodal physiological signals like heart rate and heart-rate variability, electrodermal activity (EDA), skin temperature, and accelerometry. These signals are expected to change with both physical load and cognitive strain. Our primary goals are to identify which biomarkers are most strongly associated with self-reported stress during cognitive tasks, then to test whether those same markers indicate stress during physical exercises (where explicit stress labels are absent), and finally to build models that can classify both stress level and type of activity. We first focus on the cognitive-stress protocols, segmenting E4 data into windows aligned with these cognitive tasks and using self-reported stress levels to train a regression model that predicts stress level from our engineered features. From this model, we extract a set of “stress-sensitive” biomarkers and apply them to windows from structured physical activities, training classifiers to distinguish stressed vs non-stressed segments and to classify exercise type when stress is present. By comparing performance across tasks, we aim to quantify how accurately a single wearable device can infer not just how stressed someone is, but also what kind of activity is driving that stress.}
 \end{abstract}
 
 \begin{center}
@@ -53,8 +53,11 @@ Code: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Introduction}
-With the advancement of wearable technology, the research community maintains faith that we can be closer to quantify and measure attributes of stress. In order to reflect and assess the true quality of a person’s stress compared to how they report they feel, although today’s smartwatches possess the ability to collect various forms of data, concerns arise with the accuracy of the data collected in parallel to the device user’s actual reported feelings. Factors contributing to inaccurate data may include the quality of the wearable’s sensors, the position of the device on the user’s wrist, the wearable’s connection status and algorithms incorrectly recording data diverged from the user’s motion states. Wearable detection studies have utilized multimodal physiological data signals like Heart-Rate variability, Skin Temperature, Electrodermal Activity, and Accelerometer signs recorded from both chest-worn and wristwatches alike.The sensors within these wearables record changes from every moment which imply stress, however such models are often constrained and limited to lab conditions where stress is artificially imitated and replicated and precise without regard to real-world conditions. So in practice, when sensors are applied upon ‘free-living’ data, the models (produced within the lab) aren’t able to perform when exposed to noise, unseen movement, unforeseen environmental context, and the uncertainty of self-reported labels. To confront this, researchers are experimenting with exploring the fusion of these physiological data signals, developing models that account for additional environmental context and even going as far as to combine domain-adaptation methods that apply to common features across various unseen datasets and new devices as well. Even though progress is being made, the challenge that remains is detecting real-world stress and quantifying its accuracy for each subject user, factors include heterogeneous sensors capable of varying data collection functions, lack of standardization with data collection from sensors and subjects and limited labeled field data pushing the need for robust frameworks that can generalize lab signals for daily wearable with as little surveillance, monitoring, and human intervention as possible. 
-In our research effort, we’ll test whether patterns learned from the Empatica E4 during induced-stress sessions (different forms of exercises) transfer to PMData’s free-living setting with daily self-reported stress, as we explore which domain adaptation method best narrows that “lab-to-life” gap. In order to do that, we plan to engineer a shared feature set, aggregate E4 windows into day-level embeddings to match PMData’s labels, and compare a source-only baseline with different adaptation approaches like CORAL, DANN and other feature alignment domain adaptation techniques. From there, we’ll attempt to apply classification modeling techniques to identify periods of stress presence and their causes across a wide array of behaviors including but not limited to sleeping and eating customs as well. 
+With the rapid spread of consumer wearables, there is growing hope that we can move beyond occasional self-reports and continuously quantify how stressed people are in daily life. Modern wrist-worn devices can record multiple physiological signals like heart rate and heart-rate variability, electrodermal activity (EDA), skin temperature, and movement and all these signals are known to change when stress increases. However, it is still unclear how reliably these devices capture stress across different types of stressors, and whether they can tell what kind of activity is driving that stress rather than just flagging that something is happening.
+
+Our intuition tells us that machine learning models trained on multimodal physiological data can distinguish stress from non-stress in controlled laboratory settings, where stress is deliberately induced and labels are relatively clean. But, even in these structured environments, we do not know if different stressors may produce overlapping physiological patterns, and some signals may be driven more by physical load than by psychological strain. This makes it challenging to interpret whether a change in a wearable-derived “stress score” reflects genuine cognitive stress, physical exertion, or both.
+
+In this project, we focus on the PhysioNet Wearable Device Dataset from Induced Stress and Structured Exercise Sessions, which includes Empatica E4 recordings collected during both cognitive stress tasks and structured physical activities. Our goals are to (1) identify which physiological biomarkers are most strongly linked to self-reported stress during cognitive tasks, (2) test whether those same biomarkers indicate stress during physical exercises where explicit stress labels are absent, and (3) build models that classify both stress level and type of activity. We first train supervised models on the cognitive protocols, using self-reported stress to learn the physiological signals that denote stress. We then examine how these signatures behave during physical exercises and train classifiers to decide whether a participant is actually stressed during activity and, when stressed, what kind of exercise they are performing. By comparing performance across tasks and modalities, we aim to quantify how reliably a single wrist-worn wearable can assess stress levels and infer likely causes of stress within this controlled experimental setting.
 
 \section{Literature Review \& Discussion of Prior Work}
 
