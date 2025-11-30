@@ -145,13 +145,13 @@ Included in `subject-info.csv`:
 
 Each participant completed **three controlled laboratory sessions**:
 
-### 1. 🧠 Stress-Induced Cognitive Tasks  
+### 1.  Stress-Induced Cognitive Tasks  
 Tasks designed to trigger mental stress using cognitive load.
 
-### 2. 🚴 Aerobic Exercise  
+### 2.  Aerobic Exercise  
 Moderate, continuous cycling.
 
-### 3. ⚡ Anaerobic Exercise  
+### 3.  Anaerobic Exercise  
 Short, high-intensity bursts producing sharp physiological changes.
 
 These allow comparison between **mental stress**, **physical exertion**, and **baseline activity**.
@@ -193,6 +193,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
