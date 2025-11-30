@@ -163,7 +163,7 @@ These allow comparison between **mental stress**, **physical exertion**, and **b
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/<your-repo>.git
+git clone https://github.com/Ctt011/Capstone-Behavorial.git
 cd <your-repo>
 ```
 
@@ -193,5 +193,6 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
