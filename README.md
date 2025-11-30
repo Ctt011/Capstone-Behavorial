@@ -53,8 +53,8 @@ Wearable_Dataset/
 ```
 
 ### Participant ID Format  
-- `Sxx` → Stage 1  
-- `fxx` → Stage 2  
+- Men participants → `Sxx` → Stage 1  
+- Women participants → `fxx` → Stage 2  
 
 ---
 
@@ -193,6 +193,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
