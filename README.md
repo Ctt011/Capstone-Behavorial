@@ -1,11 +1,11 @@
-# 🧠 Cognitive Behavioral Stress Prediction  
+#  Cognitive Behavioral Stress Prediction  
 Multimodal physiological dataset (Empatica E4) + curated metadata + stress labels used for modeling cognitive and physical stress responses, and developing personalized digital-twin systems.
 
 ---
 
 ## 🚀 Getting Started
 
-### 📦 Prerequisites
+###  Prerequisites
 
 Install required Python packages:
 
@@ -25,12 +25,12 @@ pip install notebook
 
 This dataset is based on the **WISE / LEVY Wearable Stress & Exercise Dataset**, combined with cleaned metadata and stress-level labels. It contains synchronized, high-resolution physiological measurements:
 
-- 🧪 Electrodermal Activity (EDA)  
-- ❤️ Heart Rate (HR)  
-- 🌡️ Skin Temperature (TEMP)  
-- 🏃 Accelerometer Data (ACC, 3-axis)  
-- 📈 Blood Volume Pulse (BVP)  
-- ⏱️ Inter-Beat Intervals (IBI)
+- Electrodermal Activity (EDA)  
+- Heart Rate (HR)  
+- Skin Temperature (TEMP)  
+- Accelerometer Data (ACC, 3-axis)  
+- Blood Volume Pulse (BVP)  
+- Inter-Beat Intervals (IBI)
 
 After filtering corrupted or incomplete sessions, **22 participants** remain in the cleaned dataset.
 
@@ -194,16 +194,4 @@ This dataset is used to:
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
 
----
 
-## 📫 Need more sections?
-
-I can add:
-
-✨ Badges (Python, MIT License, Dataset size)  
-📑 Table of Contents  
-📈 Visualization examples  
-🧪 Model training instructions  
-🖼️ Embedded images (side-by-side graphs)
-
-Just tell me. 😊
