@@ -23,7 +23,7 @@ pip install notebook
 
 ## 📚 Dataset Description
 
-This dataset is based on the **WISE / LEVY Wearable Stress & Exercise Dataset**, combined with cleaned metadata and stress-level labels. It contains synchronized, high-resolution physiological measurements:
+This dataset is based on the **WISE Wearable Stress & Exercise Dataset**, combined with cleaned metadata and stress-level labels. It contains synchronized, high-resolution physiological measurements:
 
 - Electrodermal Activity (EDA)  
 - Heart Rate (HR)  
@@ -193,6 +193,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
