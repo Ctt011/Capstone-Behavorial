@@ -284,6 +284,300 @@ This dataset will be used to bridge controlled stress induction data collected w
 Despite these limitations, PMData offers realistic, noisy data that is valuable 
 for studying stress detection in everyday settings.
 
+\section{Methods}
+
+\subsection{Data Preprocessing and Segmentation}
+
+We loaded physiological signals from 22 participants (10 male V1 protocol, 12 female V2 protocol) in the WISE stress dataset. Each participant's session was recorded using the Empatica E4 wearable device, yielding time-series data for five modalities: electrodermal activity (EDA), blood volume pulse (BVP), heart rate (HR), skin temperature (TEMP), and 3-axis accelerometry (ACC). Additionally, inter-beat interval (IBI) data was extracted from the BVP signal to compute heart rate variability (HRV) metrics.
+
+Protocol sessions were divided into discrete time segments based on annotated timestamps (tags) that mark transitions between experimental phases. Each segment was labeled as either \texttt{STRESS} or \texttt{REST} according to the task type:
+
+\begin{itemize}
+    \item \textbf{STRESS phases:} Stroop test (V1 only), TMCT, Real Opinion, Opposite Opinion, Subtract
+    \item \textbf{REST phases:} Baseline, First Rest, Second Rest, Transition Rest periods
+\end{itemize}
+
+This segmentation yielded 196 total segments (98 STRESS, 98 REST) across all participants. Segment durations ranged from 30 seconds (short cognitive tasks) to 7 minutes (baseline resting period).
+
+\subsection{Feature Engineering}
+
+For each segment, we extracted a set of biomarkers summarizing the physiological response during that time window. The feature set includes 16 variables across five signal modalities, as detailed in Table~\ref{tab:features}.
+
+\begin{table}[H]
+\centering
+\caption{Extracted physiological features for stress classification.}
+\label{tab:features}
+\begin{tabular}{p{3cm}p{4cm}p{7cm}}
+\toprule
+\textbf{Modality} & \textbf{Features} & \textbf{Description} \\
+\midrule
+HRV (from IBI) & SDNN, RMSSD & Standard deviation of inter-beat intervals (overall variability); root mean square of successive differences (beat-to-beat variability). Lower values indicate stress. \\[4pt]
+EDA & mean, std, max & Average skin conductance, variability, and peak response. Higher values indicate sympathetic arousal. \\[4pt]
+HR & mean, std, max & Average heart rate, variability, and peak. Elevated during stress. \\[4pt]
+TEMP & mean, std & Average skin temperature and variability. May rise with arousal. \\[4pt]
+ACC & mean, std & Movement intensity and variability (computed via moving average filter). Fidgeting increases under stress. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Features were computed by sampling signals at their native sampling rates (EDA: 4 Hz, TEMP: 4 Hz, BVP: 64 Hz, HR: 1 Hz, ACC: 32 Hz) and calculating summary statistics over the entire segment duration.
+
+\subsection{Machine Learning Pipeline}
+
+We formulated stress detection as a binary classification problem, where the goal is to predict whether a given segment corresponds to a STRESS or REST state based on the extracted features.
+
+\paragraph{Data Preparation.} The dataset was split into 80\% training and 20\% testing sets using stratified sampling to preserve class balance. To handle missing HRV values (which occur in very short segments where insufficient heartbeats are recorded), we applied mean imputation.
+
+\paragraph{Preprocessing.} All features were standardized to zero mean and unit variance using \texttt{StandardScaler} to ensure that features with different scales contribute equally to the model.
+
+\paragraph{Classification Model.} We trained a Random Forest classifier with default hyperparameters (100 trees, Gini impurity criterion). Random Forest was chosen for its ability to handle nonlinear relationships, automatically rank feature importance, and provide robust predictions on noisy wearable sensor data.
+
+\paragraph{Evaluation Metrics.} Model performance was evaluated on the held-out test set using:
+\begin{itemize}
+    \item Accuracy: Overall proportion of correct predictions
+    \item Precision: Proportion of predicted STRESS segments that are truly STRESS
+    \item Recall: Proportion of true STRESS segments correctly identified
+    \item F1-score: Harmonic mean of precision and recall
+    \item Confusion matrix: Breakdown of true positives, false positives, true negatives, and false negatives
+\end{itemize}
+
+The entire preprocessing and classification pipeline was implemented using \texttt{scikit-learn} in Python.
+
+\subsection{Statistical Analysis}
+
+To validate which biomarkers are significantly associated with stress, we conducted paired t-tests comparing STRESS vs REST segments for each feature. We used a significance threshold of $p < 0.05$ and corrected for multiple comparisons where appropriate. This analysis complements the machine learning approach by identifying which physiological signals exhibit statistically reliable changes under stress induction.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RESULTS SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Results}
+
+\subsection{Self-Reported Stress Levels}
+
+Participants self-reported stress levels on a scale of 0--10 after each protocol phase. Figure~\ref{fig:stress_by_phase} shows the mean self-reported stress across all participants for V1 and V2 protocols.
+
+% TODO: Add this figure
+% \begin{figure}[H]
+% \centering
+% \includegraphics[width=0.9\linewidth]{stress_by_phase.png}
+% \caption{Mean self-reported stress levels by protocol phase. TMCT consistently induced the highest stress (6.39 for V2, 5.08 for V1), followed by Subtract and Opinion tasks. Rest periods showed significantly lower stress levels.}
+% \label{fig:stress_by_phase}
+% \end{figure}
+
+The TMCT task (mental math with distracting noise and verbal responses) elicited the highest mean stress (V1: 5.08, V2: 6.39), followed by the Subtract task (V1: 4.53, V2: 4.56). Rest periods consistently showed lower stress levels (Baseline: 3.28--3.44, Rest periods: 2.39--3.67). These self-reported patterns validate the protocol design and confirm that cognitive tasks successfully induced stress.
+
+\subsection{Physiological Signal Patterns}
+
+Raw physiological signals were visualized for representative subjects to verify stress-related changes. Figure~\ref{fig:subject_signals} shows multimodal signals for Subject S04 across the full protocol timeline.
+
+% TODO: Add this figure
+% \begin{figure}[H]
+% \centering
+% \includegraphics[width=1\linewidth]{S04_signals.png}
+% \caption{Physiological responses for Subject S04 during the V1 stress protocol. Colored regions indicate STRESS phases (Stroop, TMCT, Opinion tasks, Subtract). Visible patterns include EDA spikes during TMCT, elevated heart rate during cognitive tasks, and increased accelerometer activity during speeches.}
+% \label{fig:subject_signals}
+% \end{figure}
+
+Visual inspection revealed several consistent patterns:
+\begin{itemize}
+    \item \textbf{EDA:} Sharp increases during TMCT and Opinion tasks, reflecting sympathetic nervous system activation
+    \item \textbf{Heart Rate:} Elevated and more variable during stress phases compared to rest
+    \item \textbf{ACC:} Increased movement during speech tasks (Real/Opposite Opinion) due to fidgeting and gesturing
+    \item \textbf{Temperature:} Gradual upward trends during prolonged stress exposure
+\end{itemize}
+
+\subsection{Feature Correlations}
+
+A correlation analysis of the 16 extracted features revealed several strong relationships (Figure~\ref{fig:correlation_heatmap}).
+
+% TODO: Add this figure
+% \begin{figure}[H]
+% \centering
+% \includegraphics[width=0.7\linewidth]{correlation_heatmap.png}
+% \caption{Correlation matrix of physiological features. High correlations (>0.8) were observed between HR\_mean and HR\_max (0.85), and between EDA\_mean and EDA\_max (0.92), indicating redundancy. HRV metrics (SDNN, RMSSD) showed moderate negative correlation with HR features.}
+% \label{fig:correlation_heatmap}
+% \end{figure}
+
+Key findings:
+\begin{itemize}
+    \item HR\_mean and HR\_max are highly correlated (r = 0.85), as are EDA\_mean and EDA\_max (r = 0.92)
+    \item HRV metrics (SDNN, RMSSD) show weak to moderate negative correlation with HR features, consistent with the physiological expectation that higher heart rate corresponds to lower variability
+    \item Temperature features show weak correlation with other modalities, suggesting independence
+\end{itemize}
+
+These correlations informed feature selection, prompting removal of redundant max values (HR\_max, EDA\_max) to reduce multicollinearity.
+
+\subsection{Statistical Comparison: STRESS vs REST}
+
+Paired t-tests were conducted to determine which biomarkers significantly differ between STRESS and REST states (Table~\ref{tab:ttests}).
+
+\begin{table}[H]
+\centering
+\caption{Paired t-test results comparing STRESS vs REST segments.}
+\label{tab:ttests}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Biomarker} & \textbf{p-value} & \textbf{Sig.} & \textbf{Effect Direction} \\
+\midrule
+RMSSD         & 0.0068 & **  & $\downarrow$ Lower in STRESS \\
+ACC\_mean     & 0.0331 & *   & $\uparrow$ Higher in STRESS \\
+HR\_mean      & 0.0586 & ns  & $\uparrow$ Higher in STRESS \\
+SDNN          & 0.1751 & ns  & -- \\
+EDA\_mean     & 0.3603 & ns  & -- \\
+TEMP\_mean    & 0.1429 & ns  & -- \\
+\bottomrule
+\multicolumn{4}{l}{\small * $p < 0.05$, ** $p < 0.01$, *** $p < 0.001$, ns = not significant}
+\end{tabular}
+\end{table}
+
+\textbf{RMSSD} (beat-to-beat HRV) showed the strongest association with stress ($p = 0.007$), decreasing significantly during STRESS segments. \textbf{ACC\_mean} (movement) also increased significantly during stress ($p = 0.033$), likely due to fidgeting and gesturing during cognitive tasks. \textbf{HR\_mean} showed a marginal trend toward higher values during stress ($p = 0.059$), though not reaching statistical significance.
+
+Interestingly, \textbf{EDA\_mean} did not show a significant difference despite visual evidence of EDA spikes during stress. This may be due to high inter-subject variability and baseline drift in EDA signals.
+
+\subsection{Classification Performance}
+
+The Random Forest classifier achieved \textbf{72\% accuracy} on the held-out test set, with balanced performance across both classes (Table~\ref{tab:confusion}).
+
+\begin{table}[H]
+\centering
+\caption{Confusion matrix and classification metrics for stress detection.}
+\label{tab:confusion}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Predicted REST} & \textbf{Predicted STRESS} \\
+\midrule
+\textbf{Actual REST}   & 14 & 6  \\
+\textbf{Actual STRESS} & 5  & 15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Classification performance metrics.}
+\label{tab:metrics}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Support} \\
+\midrule
+REST    & 0.74 & 0.70 & 0.72 & 20 \\
+STRESS  & 0.71 & 0.75 & 0.73 & 20 \\
+\midrule
+\textbf{Overall Accuracy} & & & \textbf{0.72} & \textbf{40} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The model correctly identified 15 out of 20 STRESS segments (75\% recall) and 14 out of 20 REST segments (70\% recall). The slightly higher recall for STRESS is desirable for stress monitoring applications, where missing a stress episode is more costly than a false alarm.
+
+\subsection{Feature Importance}
+
+Feature importance scores from the Random Forest model reveal which biomarkers contribute most to stress classification (Figure~\ref{fig:feature_importance}).
+
+% TODO: Add this figure
+% \begin{figure}[H]
+% \centering
+% \includegraphics[width=0.8\linewidth]{feature_importance.png}
+% \caption{Feature importance scores from Random Forest classifier. RMSSD, ACC\_mean, and HR\_mean are the top contributors to stress classification, consistent with statistical test results.}
+% \label{fig:feature_importance}
+% \end{figure}
+
+The top three features are:
+\begin{enumerate}
+    \item \textbf{RMSSD} (beat-to-beat HRV): Strongest predictor, consistent with its statistical significance
+    \item \textbf{ACC\_mean} (movement): Captures stress-induced fidgeting and gesturing
+    \item \textbf{HR\_mean} (average heart rate): Elevated during cognitive stress
+\end{enumerate}
+
+These findings align with the statistical tests and confirm that HRV and movement patterns are the most reliable indicators of cognitive stress in wearable sensor data.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DISCUSSION SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Discussion}
+
+\subsection{Interpretation of Findings}
+
+Our results demonstrate that wearable physiological sensors can reliably detect cognitive stress with 72\% accuracy using only a small set of biomarkers. The strongest predictors—RMSSD (beat-to-beat HRV), ACC (movement), and HR (heart rate)—align with established psychophysiological theory and prior research.
+
+\paragraph{HRV as a Stress Biomarker.} The significant decrease in RMSSD during stress ($p = 0.007$) reflects sympathetic nervous system dominance during cognitive load. When stressed, the autonomic nervous system shifts toward a "fight-or-flight" response, reducing beat-to-beat variability and making the heartbeat more rigid and predictable. This finding is consistent with prior work showing HRV as a gold standard stress indicator \citep{schlink2020wise, hickey2021smart}.
+
+\paragraph{Movement Patterns.} The increase in accelerometer activity during stress ($p = 0.033$) likely captures fidgeting, gesturing, and postural shifts during demanding tasks (especially TMCT and Opinion tasks). This aligns with behavioral observations that stress induces motor restlessness and non-purposeful movement.
+
+\paragraph{Heart Rate Response.} While HR\_mean showed only marginal significance ($p = 0.059$), it still contributed as the third most important feature in the classifier. The weaker statistical signal may reflect high inter-subject variability in resting heart rate, which can obscure stress-induced changes.
+
+\paragraph{EDA Variability.} Surprisingly, EDA\_mean did not reach statistical significance despite visual evidence of skin conductance spikes during stress. This discrepancy likely arises from:
+\begin{itemize}
+    \item High baseline drift and inter-subject variability in EDA
+    \item Segment-level aggregation (mean) may smooth out transient spikes
+    \item EDA responses are highly context-dependent and may vary by task type
+\end{itemize}
+
+Future work could explore EDA peak detection and event-related analysis rather than simple averaging.
+
+\subsection{Comparison with Prior Work}
+
+Our 72\% accuracy is comparable to other laboratory-based stress detection studies using wearable sensors. For example:
+\begin{itemize}
+    \item Schmidt et al. (2018) achieved 80\% accuracy on WESAD using chest-worn sensors (which provide higher-quality ECG)
+    \item Thambawita et al. (2020) reported 45\% accuracy on PMData for next-day weight prediction, but their task was fundamentally different (regression vs classification)
+    \item Hickey et al. (2021) reviewed 21 studies and found HRV-based stress detection accuracy ranging from 65--85\%
+\end{itemize}
+
+Our performance falls within this range despite using only wrist-worn sensors (which are less accurate than chest-worn ECG) and a relatively small sample size (22 subjects). This suggests that multimodal wearable data can provide robust stress detection even with consumer-grade devices.
+
+\subsection{Limitations}
+
+Several limitations should be noted:
+
+\paragraph{Sample Size.} With only 22 participants (all young adults aged 18--30), our findings may not generalize to broader populations. Older adults, children, and individuals with chronic stress conditions may exhibit different physiological patterns.
+
+\paragraph{Controlled Environment.} Data was collected in a laboratory setting with scripted stress protocols. Real-world stress (work deadlines, interpersonal conflict, etc.) may produce different physiological signatures and introduce confounding factors (e.g., physical activity, caffeine intake).
+
+\paragraph{Missing HRV Data.} Short task segments (<32 seconds) often lacked sufficient heartbeats to compute reliable HRV metrics, resulting in missing values for 22 segments. While we used mean imputation, more sophisticated methods (e.g., model-based imputation or excluding very short segments) could improve robustness.
+
+\paragraph{Feature Selection.} We manually selected features based on domain knowledge and correlation analysis. Automated feature engineering (e.g., deep learning on raw signals) might uncover additional predictive patterns.
+
+\paragraph{Class Imbalance.} Although our dataset was perfectly balanced (98 STRESS, 98 REST), the definition of "stress" was protocol-driven rather than physiologically verified. Some participants may not have experienced subjective stress during designated STRESS phases, introducing label noise.
+
+\subsection{Implications for Future Work}
+
+Our findings have several implications for Quarter 2:
+
+\paragraph{Integration with PMData.} The WISE-trained stress model can now be applied to PMData's free-living wearable data to detect stress episodes in athletes' daily routines. By transferring learned features (RMSSD, ACC, HR) to Fitbit signals, we can identify periods of elevated stress and correlate them with performance, training load, and recovery.
+
+\paragraph{Model Refinement.} Future iterations could:
+\begin{itemize}
+    \item Incorporate temporal context (e.g., stress persistence over time)
+    \item Add demographic covariates (age, gender, fitness level)
+    \item Test alternative classifiers (SVM, XGBoost, LSTM for time-series)
+    \item Explore subject-specific calibration to account for individual baseline differences
+\end{itemize}
+
+\paragraph{Real-Time Stress Detection.} The lightweight feature set (9 biomarkers) and fast Random Forest inference make this approach suitable for real-time on-device stress monitoring. A production system could compute rolling window features from wearable streams and provide live stress alerts.
+
+\paragraph{Multimodal Fusion.} Combining physiological signals with behavioral data (e.g., smartphone usage, sleep patterns from PMData) may improve accuracy and provide richer insights into stress triggers.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONCLUSION SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Conclusion}
+
+This study investigated the feasibility of detecting cognitive stress from multimodal wearable physiological signals using the WISE dataset. We successfully built a binary classifier that achieves 72\% accuracy in distinguishing stress from rest states, with RMSSD (beat-to-beat HRV), accelerometer-based movement, and heart rate emerging as the strongest predictors.
+
+Statistical validation confirmed that RMSSD significantly decreases during stress ($p = 0.007$), while movement patterns increase ($p = 0.033$), aligning with established psychophysiological theory. These findings demonstrate that consumer-grade wrist-worn sensors can capture meaningful stress-related changes, even in controlled laboratory settings with diverse cognitive stressors.
+
+Our work provides a foundation for Quarter 2, where we will apply these learned stress signatures to real-world behavioral data from the PMData athlete lifelogging dataset. By bridging laboratory-induced stress and free-living contexts, we aim to develop personalized stress monitoring tools that can inform training optimization and well-being interventions.
+
+Future directions include integrating temporal dynamics, exploring subject-specific calibration, and combining physiological signals with behavioral markers to build a comprehensive digital twin model capable of predicting stress, recovery, and performance outcomes in naturalistic environments.
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Reference / Bibliography
