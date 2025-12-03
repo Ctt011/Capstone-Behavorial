@@ -1,0 +1,51 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{Q2 Proposal}
+\author{xiz154 }
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\textbf{Q2 - Written Proposal }
+
+\textbf{Context: (Dhyay) }
+
+The context of the problem and why its worth solving and investing 10 weeks on the project. This should be accessible to anyone – for instance, methodology staff, your family and friends, and hiring managers for the jobs you apply to should all be able to read this and understand what you are proposing and why it matters.
+
+\textbf{Problem Specifically (Selina + Camille) }
+
+\begin{itemize}
+    \item \textbf{\textbf{General problem}}
+    \item \textbf{\textbf{Previous methods/work}}
+    \item \textbf{\textbf{Our approach what we are doing differently }}
+\end{itemize}
+
+\textbf{A narrow, carefully crafted problem statement for the domain expert. Precision is key and I highly encourage you to try and specify this mathematically. Has previous work attempted to answer these specific problems? If so, how did they fail? If not, why are these problems still interesting? In what way does your investigation address a deficiency in existing solutions? This section should be quite technical – make sure to refer to specific methods.}
+
+The broader problem motivating our work is that stress is measured very differently in laboratory settings compared to daily life, and current research struggles to connect these two worlds. In controlled environments like the WISE study, stress is clearly induced by cognitive tasks, and physiological responses such as heart rate spikes, EDA increases, temperature drift, accelerometer movement, and BVP fluctuations can be directly tied to annotated moments of mental strain. These signals provide a precise view of how the autonomic nervous system reacts to stress under clean, tightly scripted conditions. In contrast, datasets like PMData record stress in a free-living setting through daily Fitbit summaries and self-reported wellness measures. Here, stress is not induced but instead emerges naturally, is affected by sleep, exercise, lifestyle, and context, and is reported subjectively at the end of each day. Because these two approaches measure stress in fundamentally different ways, the general problem becomes: How do we understand and model stress when lab-recorded physiological patterns and real-world, self-reported stress may not align? Without a unified way of interpreting these signals, researchers struggle to translate physiological stress responses observed in WISE into meaningful predictions for daily behavior recorded in PMData.
+
+Prior studies on the WISE dataset focus on how the body physiologically responds during induced stress sessions and specific exercise protocols. WISE provides high-resolution time-series signals collected through the Empatica E4, and previous research uses these continuous measurements to visualize how cognitive or physical stress affects HRV, EDA, temperature, accelerometer activity, and BVP. These works show that stress produces sharp, recognizable physiological signatures, and they typically analyze these patterns within the lab context, confirming that controlled stress tasks reliably change bodily signals. However, this line of research stops at demonstrating associations rather than building models that generalize those findings beyond the experimental setting.
+
+PMData studies, on the other hand, shift the focus from controlled stress to natural, everyday life. Rather than using physiological windows, PMData integrates Fitbit-derived metrics sleep duration, resting heart rate, step counts, calories and subjective reports such as wellness, fatigue, mood, training load, and daily stress. Prior work using PMData has shown that its multimodal structure supports prediction tasks like next-day weight change, demonstrating its richness and complexity. But these studies highlight major challenges: Fitbit sensors can misestimate movement, daily self-reports introduce noise, and real-world stress lacks clear boundaries. Unlike WISE, PMData does not provide fine-grained physiological stress segments, making it difficult to isolate the moment-to-moment signals that correspond to subjective stress levels.
+
+Together, WISE and PMData represent two strong but incomplete perspectives on stress: WISE offers precise physiological reactions under controlled mental stress, while PMData captures long-term daily behavior and subjective stress outside the lab. Previous studies treat these datasets separately, which leaves open the central research question of how the clear stress patterns observed in WISE relate to the messy, real-world stress experiences captured in PMData.
+
+Our approach uses the WISE cognitive-stress dataset as a controlled environment where stress periods are clearly annotated and reflected across multiple physiological streams. We treat the dataset as a labeled source domain, where each sample consists of synchronized TEMP, HR, ACC, EDA, and BVP features extracted from windows across stress and non-stress intervals, and each labelindicates whether that window belongs to a stress segment. Unlike prior work that mainly visualizes or describes these signals, we mathematically structure them into feature windows so they can be used to train predictive models. These structured representations form the physiological “ground truth” basis for a digital twin: the model learns the underlying dynamics that distinguish cognitive stress from baseline conditions.
+
+\textbf{Final deliverables-} wait to ask mentor or email him \textbf{(levy) }
+
+A statement of the primary output (i.e., state whether you will create a report/paper, a website, or an application). If your project analyzes data, specify how you will communicate the analyses. If your project generates data, how will you analyze the data it produces?
+
+Next steps\textbf{ ( Essie) }
+
+Talk about other data sets to use to make our model for generalizable or personal 
+
+Contract: outlining what we can do in quarter 2
+
+Specifically what each member would do in quarter 2:
+
+
+\end{document}
