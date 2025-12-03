@@ -358,13 +358,25 @@ To validate which biomarkers are significantly associated with stress, we conduc
 
 Participants self-reported stress levels on a scale of 0--10 after each protocol phase. Figure~\ref{fig:stress_by_phase} shows the mean self-reported stress across all participants for V1 and V2 protocols.
 
-% TODO: Add this figure
+%Option1
+% TODO: uncomment to add bar chart figure
 % \begin{figure}[H]
 % \centering
-% \includegraphics[width=0.9\linewidth]{stress_by_phase.png}
+% \includegraphics[width=0.9\linewidth]{figure/stress_bar_chart.png}
 % \caption{Mean self-reported stress levels by protocol phase. TMCT consistently induced the highest stress (6.39 for V2, 5.08 for V1), followed by Subtract and Opinion tasks. Rest periods showed significantly lower stress levels.}
 % \label{fig:stress_by_phase}
 % \end{figure}
+
+%Option2
+% TODO: Uncomment to add combined figure (bar chart + violin plot)
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{figure/stress_combined_figure.png}
+\caption{Self-reported stress patterns. (A) Mean stress levels by protocol phase for V1 and V2 protocols. TMCT consistently induced the highest stress (6.39 for V2, 5.08 for V1), followed by Subtract and Opinion tasks. (B) Distribution of stress levels comparing stressful tasks (TMCT, Stroop, Opinion, Subtract) vs non-stressful tasks (Baseline, Rest periods). Violin plots show full distributions with individual data points, means (bars), and medians (lines).}
+\label{fig:stress_combined}
+\end{figure}
+
+
 
 The TMCT task (mental math with distracting noise and verbal responses) elicited the highest mean stress (V1: 5.08, V2: 6.39), followed by the Subtract task (V1: 4.53, V2: 4.56). Rest periods consistently showed lower stress levels (Baseline: 3.28--3.44, Rest periods: 2.39--3.67). These self-reported patterns validate the protocol design and confirm that cognitive tasks successfully induced stress.
 
@@ -372,13 +384,21 @@ The TMCT task (mental math with distracting noise and verbal responses) elicited
 
 Raw physiological signals were visualized for representative subjects to verify stress-related changes. Figure~\ref{fig:subject_signals} shows multimodal signals for Subject S04 across the full protocol timeline.
 
-% TODO: Add this figure
-% \begin{figure}[H]
-% \centering
-% \includegraphics[width=1\linewidth]{S04_signals.png}
-% \caption{Physiological responses for Subject S04 during the V1 stress protocol. Colored regions indicate STRESS phases (Stroop, TMCT, Opinion tasks, Subtract). Visible patterns include EDA spikes during TMCT, elevated heart rate during cognitive tasks, and increased accelerometer activity during speeches.}
-% \label{fig:subject_signals}
-% \end{figure}
+% TODO: Uncomment to add S04 physiological signals (V1 male subject)
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{figure/S04_signals.png}
+\caption{Physiological responses for Subject S04 during the V1 stress protocol. Colored regions indicate STRESS phases (red: Stroop, orange: TMCT, yellow: Opinion tasks, purple: Subtract). Red dashed lines mark protocol transitions. Visible patterns include EDA spikes during TMCT, elevated heart rate during cognitive tasks, and increased accelerometer activity during speech tasks.}
+\label{fig:s04_signals}
+\end{figure}
+
+% TODO: Uncomment to add f08 physiological signals (V2 female subject)
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{figure/f08_signals.png}
+\caption{Physiological responses for Subject f08 during the V2 stress protocol (no Stroop test). Colored regions indicate STRESS phases (orange: TMCT, yellow: Opinion tasks, purple: Subtract). Similar stress-related patterns are visible despite protocol differences between V1 and V2.}
+\label{fig:f08_signals}
+\end{figure}
 
 Visual inspection revealed several consistent patterns:
 \begin{itemize}
@@ -392,13 +412,13 @@ Visual inspection revealed several consistent patterns:
 
 A correlation analysis of the 16 extracted features revealed several strong relationships (Figure~\ref{fig:correlation_heatmap}).
 
-% TODO: Add this figure
-% \begin{figure}[H]
-% \centering
-% \includegraphics[width=0.7\linewidth]{correlation_heatmap.png}
-% \caption{Correlation matrix of physiological features. High correlations (>0.8) were observed between HR\_mean and HR\_max (0.85), and between EDA\_mean and EDA\_max (0.92), indicating redundancy. HRV metrics (SDNN, RMSSD) showed moderate negative correlation with HR features.}
-% \label{fig:correlation_heatmap}
-% \end{figure}
+% TODO:
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{figure/correlation_heatmap.png}
+\caption{Correlation matrix of physiological features. High correlations (>0.8) were observed between HR\_mean and HR\_max (0.85), and between EDA\_mean and EDA\_max (0.92), indicating redundancy. HRV metrics (SDNN, RMSSD) showed moderate negative correlation with HR features.}
+\label{fig:correlation_heatmap}
+\end{figure}
 
 Key findings:
 \begin{itemize}
@@ -477,12 +497,12 @@ The model correctly identified 15 out of 20 STRESS segments (75\% recall) and 14
 Feature importance scores from the Random Forest model reveal which biomarkers contribute most to stress classification (Figure~\ref{fig:feature_importance}).
 
 % TODO: Add this figure
-% \begin{figure}[H]
-% \centering
-% \includegraphics[width=0.8\linewidth]{feature_importance.png}
-% \caption{Feature importance scores from Random Forest classifier. RMSSD, ACC\_mean, and HR\_mean are the top contributors to stress classification, consistent with statistical test results.}
-% \label{fig:feature_importance}
-% \end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\linewidth]{figure/feature_importance.png}
+\caption{Feature importance scores from Random Forest classifier. RMSSD, ACC\_mean, and HR\_mean are the top contributors to stress classification, consistent with statistical test results.}
+\label{fig:feature_importance}
+\end{figure}
 
 The top three features are:
 \begin{enumerate}
@@ -605,17 +625,137 @@ Thambawita, V., et al. (2020). \textit{PMData: A Sports Logging Dataset.} Procee
 \clearpage
 \makeappendix
 
-\subsection{Training Details}
+\subsection{Code Repository Structure}
 
-\subsection{Additional Figures}
+All analysis code is available in our GitHub repository: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
 
-\subsection{Additional Tables}
+% \begin{verbatim}
+% behavior-cap/
+% ├── 22subjects/             # WISE dataset (physiological signals)
+% │   ├── STRESS/             # Cognitive stress session data
+% │   ├── AEROBIC/            # Aerobic exercise data
+% │   └── ANAEROBIC/          # Anaerobic exercise data
+% ├── WISE_Stress_EDA.ipynb   # Main analysis notebook
+% ├── WISE statistical analysis & eda.ipynb  # Statistical tests
+% ├── subject-info.csv        # Participant demographics
+% ├── Stress_Level_v1.csv     # Self-reported stress (V1 protocol)
+% ├── Stress_Level_v2.csv     # Self-reported stress (V2 protocol)
+% └── Q1_report/              # LaTeX report files
+% \end{verbatim}
+
+\subsection{Key Code Snippets}
+
+\subsubsection{Signal Segmentation}
+
+The following function segments continuous physiological recordings into labeled STRESS and REST periods based on protocol timestamps:
+
+\begin{verbatim}
+def get_stress_rest_segments(subject_id, tags):
+    """
+    V1: Baseline(R) → Stroop(S) → Rest(R) → TMCT(S) → ...
+    V2: Baseline(R) → TMCT(S) → Rest(R) → ...
+    """
+    segments = []
+
+    if subject_id.startswith('S'):  # V1 protocol
+        if len(tags) >= 13:
+            segments.append({'start': tags[0], 'end': tags[3],
+                           'label': 'REST', 'phase': 'Baseline'})
+            segments.append({'start': tags[3], 'end': tags[4],
+                           'label': 'STRESS', 'phase': 'Stroop'})
+            # ... (additional segments)
+    else:  # V2 protocol
+        if len(tags) >= 10:
+            segments.append({'start': tags[0], 'end': tags[2],
+                           'label': 'REST', 'phase': 'Baseline'})
+            # ... (additional segments)
+
+    return segments
+\end{verbatim}
+
+\subsubsection{HRV Calculation}
+
+Heart rate variability metrics are computed from inter-beat interval (IBI) data:
+
+\begin{verbatim}
+def calculate_hrv(ibi_data, start_time, end_time):
+    """Calculate SDNN and RMSSD from IBI timestamps"""
+    timestamps = ibi_data[:, 0]
+    ibi_values = ibi_data[:, 1]
+
+    # Filter segment
+    mask = (timestamps >= start_time) & (timestamps <= end_time)
+    segment_ibi = ibi_values[mask]
+
+    if len(segment_ibi) < 2:
+        return {'SDNN': np.nan, 'RMSSD': np.nan}
+
+    # Overall variability
+    sdnn = np.std(segment_ibi)
+
+    # Beat-to-beat variability
+    rmssd = np.sqrt(np.mean(np.diff(segment_ibi)**2))
+
+    return {'SDNN': sdnn, 'RMSSD': rmssd}
+\end{verbatim}
+
+\subsubsection{Feature Extraction Pipeline}
+
+Features are extracted for each segment across all modalities:
+
+\begin{verbatim}
+def extract_segment_features(subject, segment, signals, fs_dict):
+    """Extract biomarkers for one time segment"""
+    features = {'subject': subject, 'label': segment['label']}
+
+    # HRV from IBI
+    if 'IBI' in signals:
+        hrv = calculate_hrv(signals['IBI'],
+                           segment['start'], segment['end'])
+        features.update(hrv)
+
+    # EDA statistics
+    if 'EDA' in signals:
+        fs = fs_dict[subject]['EDA']
+        idx_start = int(segment['start'] * fs)
+        idx_end = int(segment['end'] * fs)
+        eda = signals['EDA'][idx_start:idx_end].flatten()
+        features['EDA_mean'] = np.mean(eda)
+        features['EDA_std'] = np.std(eda)
+
+    # HR, TEMP, ACC ...
+    return features
+\end{verbatim}
+
+%\subsection{Reproducibility Instructions}
+
+% To reproduce our analysis:
+
+% \begin{enumerate}
+%     \item Clone repository: \texttt{git clone https://github.com/Ctt011/Capstone-Behavorial.git}
+%     \item Download WISE dataset from PhysioNet and place in \texttt{22subjects/}
+%     \item Install dependencies: \texttt{pip install pandas numpy matplotlib seaborn scikit-learn scipy}
+%     \item Run \texttt{WISE\_Stress\_EDA.ipynb} in Jupyter Notebook
+%     \item Statistical tests notebook: \texttt{WISE statistical analysis \& eda.ipynb}
+% \end{enumerate}
+
+% All random seeds are fixed (\texttt{random\_state=42}) for reproducible train/test splits and model training.
+
 
 
 \end{document}
 
 
 %%% STUFF FROM TEMPLATE BELOW: 
+
+% \clearpage
+% \makeappendix
+
+% \subsection{Training Details}
+
+% \subsection{Additional Figures}
+
+% \subsection{Additional Tables}
 Here's \textbf{bold} and \textit{italicized} text. Here's \texttt{text\_that\_looks.like(code)}.
 
 \begin{itemize}
