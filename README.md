@@ -164,13 +164,13 @@ These allow comparison between **mental stress**, **physical exertion**, and **b
 
 ```bash
 git clone https://github.com/Ctt011/Capstone-Behavorial.git
-cd <your-repo>
+cd Capstone-Behavorial
 ```
 
 ### Launch the Notebook
 
 ```bash
-jupyter notebook Wearable_Dataset.ipynb
+jupyter notebook WISE_Stress_EDA.ipynb
 ```
 
 ### View Files
@@ -193,6 +193,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
