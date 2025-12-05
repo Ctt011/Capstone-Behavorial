@@ -45,8 +45,8 @@ To reproduce our analysis on DSMLP or any Python environment:
 This will execute `WISE_Stress_EDA.ipynb` and save a fully executed version
 as `WISE_Stress_EDA_executed.ipynb`.
 
-## 📁 Directory Structure
-
+## 📁 Directory Structure(s)
+```
 Capstone-Behaviorial/
 │
 ├── main.py                        # Entry-point script (DSMLP compatible)
@@ -59,7 +59,7 @@ Capstone-Behaviorial/
 ├── 22subjects/                    # Participant-level raw data
 ├── Q1_report/                     # Quarter 1 LaTeX report
 └── Q2_report/                     # Quarter 2 LaTeX report
-
+```
 
 ```
 Wearable_Dataset/
@@ -216,6 +216,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
