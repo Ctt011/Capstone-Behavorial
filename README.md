@@ -36,6 +36,15 @@ After filtering corrupted or incomplete sessions, **22 participants** remain in 
 
 ---
 
+## Running the analysis
+
+To reproduce our analysis on DSMLP or any Python environment:
+
+    python main.py
+
+This will execute `WISE_Stress_EDA.ipynb` and save a fully executed version
+as `WISE_Stress_EDA_executed.ipynb`.
+
 ## 📁 Directory Structure
 
 ```
@@ -193,6 +202,7 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
 
 
 
