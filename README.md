@@ -36,20 +36,47 @@ After filtering corrupted or incomplete sessions, **22 participants** remain in 
 
 ---
 
-##  Directory Structure
+## Running the analysis
+
+To reproduce our analysis on DSMLP or any Python environment:
+
+    python main.py
+
+This will execute `WISE_Stress_EDA.ipynb` and save a fully executed version
+as `WISE_Stress_EDA_executed.ipynb`.
+
+---
+
+## 📁 Directory Structure
 
 ```
-Wearable_Dataset/
+Capstone-Behavorial/
 │
-├── AEROBIC/
-├── ANAEROBIC/
-├── STRESS/
-│     └── S01/, S02/, f01/, ...
+├── main.py                        # Entry-point script (DSMLP compatible)
+├── WISE_Stress_EDA.ipynb          # Main analysis notebook
+├── stress_v1.png                  # Protocol V1 visualization
+├── stress_v2.png                  # Protocol V2 visualization
 │
-├── Stress_Level_v1.csv
-├── Stress_Level_v2.csv
-├── subject-info.csv
-└── data_constraints.txt
+├── 22subjects/                    # Raw data (22 subjects who completed all 3 tests)
+│   └── STRESS/
+│       └── S04/, S05/, S08/, f01/, f02/, ...
+│
+├── WISE_data_files/               # Original dataset files from PhysioNet
+│   ├── Data_Dictionary.csv
+│   ├── LICENSE.txt
+│   ├── Stress_Level_v1.csv       # Self-reported stress labels (V1)
+│   ├── Stress_Level_v2.csv       # Self-reported stress labels (V2)
+│   ├── subject-info.csv          # Participant metadata
+│   ├── data_constraints.txt      # Data quality notes
+│   └── Wearable_Dataset.ipynb    # Original dataset exploration
+│
+├── notebook_drafts/               # Exploratory/draft notebooks
+│   ├── EDA-Levy.ipynb
+│   ├── EDA_pmdata_draft.ipynb
+│   └── WISE statistical analysis & eda.ipynb
+│
+├── Q1_report/                     # Quarter 1 LaTeX report
+└── Q2_report/                     # Quarter 2 LaTeX report
 ```
 
 ### Participant ID Format  
@@ -61,32 +88,33 @@ Wearable_Dataset/
 ## 📄 Files
 
 ### Stress-Level Files
-- **Stress_Level_v1.csv** — Self-reported stress labels (Stage 1)  
+Located in `WISE_data_files/`:
+- **Stress_Level_v1.csv** — Self-reported stress labels (Stage 1)
 - **Stress_Level_v2.csv** — Self-reported stress labels (Stage 2)
 
 ### 👤 Participant Metadata
-File: **subject-info.csv**  
+File: `WISE_data_files/subject-info.csv`
 Includes:
-- Age  
-- Gender  
-- Height  
-- Weight  
-- Physical activity regularity  
-- Protocol version  
+- Age
+- Gender
+- Height
+- Weight
+- Physical activity regularity
+- Protocol version
 
 ###  Data Quality Notes
-File: **data_constraints.txt**  
+File: `WISE_data_files/data_constraints.txt`
 Includes:
-- Incorrect wristband placement  
-- Signal dropout  
-- Misaligned timestamps  
-- Incomplete protocols  
+- Incorrect wristband placement
+- Signal dropout
+- Misaligned timestamps
+- Incomplete protocols
 
-###  Analysis Notebook
-File: **Wearable_Dataset.ipynb**  
+###  Original Dataset Notebook
+File: `WISE_data_files/Wearable_Dataset.ipynb`
 Provides:
-- Signal visualization examples  
-- Code for loading + aligning physiological streams  
+- Signal visualization examples
+- Code for loading + aligning physiological streams
 - Event segmentation helpers  
 
 ---
@@ -123,14 +151,14 @@ This ensures correct cross-signal alignment.
 
 These files provide ground-truth stress labels for modeling:
 
-- `Stress_Level_v1.csv` — Stage 1 (Sxx)  
-- `Stress_Level_v2.csv` — Stage 2 (fxx)  
+- `WISE_data_files/Stress_Level_v1.csv` — Stage 1 (Sxx)
+- `WISE_data_files/Stress_Level_v2.csv` — Stage 2 (fxx)  
 
 ---
 
 ##  Subject Metadata
 
-Included in `subject-info.csv`:
+Included in `WISE_data_files/subject-info.csv`:
 
 - Age  
 - Gender  
@@ -164,13 +192,13 @@ These allow comparison between **mental stress**, **physical exertion**, and **b
 
 ```bash
 git clone https://github.com/Ctt011/Capstone-Behavorial.git
-cd <your-repo>
+cd Capstone-Behavorial
 ```
 
 ### Launch the Notebook
 
 ```bash
-jupyter notebook Wearable_Dataset.ipynb
+jupyter notebook WISE_Stress_EDA.ipynb
 ```
 
 ### View Files
@@ -193,6 +221,10 @@ This dataset is used to:
 - Evaluate domain adaptation methods (e.g., CORAL, DANN)  
 - Study cross-condition generalization  
 - Build toward a **personalized stress digital twin**
+
+
+
+
 
 
 
