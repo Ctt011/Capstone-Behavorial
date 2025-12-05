@@ -3,7 +3,7 @@ Multimodal physiological dataset (Empatica E4) + curated metadata + stress label
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ###  Prerequisites
 
@@ -21,7 +21,7 @@ pip install notebook
 
 ---
 
-## 📚 Dataset Description
+##  Dataset Description
 
 This dataset is based on the **WISE Wearable Stress & Exercise Dataset**, combined with cleaned metadata and stress-level labels. It contains synchronized, high-resolution physiological measurements:
 
@@ -36,7 +36,7 @@ After filtering corrupted or incomplete sessions, **22 participants** remain in 
 
 ---
 
-## 📁 Directory Structure
+##  Directory Structure
 
 ```
 Wearable_Dataset/
@@ -60,7 +60,7 @@ Wearable_Dataset/
 
 ## 📄 Files
 
-### 📝 Stress-Level Files
+### Stress-Level Files
 - **Stress_Level_v1.csv** — Self-reported stress labels (Stage 1)  
 - **Stress_Level_v2.csv** — Self-reported stress labels (Stage 2)
 
@@ -74,7 +74,7 @@ Includes:
 - Physical activity regularity  
 - Protocol version  
 
-### ⚠️ Data Quality Notes
+###  Data Quality Notes
 File: **data_constraints.txt**  
 Includes:
 - Incorrect wristband placement  
@@ -82,7 +82,7 @@ Includes:
 - Misaligned timestamps  
 - Incomplete protocols  
 
-### 📓 Analysis Notebook
+###  Analysis Notebook
 File: **Wearable_Dataset.ipynb**  
 Provides:
 - Signal visualization examples  
@@ -91,7 +91,7 @@ Provides:
 
 ---
 
-## 📊 Physiological Signal Files
+##  Physiological Signal Files
 
 Each participant folder contains:
 
@@ -105,7 +105,7 @@ Each participant folder contains:
 | **IBI.csv** | Inter-beat intervals (timestamp + duration) |
 | **tags.csv** | Event markers |
 
-### ⏳ Empatica E4 File Format (Important)
+###  Empatica E4 File Format (Important)
 
 All E4 sensor files follow this structure:
 
@@ -119,7 +119,7 @@ This ensures correct cross-signal alignment.
 
 ---
 
-## 🎯 Stress-Level Labels
+##  Stress-Level Labels
 
 These files provide ground-truth stress labels for modeling:
 
@@ -128,7 +128,7 @@ These files provide ground-truth stress labels for modeling:
 
 ---
 
-## 🧬 Subject Metadata
+##  Subject Metadata
 
 Included in `subject-info.csv`:
 
@@ -141,7 +141,7 @@ Included in `subject-info.csv`:
 
 ---
 
-## 🧪 Session Types
+##  Session Types
 
 Each participant completed **three controlled laboratory sessions**:
 
@@ -158,7 +158,7 @@ These allow comparison between **mental stress**, **physical exertion**, and **b
 
 ---
 
-## 🛠️ Using the Dataset
+##  Using the Dataset
 
 ### Clone the Repository
 
@@ -184,7 +184,7 @@ jupyter notebook Wearable_Dataset.ipynb
 
 ---
 
-## 💡 Research Purpose
+##  Research Purpose
 
 This dataset is used to:
 
