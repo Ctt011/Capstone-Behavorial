@@ -42,8 +42,8 @@ To reproduce our analysis on DSMLP or any Python environment:
 
     python main.py
 
-This will execute `WISE_Stress_EDA.ipynb` and save a fully executed version
-as `WISE_Stress_EDA_executed.ipynb`.
+This will execute `WISE_Stress_EDA_Model.ipynb` and save a fully executed version
+as `WISE_Stress_EDA_Model_executed.ipynb`.
 
 ---
 
@@ -53,7 +53,7 @@ as `WISE_Stress_EDA_executed.ipynb`.
 Capstone-Behavorial/
 │
 ├── main.py                        # Entry-point script (DSMLP compatible)
-├── WISE_Stress_EDA.ipynb          # Main analysis notebook
+├── WISE_Stress_EDA_Model.ipynb    # Main analysis + model notebook
 ├── stress_v1.png                  # Protocol V1 visualization
 ├── stress_v2.png                  # Protocol V2 visualization
 │
@@ -85,14 +85,14 @@ Capstone-Behavorial/
 
 ---
 
-## 📄 Files
+##  Files
 
 ### Stress-Level Files
 Located in `WISE_data_files/`:
 - **Stress_Level_v1.csv** — Self-reported stress labels (Stage 1)
 - **Stress_Level_v2.csv** — Self-reported stress labels (Stage 2)
 
-### 👤 Participant Metadata
+###  Participant Metadata
 File: `WISE_data_files/subject-info.csv`
 Includes:
 - Age
@@ -198,7 +198,7 @@ cd Capstone-Behavorial
 ### Launch the Notebook
 
 ```bash
-jupyter notebook WISE_Stress_EDA.ipynb
+jupyter notebook WISE_Stress_EDA_Model.ipynb
 ```
 
 ### View Files
