@@ -47,7 +47,7 @@ as `WISE_Stress_EDA_Model_executed.ipynb`.
 
 ---
 
-## 📁 Directory Structure
+##  Directory Structure
 
 ```
 Capstone-Behavorial/
