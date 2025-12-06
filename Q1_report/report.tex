@@ -62,16 +62,16 @@ In this project, we focus on the PhysioNet Wearable Device Dataset from Induced 
 \section{Literature Review \& Discussion of Prior Work}
 
 \subsection{PMData}
-Lifelogging data offers valuable insights into behavior and physiology, but such datasets are often inaccessible or inconsistently structured, making standardized analysis difficult. Wearable sensing also offers rich behavioral and physiological signals, but integrating diverse data streams and making sense of them in real-world settings remains a key challenge. PMData (Thambawita et al., 2020) attempts to address this and introduces the combination of lifelogging data with sports activity logging, creating one of the first available datasets that combines both subjective and objective parameters. Objective parameters like heart rate, sleep, calorie, consumption, movement distance, activity sessions, and weight were captured using the Fitbit Versa 2 fitness smartwatch. Subjective parameters like wellness, fatigue, mood, sleep quality, training load, exercise readiness, injuries, and food/drink intake were logged using the PM Reporter Pro smartphone application. Additionally, a Google Form questionnaire was used to get reports about food intake through photos, and weight development. The authors conducted a set of initial experiments to demonstrate PMData’s utility, modeling next-day weight change as a three-class classification problem: weight decreases, increases, or stays the same. They trained a Random Forest and Decision Tree, and compared them to a ZeroR (majority-class baseline) under 10-fold cross-validation. Both models outperformed the baseline, with the Decision Tree yielding the strongest performance, achieving a weighted average MCC of 0.450. These results show that PMData has sufficient complexity and signal quality to support various modeling. A potential weakness with the study is the accuracy of the data. The authors observed that the Fitbit Versa stepcounter is influenced by activities other than walking/running so the estimated movement distances are slightly inaccurate. Subjective reports also raise concerns about accuracy, as it is completely dependent on the truthfulness of the reporter. However, the collected Fitbit data still provides reasonable indications of activities, and subjective information still provides great value given that psychological states can greatly influence physical performance. Ultimately, the multimodal structure of the data enables a broad range of research tasks, including classification and prediction of well-being and performance.
+Lifelogging data offers valuable insights into behavior and physiology, but such datasets are often inaccessible or inconsistently structured, making standardized analysis difficult. Wearable sensing also offers rich behavioral and physiological signals, but integrating diverse data streams and making sense of them in real-world settings remains a key challenge. PMData \citep{thambawita2020pmdata} attempts to address this and introduces the combination of lifelogging data with sports activity logging, creating one of the first available datasets that combines both subjective and objective parameters. Objective parameters like heart rate, sleep, calorie, consumption, movement distance, activity sessions, and weight were captured using the Fitbit Versa 2 fitness smartwatch. Subjective parameters like wellness, fatigue, mood, sleep quality, training load, exercise readiness, injuries, and food/drink intake were logged using the PM Reporter Pro smartphone application. Additionally, a Google Form questionnaire was used to get reports about food intake through photos, and weight development. The authors conducted a set of initial experiments to demonstrate PMData’s utility, modeling next-day weight change as a three-class classification problem: weight decreases, increases, or stays the same. They trained a Random Forest and Decision Tree, and compared them to a ZeroR (majority-class baseline) under 10-fold cross-validation. Both models outperformed the baseline, with the Decision Tree yielding the strongest performance, achieving a weighted average MCC of 0.450. These results show that PMData has sufficient complexity and signal quality to support various modeling. A potential weakness with the study is the accuracy of the data. The authors observed that the Fitbit Versa stepcounter is influenced by activities other than walking/running so the estimated movement distances are slightly inaccurate. Subjective reports also raise concerns about accuracy, as it is completely dependent on the truthfulness of the reporter. However, the collected Fitbit data still provides reasonable indications of activities, and subjective information still provides great value given that psychological states can greatly influence physical performance. Ultimately, the multimodal structure of the data enables a broad range of research tasks, including classification and prediction of well-being and performance.
 
-\subsection{Smart Devices and Wearable Technologies to Detect and Monitor Mental Health Conditions and Stress: A Systematic Review (Hickey, et al.)}
-The authors of this paper explore how smart devices and wearable technologies are being used to detect and monitor mental health and stress. Across 21 studies they reviewed, heart rate variability (HRV) parameters, EEG, galvanic skin response (GSR), and electrodermal activity (EDA) were used for stress and anxiety detection in wearables. They found that the use of cardiac metrics (heart rate and HRV) were the predominant markers of stress detection though, with 10 out of 15 studies assessing HRV as most useful. Most wearable devices on the market currently utilize average heart rate, which can monitor stress but not as accurately as HRV. In assessing other metrics, they found that stress detection accuracy is improved when multiple physiological signals were integrated, such as using EEG in conjunction with HRV. Overall, their review highlights the strong potentials for wearables to support stress detection but also emphasizes the gaps between research-grade sensing and what is currently available to consumers. The authors argue that multiparametric devices likely provide the greatest likelihood for robust and scalable detection, thus providing guidance on the incorporation of a variety of data for research.
+\subsection{Smart Devices and Wearable Technologies to Detect and Monitor Mental Health Conditions and Stress}
+\cite{hickey2021smart} explore how smart devices and wearable technologies are being used to detect and monitor mental health and stress. Across 21 studies they reviewed, heart rate variability (HRV) parameters, EEG, galvanic skin response (GSR), and electrodermal activity (EDA) were used for stress and anxiety detection in wearables. They found that the use of cardiac metrics (heart rate and HRV) were the predominant markers of stress detection though, with 10 out of 15 studies assessing HRV as most useful. Most wearable devices on the market currently utilize average heart rate, which can monitor stress but not as accurately as HRV. In assessing other metrics, they found that stress detection accuracy is improved when multiple physiological signals were integrated, such as using EEG in conjunction with HRV. Overall, their review highlights the strong potentials for wearables to support stress detection but also emphasizes the gaps between research-grade sensing and what is currently available to consumers. The authors argue that multiparametric devices likely provide the greatest likelihood for robust and scalable detection, thus providing guidance on the incorporation of a variety of data for research.
 
 \subsection{WISE Dataset}
-The WISE (Wearable Stress and Exercise) dataset is a multimodal physiological dataset designed to explore how wearable sensors can measure and predict human stress and recovery patterns. It includes data collected from 36 healthy volunteers who participated in stress-inducing sessions, as well as 30–31 participants who took part in aerobic and anaerobic exercise sessions. The dataset captures a wide range of physiological signals, such as heart rate, skin temperature, respiration, electrodermal activity, and accelerometer readings. These recordings were obtained under both mental and physical stress conditions to help researchers better understand how the human body responds to varying levels of stress and exertion. By studying how wearable biosignals correlate with stress responses, the WISE dataset offers a scientific foundation for our goal of developing a personalized digital twin capable of predicting stress based on daily physiological and behavioral patterns. Its controlled environment and detailed physiological recordings provide a valuable baseline for our modeling approach, allowing us to compare induced stress responses with real-world behavioral data. The original WISE study applied signal processing and statistical techniques such as time-domain analysis, correlation, and distribution visualization to examine relationships between electrodermal activity (EDA), heart rate variability (HRV), and self-reported stress. These same analytical strategies align closely with our team’s current exploratory data analysis (EDA), which includes correlation matrices, ANOVA tests, and time-series visualizations. By benchmarking our methods against those used in WISE, we can ensure consistency and scientific rigor when working with our own datasets, such as the PMData lifelogging dataset of athletes. One of the major strengths of the WISE dataset lies in its multimodality and the presence of clearly labeled stress conditions, which enhance the accuracy of model training and validation. However, its limitations include a relatively small and homogeneous sample size, as well as the short duration of lab sessions, which may not fully represent natural variations in daily stress. Despite these constraints, WISE remains an essential reference for understanding the physiological underpinnings of stress.
+The WISE (Wearable Stress and Exercise) dataset \citep{schlink2020wise} is a multimodal physiological dataset designed to explore how wearable sensors can measure and predict human stress and recovery patterns. It includes data collected from 36 healthy volunteers who participated in stress-inducing sessions, as well as 30–31 participants who took part in aerobic and anaerobic exercise sessions. The dataset captures a wide range of physiological signals, such as heart rate, skin temperature, respiration, electrodermal activity, and accelerometer readings. These recordings were obtained under both mental and physical stress conditions to help researchers better understand how the human body responds to varying levels of stress and exertion. By studying how wearable biosignals correlate with stress responses, the WISE dataset offers a scientific foundation for our goal of developing a personalized digital twin capable of predicting stress based on daily physiological and behavioral patterns. Its controlled environment and detailed physiological recordings provide a valuable baseline for our modeling approach, allowing us to compare induced stress responses with real-world behavioral data. The original WISE study applied signal processing and statistical techniques such as time-domain analysis, correlation, and distribution visualization to examine relationships between electrodermal activity (EDA), heart rate variability (HRV), and self-reported stress. These same analytical strategies align closely with our team’s current exploratory data analysis (EDA), which includes correlation matrices, ANOVA tests, and time-series visualizations. By benchmarking our methods against those used in WISE, we can ensure consistency and scientific rigor when working with our own datasets, such as the PMData lifelogging dataset of athletes. One of the major strengths of the WISE dataset lies in its multimodality and the presence of clearly labeled stress conditions, which enhance the accuracy of model training and validation. However, its limitations include a relatively small and homogeneous sample size, as well as the short duration of lab sessions, which may not fully represent natural variations in daily stress. Despite these constraints, WISE remains an essential reference for understanding the physiological underpinnings of stress.
 
-\subsection{BioCV \&  WEASD}
-Beyond WISE, our team also reviewed other publicly available datasets that complement its insights. For example, WESAD provides wrist- and chest-worn physiological data from 16 subjects to detect stress, neutral, and non-stress states; Sports DB includes multimodal cardiorespiratory data from 81 athletes across 10 sports for fatigue and performance analysis; and BioCV offers 3D motion capture data useful for studying biomechanics and movement patterns. Together, these datasets broaden our understanding of how wearable and physiological data can be used to predict human stress, fatigue, and performance under diverse contexts. By integrating insights from these studies, our team aims to develop a robust data-driven framework capable of modeling stress through both physiological and behavioral signals for future digital twin applications. The BioCV Motion Capture dataset from the University of Bath takes a biomechanical approach to human monitoring. It includes 3D motion capture data, ground reaction forces, and photogrammetric scans from 15 participants performing various movement tasks such as walking, running, and jumping. This dataset’s strength lies in its integration of kinematic and kinetic data, which allows for precise modeling of movement efficiency, posture, and fatigue. When combined with physiological signals from datasets like WISE or WESAD, BioCV offers the opportunity to study how stress manifests not only internally (in heart rate or skin conductance) but also externally through physical form and motion.  The GLOBEM dataset extends this line of inquiry into real-world behavioral contexts. It contains multi-year data from 497 users, combining smartphone and wearable sensor logs such as location, motion, and phone usage, along with self-reported well-being scores. This large-scale dataset provides a valuable bridge between laboratory studies and everyday life, enabling models that capture long-term behavioral trends related to mental health and stress. Finally, the EPHNOGRAM dataset adds another physiological layer by recording simultaneous electrocardiogram (ECG) and phonocardiogram (PCG) data from 24 healthy adults during rest, walking, running, and biking. Its dual cardiac modalities allow for detailed investigation of how electrical and mechanical heart functions interact under different physical stressors
+\subsection{BioCV \& WESAD}
+Beyond WISE, our team also reviewed other publicly available datasets that complement its insights. For example, WESAD \citep{schmidt2018wesad} provides wrist- and chest-worn physiological data from 16 subjects to detect stress, neutral, and non-stress states; Sports DB \citep{soto2021sportsdb} includes multimodal cardiorespiratory data from 81 athletes across 10 sports for fatigue and performance analysis; and BioCV \citep{moore2020biocv} offers 3D motion capture data useful for studying biomechanics and movement patterns. Together, these datasets broaden our understanding of how wearable and physiological data can be used to predict human stress, fatigue, and performance under diverse contexts. By integrating insights from these studies, our team aims to develop a robust data-driven framework capable of modeling stress through both physiological and behavioral signals for future digital twin applications. The BioCV Motion Capture dataset from the University of Bath takes a biomechanical approach to human monitoring. It includes 3D motion capture data, ground reaction forces, and photogrammetric scans from 15 participants performing various movement tasks such as walking, running, and jumping. This dataset’s strength lies in its integration of kinematic and kinetic data, which allows for precise modeling of movement efficiency, posture, and fatigue. When combined with physiological signals from datasets like WISE or WESAD, BioCV offers the opportunity to study how stress manifests not only internally (in heart rate or skin conductance) but also externally through physical form and motion.  The GLOBEM dataset \citep{zhao2023globem} extends this line of inquiry into real-world behavioral contexts. It contains multi-year data from 497 users, combining smartphone and wearable sensor logs such as location, motion, and phone usage, along with self-reported well-being scores. This large-scale dataset provides a valuable bridge between laboratory studies and everyday life, enabling models that capture long-term behavioral trends related to mental health and stress. Finally, the EPHNOGRAM dataset adds another physiological layer by recording simultaneous electrocardiogram (ECG) and phonocardiogram (PCG) data from 24 healthy adults during rest, walking, running, and biking. Its dual cardiac modalities allow for detailed investigation of how electrical and mechanical heart functions interact under different physical stressors
 
 
 \section{Description of Relevant Data}
@@ -190,7 +190,7 @@ Such multimodal profiles allow downstream classification models to learn discrim
 
 
 
-\subsection{PMData description}
+\subsection{PMData Description}
 PMData is a multimodal personal logging dataset containing daily physiological and subjective wellness markers across 16 participants over a five month period. \citep{thambawita2020pmdata}.The dataset contains data from three sources: the Fitbit Versa 2 smartwatch provides biometric data, the PMSys sports logging app captures subjective wellness data, and Google forms collects demographic, food, and weight information. The Fitbit Versa 2 tracks physiological signals like heart rate, sleep patterns, and activity levels. The PMSys app allows participants to log daily metrics including stress, fatigue, mood, and readiness. Google Forms adds context through demographic information and lifestyle tracking. 
 
 \begin{table}[H]
@@ -290,6 +290,8 @@ for studying stress detection in everyday settings.
 
 We loaded physiological signals from 22 participants (10 male V1 protocol, 12 female V2 protocol) in the WISE stress dataset. Each participant's session was recorded using the Empatica E4 wearable device, yielding time-series data for five modalities: electrodermal activity (EDA), blood volume pulse (BVP), heart rate (HR), skin temperature (TEMP), and 3-axis accelerometry (ACC). Additionally, inter-beat interval (IBI) data was extracted from the BVP signal to compute heart rate variability (HRV) metrics.
 
+\paragraph{Data Loading and Visualization.} Initial data loading and exploratory visualizations were adapted from the preprocessing code provided in \texttt{Wearable\_Dataset.ipynb}, which is included with the WISE dataset distribution. This notebook served as the foundation for loading signal files and generating time-series plots of physiological responses.
+
 Protocol sessions were divided into discrete time segments based on annotated timestamps (tags) that mark transitions between experimental phases. Each segment was labeled as either \texttt{STRESS} or \texttt{REST} according to the task type:
 
 \begin{itemize}
@@ -301,7 +303,7 @@ This segmentation yielded 196 total segments (98 STRESS, 98 REST) across all par
 
 \subsection{Feature Engineering}
 
-For each segment, we extracted a set of biomarkers summarizing the physiological response during that time window. The feature set includes 16 variables across five signal modalities, as detailed in Table~\ref{tab:features}.
+For each segment, we extracted a set of biomarkers summarizing the physiological response during that time window. Initially, 12 features were extracted across five signal modalities, as detailed in Table~\ref{tab:features}. After removing highly correlated features (HR\_std, HR\_max, EDA\_max) to reduce multicollinearity, 9 features were retained for model training.
 
 \begin{table}[H]
 \centering
@@ -356,19 +358,8 @@ To validate which biomarkers are significantly associated with stress, we conduc
 
 \subsection{Self-Reported Stress Levels}
 
-Participants self-reported stress levels on a scale of 0--10 after each protocol phase. Figure~\ref{fig:stress_by_phase} shows the mean self-reported stress across all participants for V1 and V2 protocols.
+Participants self-reported stress levels on a scale of 0--10 after each protocol phase. Figure~\ref{fig:stress_combined} shows the mean self-reported stress across all participants for V1 and V2 protocols.
 
-%Option1
-% TODO: uncomment to add bar chart figure
-% \begin{figure}[H]
-% \centering
-% \includegraphics[width=0.9\linewidth]{figure/stress_bar_chart.png}
-% \caption{Mean self-reported stress levels by protocol phase. TMCT consistently induced the highest stress (6.39 for V2, 5.08 for V1), followed by Subtract and Opinion tasks. Rest periods showed significantly lower stress levels.}
-% \label{fig:stress_by_phase}
-% \end{figure}
-
-%Option2
-% TODO: Uncomment to add combined figure (bar chart + violin plot)
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{figure/stress_combined_figure.png}
@@ -382,9 +373,8 @@ The TMCT task (mental math with distracting noise and verbal responses) elicited
 
 \subsection{Physiological Signal Patterns}
 
-Raw physiological signals were visualized for representative subjects to verify stress-related changes. Figure~\ref{fig:subject_signals} shows multimodal signals for Subject S04 across the full protocol timeline.
+Raw physiological signals were visualized for representative subjects to verify stress-related changes. Figure~\ref{fig:s04_signals} shows multimodal signals for Subject S04 across the full protocol timeline.
 
-% TODO: Uncomment to add S04 physiological signals (V1 male subject)
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{figure/S04_signals.png}
@@ -392,7 +382,6 @@ Raw physiological signals were visualized for representative subjects to verify 
 \label{fig:s04_signals}
 \end{figure}
 
-% TODO: Uncomment to add f08 physiological signals (V2 female subject)
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{figure/f08_signals.png}
@@ -412,7 +401,6 @@ Visual inspection revealed several consistent patterns:
 
 A correlation analysis of the 16 extracted features revealed several strong relationships (Figure~\ref{fig:correlation_heatmap}).
 
-% TODO:
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\linewidth]{figure/correlation_heatmap.png}
@@ -441,20 +429,24 @@ Paired t-tests were conducted to determine which biomarkers significantly differ
 \toprule
 \textbf{Biomarker} & \textbf{p-value} & \textbf{Sig.} & \textbf{Effect Direction} \\
 \midrule
-RMSSD         & 0.0068 & **  & $\downarrow$ Lower in STRESS \\
-ACC\_mean     & 0.0331 & *   & $\uparrow$ Higher in STRESS \\
-HR\_mean      & 0.0586 & ns  & $\uparrow$ Higher in STRESS \\
-SDNN          & 0.1751 & ns  & -- \\
-EDA\_mean     & 0.3603 & ns  & -- \\
-TEMP\_mean    & 0.1429 & ns  & -- \\
+SDNN          & 0.0068 & **  & $\downarrow$ Lower in STRESS \\
+RMSSD         & 0.7204 & ns  & $\uparrow$ Higher in STRESS \\
+EDA\_mean     & 0.2403 & ns  & $\uparrow$ Higher in STRESS \\
+EDA\_std      & 0.0037 & **  & $\downarrow$ Lower in STRESS \\
+HR\_mean      & 0.0001 & *** & $\uparrow$ Higher in STRESS \\
+TEMP\_mean    & 0.2622 & ns  & $\uparrow$ Higher in STRESS \\
+ACC\_mean     & 0.0000 & *** & $\uparrow$ Higher in STRESS \\
+ACC\_std      & 0.0474 & *   & $\downarrow$ Lower in STRESS \\
 \bottomrule
 \multicolumn{4}{l}{\small * $p < 0.05$, ** $p < 0.01$, *** $p < 0.001$, ns = not significant}
 \end{tabular}
 \end{table}
 
-\textbf{RMSSD} (beat-to-beat HRV) showed the strongest association with stress ($p = 0.007$), decreasing significantly during STRESS segments. \textbf{ACC\_mean} (movement) also increased significantly during stress ($p = 0.033$), likely due to fidgeting and gesturing during cognitive tasks. \textbf{HR\_mean} showed a marginal trend toward higher values during stress ($p = 0.059$), though not reaching statistical significance.
+\textbf{HR\_mean} and \textbf{ACC\_mean} showed the strongest associations with stress, both achieving $p < 0.001$. Heart rate increased significantly during STRESS segments, consistent with autonomic arousal. Movement (ACC\_mean) also increased highly significantly, likely due to fidgeting and gesturing during cognitive tasks.
 
-Interestingly, \textbf{EDA\_mean} did not show a significant difference despite visual evidence of EDA spikes during stress. This may be due to high inter-subject variability and baseline drift in EDA signals.
+\textbf{SDNN} (overall HRV) decreased significantly during stress ($p = 0.007$), reflecting reduced heart rate variability under cognitive load. Interestingly, \textbf{RMSSD} (beat-to-beat HRV) did not show a significant difference ($p = 0.720$), suggesting that overall variability (SDNN) may be more sensitive to stress than short-term beat-to-beat fluctuations.
+
+\textbf{EDA\_std} (electrodermal activity variability) decreased significantly during stress ($p = 0.004$), while EDA\_mean did not reach significance. This suggests that stress may be characterized more by reduced EDA variability than by elevated mean skin conductance. Similarly, \textbf{ACC\_std} decreased during stress ($p = 0.047$), possibly reflecting more constrained or repetitive movement patterns during cognitive tasks.
 
 \subsection{Classification Performance}
 
@@ -496,22 +488,21 @@ The model correctly identified 15 out of 20 STRESS segments (75\% recall) and 14
 
 Feature importance scores from the Random Forest model reveal which biomarkers contribute most to stress classification (Figure~\ref{fig:feature_importance}).
 
-% TODO: Add this figure
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\linewidth]{figure/feature_importance.png}
-\caption{Feature importance scores from Random Forest classifier. RMSSD, ACC\_mean, and HR\_mean are the top contributors to stress classification, consistent with statistical test results.}
+\caption{Feature importance scores from Random Forest classifier. TEMP\_std, ACC\_mean, and ACC\_std are the top contributors to stress classification.}
 \label{fig:feature_importance}
 \end{figure}
 
 The top three features are:
 \begin{enumerate}
-    \item \textbf{RMSSD} (beat-to-beat HRV): Strongest predictor, consistent with its statistical significance
-    \item \textbf{ACC\_mean} (movement): Captures stress-induced fidgeting and gesturing
-    \item \textbf{HR\_mean} (average heart rate): Elevated during cognitive stress
+    \item \textbf{TEMP\_std} (temperature variability): Strongest predictor (27.1\% importance), captures thermal regulation patterns during stress
+    \item \textbf{ACC\_mean} (movement): Second strongest (14.0\% importance), highly significant ($p < 0.001$), captures stress-induced fidgeting and gesturing
+    \item \textbf{ACC\_std} (movement variability): Third strongest (11.4\% importance), significant ($p = 0.047$), reflects constrained movement patterns during stress
 \end{enumerate}
 
-These findings align with the statistical tests and confirm that HRV and movement patterns are the most reliable indicators of cognitive stress in wearable sensor data.
+Notably, while HR\_mean and ACC\_mean showed the strongest statistical significance in t-tests ($p < 0.001$), the Random Forest model prioritized temperature and movement variability as the most discriminative features. SDNN (10.4\%) and RMSSD (9.3\%) ranked fourth and fifth, indicating that HRV metrics contribute moderately to classification despite SDNN's statistical significance. HR\_mean ranked eighth (6.9\%), suggesting that while heart rate reliably increases during stress, it provides less discriminative power than variability-based features in this multimodal context.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -522,30 +513,25 @@ These findings align with the statistical tests and confirm that HRV and movemen
 
 \subsection{Interpretation of Findings}
 
-Our results demonstrate that wearable physiological sensors can reliably detect cognitive stress with 72\% accuracy using only a small set of biomarkers. The strongest predictors—RMSSD (beat-to-beat HRV), ACC (movement), and HR (heart rate)—align with established psychophysiological theory and prior research.
+Our results demonstrate that wearable physiological sensors can reliably detect cognitive stress with 72\% accuracy using only a small set of biomarkers. Random Forest feature importance analysis revealed that temperature variability (TEMP\_std), movement (ACC\_mean), and movement variability (ACC\_std) were the strongest predictors. While HR\_mean and ACC\_mean showed the highest statistical significance ($p < 0.001$), the machine learning model prioritized variability-based features for classification, suggesting that stress detection benefits from capturing dynamic patterns rather than static mean values.
 
-\paragraph{HRV as a Stress Biomarker.} The significant decrease in RMSSD during stress ($p = 0.007$) reflects sympathetic nervous system dominance during cognitive load. When stressed, the autonomic nervous system shifts toward a "fight-or-flight" response, reducing beat-to-beat variability and making the heartbeat more rigid and predictable. This finding is consistent with prior work showing HRV as a gold standard stress indicator \citep{schlink2020wise, hickey2021smart}.
+\paragraph{Heart Rate as a Stress Biomarker.} The highly significant increase in HR\_mean during stress ($p < 0.001$) reflects sympathetic nervous system activation during cognitive load. Elevated heart rate is a hallmark of the "fight-or-flight" response and indicates increased metabolic demand and arousal. This finding confirms heart rate as a robust and easily measurable stress indicator in wrist-worn devices.
 
-\paragraph{Movement Patterns.} The increase in accelerometer activity during stress ($p = 0.033$) likely captures fidgeting, gesturing, and postural shifts during demanding tasks (especially TMCT and Opinion tasks). This aligns with behavioral observations that stress induces motor restlessness and non-purposeful movement.
+\paragraph{Movement Patterns.} The highly significant increase in accelerometer activity during stress ($p < 0.001$) likely captures fidgeting, gesturing, and postural shifts during demanding tasks (especially TMCT and Opinion tasks). This aligns with behavioral observations that stress induces motor restlessness and non-purposeful movement.
 
-\paragraph{Heart Rate Response.} While HR\_mean showed only marginal significance ($p = 0.059$), it still contributed as the third most important feature in the classifier. The weaker statistical signal may reflect high inter-subject variability in resting heart rate, which can obscure stress-induced changes.
+\paragraph{HRV as a Stress Biomarker.} The significant decrease in SDNN during stress ($p = 0.007$) reflects reduced overall heart rate variability under cognitive load. Interestingly, RMSSD (beat-to-beat HRV) was not significant ($p = 0.720$), suggesting that longer-term HRV measures (SDNN) may be more sensitive to cognitive stress than short-term fluctuations. This finding is consistent with prior work showing HRV as a stress indicator \citep{schlink2020wise, hickey2021smart}.
 
-\paragraph{EDA Variability.} Surprisingly, EDA\_mean did not reach statistical significance despite visual evidence of skin conductance spikes during stress. This discrepancy likely arises from:
-\begin{itemize}
-    \item High baseline drift and inter-subject variability in EDA
-    \item Segment-level aggregation (mean) may smooth out transient spikes
-    \item EDA responses are highly context-dependent and may vary by task type
-\end{itemize}
+\paragraph{Temperature Variability as the Strongest Predictor.} Surprisingly, TEMP\_std emerged as the most important feature in the Random Forest model (27.1\% importance), despite temperature metrics not showing statistical significance in univariate t-tests. This suggests that temperature variability patterns, rather than mean temperature changes, provide highly discriminative information for stress classification when combined with other physiological signals. The classifier may be detecting subtle fluctuations in thermoregulation that occur during cognitive stress but are masked by high inter-subject variability in baseline skin temperature. This finding highlights the value of multivariate machine learning approaches that can capture complex interactions beyond univariate statistical tests.
 
-Future work could explore EDA peak detection and event-related analysis rather than simple averaging.
+\paragraph{EDA Patterns.} While EDA\_mean did not reach statistical significance, EDA\_std (variability) decreased significantly during stress ($p = 0.004$). This suggests that stress is characterized not by elevated mean skin conductance, but rather by more stable, less variable EDA patterns. The reduction in EDA variability may reflect sustained sympathetic activation with fewer transient fluctuations. Similarly, ACC\_std also decreased during stress ($p = 0.047$), indicating that both electrodermal and movement patterns become more constrained under cognitive load. These findings highlight the importance of examining variability metrics alongside mean values when analyzing stress responses.
 
 \subsection{Comparison with Prior Work}
 
 Our 72\% accuracy is comparable to other laboratory-based stress detection studies using wearable sensors. For example:
 \begin{itemize}
-    \item Schmidt et al. (2018) achieved 80\% accuracy on WESAD using chest-worn sensors (which provide higher-quality ECG)
-    \item Thambawita et al. (2020) reported 45\% accuracy on PMData for next-day weight prediction, but their task was fundamentally different (regression vs classification)
-    \item Hickey et al. (2021) reviewed 21 studies and found HRV-based stress detection accuracy ranging from 65--85\%
+    \item \cite{schmidt2018wesad} achieved 80\% accuracy on WESAD using chest-worn sensors (which provide higher-quality ECG)
+    \item \cite{thambawita2020pmdata} reported 45\% accuracy on PMData for next-day weight prediction, but their task was fundamentally different (regression vs classification)
+    \item \cite{hickey2021smart} reviewed 21 studies and found HRV-based stress detection accuracy ranging from 65--85\%
 \end{itemize}
 
 Our performance falls within this range despite using only wrist-worn sensors (which are less accurate than chest-worn ECG) and a relatively small sample size (22 subjects). This suggests that multimodal wearable data can provide robust stress detection even with consumer-grade devices.
@@ -589,9 +575,9 @@ Our findings have several implications for Quarter 2:
 
 \section{Conclusion}
 
-This study investigated the feasibility of detecting cognitive stress from multimodal wearable physiological signals using the WISE dataset. We successfully built a binary classifier that achieves 72\% accuracy in distinguishing stress from rest states, with RMSSD (beat-to-beat HRV), accelerometer-based movement, and heart rate emerging as the strongest predictors.
+This study investigated the feasibility of detecting cognitive stress from multimodal wearable physiological signals using the WISE dataset. We successfully built a binary classifier that achieves 72\% accuracy in distinguishing stress from rest states. Random Forest feature importance analysis revealed that temperature variability (TEMP\_std), movement (ACC\_mean), and movement variability (ACC\_std) were the strongest predictors, accounting for 27\%, 14\%, and 11\% of model importance respectively.
 
-Statistical validation confirmed that RMSSD significantly decreases during stress ($p = 0.007$), while movement patterns increase ($p = 0.033$), aligning with established psychophysiological theory. These findings demonstrate that consumer-grade wrist-worn sensors can capture meaningful stress-related changes, even in controlled laboratory settings with diverse cognitive stressors.
+Statistical validation confirmed that HR\_mean and ACC\_mean both increase highly significantly during stress ($p < 0.001$), while SDNN decreases ($p = 0.007$), aligning with established psychophysiological theory. Additionally, we found that variability metrics (EDA\_std and ACC\_std) decrease during stress, suggesting more constrained physiological patterns under cognitive load. Notably, temperature variability emerged as the most discriminative feature in the multivariate model despite not showing univariate statistical significance, highlighting the value of machine learning approaches for capturing complex physiological interactions. These findings demonstrate that consumer-grade wrist-worn sensors can capture meaningful stress-related changes, even in controlled laboratory settings with diverse cognitive stressors.
 
 Our work provides a foundation for Quarter 2, where we will apply these learned stress signatures to real-world behavioral data from the PMData athlete lifelogging dataset. By bridging laboratory-induced stress and free-living contexts, we aim to develop personalized stress monitoring tools that can inform training optimization and well-being interventions.
 
@@ -603,20 +589,9 @@ Future directions include integrating temporal dynamics, exploring subject-speci
 %%%% Reference / Bibliography
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section*{References}
-
-\noindent Schlink, B., and O. Amft. (2020). \textit{WISE: Wearable Stress and Exercise Dataset.} Scientific Reports, 10(1), 23010. Springer Nature. \\[4pt]
-Schmidt, P., A. Reiss, R. Duerichen, C. Marberger, and K. Van Laerhoven. (2018). \textit{Introducing WESAD, a Multimodal Dataset for Wearable Stress and Affect Detection.} Proceedings of the 20th ACM International Conference on Multimodal Interaction (ICMI ’18). Association for Computing Machinery. \\[4pt]
-Soto, D., F. Falcioni, and R. Damasio. (2021). \textit{Sports DB: A Multimodal Cardiorespiratory Dataset for Sports Activity Recognition.} Data in Brief, 36, 107116. Elsevier. \\[4pt]
-Moore, J., T. C. Pataky, and J. P. Richards. (2020). \textit{BioCV: A Biomechanical Computer Vision Motion Capture Dataset for Human Movement Analysis.} University of Bath Motion Analysis Research Group. \\[4pt]
-Zhao, M., and D. Maltoni. (2023). \textit{GLOBEM: Global Multi-Year Mobile and Wearable Sensing Dataset for Behavioral and Mental Health Modeling.} arXiv preprint arXiv:2211.02733. \\[4pt]
-Hickey, B. A., et al. (2021). \textit{Smart Devices and Wearable Technologies to Detect and Monitor Mental Health Conditions and Stress: A Systematic Review.} Sensors, 21(10), 3461. MDPI. \\[4pt]
-Thambawita, V., et al. (2020). \textit{PMData: A Sports Logging Dataset.} Proceedings of the 11th ACM Multimedia Systems Conference (MMSys ’20), Istanbul, Turkey, 231–236. Association for Computing Machinery.
-
-
-
-% \bibliography{reference}
-% \bibliographystyle{style/dsc180bibstyle}
+\clearpage
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Appendix
@@ -629,19 +604,21 @@ Thambawita, V., et al. (2020). \textit{PMData: A Sports Logging Dataset.} Procee
 
 All analysis code is available in our GitHub repository: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
 
-% \begin{verbatim}
-% behavior-cap/
-% ├── 22subjects/             # WISE dataset (physiological signals)
-% │   ├── STRESS/             # Cognitive stress session data
-% │   ├── AEROBIC/            # Aerobic exercise data
-% │   └── ANAEROBIC/          # Anaerobic exercise data
-% ├── WISE_Stress_EDA.ipynb   # Main analysis notebook
-% ├── WISE statistical analysis & eda.ipynb  # Statistical tests
-% ├── subject-info.csv        # Participant demographics
-% ├── Stress_Level_v1.csv     # Self-reported stress (V1 protocol)
-% ├── Stress_Level_v2.csv     # Self-reported stress (V2 protocol)
-% └── Q1_report/              # LaTeX report files
-% \end{verbatim}
+\begin{verbatim}
+behavior-cap/
+├── 22subjects/             # WISE dataset (physiological signals)
+│   ├── STRESS/             # Cognitive stress session data
+│   ├── AEROBIC/            # Aerobic exercise data
+│   └── ANAEROBIC/          # Anaerobic exercise data
+├── WISE_Stress_EDA.ipynb   # Main analysis notebook
+├── WISE statistical analysis & eda.ipynb  # Statistical tests
+├── subject-info.csv        # Participant demographics
+├── Stress_Level_v1.csv     # Self-reported stress (V1 protocol)
+├── Stress_Level_v2.csv     # Self-reported stress (V2 protocol)
+└── Q1_report/              # LaTeX report files
+\end{verbatim}
+
+\paragraph{Acknowledgment of WISE Preprocessing Code.} The WISE dataset is distributed with a reference Jupyter notebook (\texttt{WISE\_data\_files/Wearable\_Dataset.ipynb}) containing preprocessing and visualization code. We adapted portions of this code for loading physiological signals, parsing timestamp annotations, and generating exploratory time-series visualizations. The signal plots shown in Figure~\ref{fig:s05_stress_signals}, Figure~\ref{fig:s04_signals}, and Figure~\ref{fig:f08_signals} were produced using visualization methods adapted from this reference notebook. Our feature extraction and machine learning pipelines were independently developed.
 
 \subsection{Key Code Snippets}
 
@@ -727,172 +704,18 @@ def extract_segment_features(subject, segment, signals, fs_dict):
     return features
 \end{verbatim}
 
-%\subsection{Reproducibility Instructions}
+\subsection{Reproducibility Instructions}
 
-% To reproduce our analysis:
+To reproduce our analysis:
 
-% \begin{enumerate}
-%     \item Clone repository: \texttt{git clone https://github.com/Ctt011/Capstone-Behavorial.git}
-%     \item Download WISE dataset from PhysioNet and place in \texttt{22subjects/}
-%     \item Install dependencies: \texttt{pip install pandas numpy matplotlib seaborn scikit-learn scipy}
-%     \item Run \texttt{WISE\_Stress\_EDA.ipynb} in Jupyter Notebook
-%     \item Statistical tests notebook: \texttt{WISE statistical analysis \& eda.ipynb}
-% \end{enumerate}
+\begin{enumerate}
+    \item Clone repository: \texttt{git clone https://github.com/Ctt011/Capstone-Behavorial.git}
+    \item Download WISE dataset from PhysioNet and place in \texttt{22subjects/}
+    \item Install dependencies: \texttt{pip install pandas numpy matplotlib seaborn scikit-learn scipy}
+    \item Run \texttt{WISE\_Stress\_EDA.ipynb} in Jupyter Notebook
+    \item Statistical tests notebook: \texttt{WISE statistical analysis \& eda.ipynb}
+\end{enumerate}
 
-% All random seeds are fixed (\texttt{random\_state=42}) for reproducible train/test splits and model training.
-
-
+All random seeds are fixed (\texttt{random\_state=42}) for reproducible train/test splits and model training.
 
 \end{document}
-
-
-%%% STUFF FROM TEMPLATE BELOW: 
-
-% \clearpage
-% \makeappendix
-
-% \subsection{Training Details}
-
-% \subsection{Additional Figures}
-
-% \subsection{Additional Tables}
-Here's \textbf{bold} and \textit{italicized} text. Here's \texttt{text\_that\_looks.like(code)}.
-
-\begin{itemize}
-    \item Here's a regular bulleted list item.
-    \item And another.
-\end{itemize}
-
-Here's a \href{https://datascience.ucsd.edu}{hyperlink}. If you want to use a numbered list, you can experiment with:
-
-\begin{enumerate}
-    \item This.
-    \item This.
-    \item And this.
-\end{enumerate}
-
-Here's how you might include a snippet of actual code:
-
-\begin{verbatim}
-# If you want to use syntax highlighting, look into the minted package.
-def f(x):
-    return 2 * x + 3
-\end{verbatim}
-
-Here's how you might format a single equation:
-
-$$\int_{-\infty}^\infty f_X(x)dx = 1$$
-
-And a chain of equations:
-
-\begin{align*}
-    \frac{1}{n}\sum_{i = 1}^n (x_i - \bar{x})^2 &= \frac{1}{n}\sum_{i = 1}^n (x_i^2 - 2x_i\bar{x} + \bar{x}^2)
-    \\ &= \frac{1}{n}\sum_{i = 1}^n x_i^2 - \frac{2}{n}\bar{x}\sum_{i = 1}^n x_i + \frac{\bar{x}^2}{n}\sum_{i = 1}^n 1
-    \\ &= \frac{1}{n}\sum_{i = 1}^n x_i^2 - 2\bar{x}^2 + \bar{x}^2
-    \\ &= \frac{1}{n}\sum_{i = 1}^n x_i^2 - \bar{x}^2
-\end{align*}
-
-
-\subsection{Figure Examples}
-
-Here are some example figures. 
-Figure \ref{fig:somefig1} presents a scatter plot.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=.65\linewidth]{figure/somefig1.pdf}
-\caption{Yes, put a few words or sentences here explaining what is in the figure.}
-\label{fig:somefig1}
-\end{figure}
-
-Figure \ref{fig:someotherfigs} presents some summaries of the performance of our model.
-The left panel of Figure \ref{fig:someotherfigs} presents something.
-The right panel of Figure \ref{fig:someotherfigs} presents some other things.
-
-\begin{figure}[htbp]
-\begin{minipage}{0.53\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{figure/somefig2.png}
-\end{minipage}
-\begin{minipage}{0.42\linewidth}
-  \centering
-  \includegraphics[width=\linewidth]{figure/somefig3.png}
-\end{minipage}
-\caption{You can put figures side-by-side as well.}
-\label{fig:someotherfigs}
-\end{figure}
-
-
-\subsection{Table Examples}
-
-Table \ref{tab:sometab1} presents some summary of the data.
-
-\begin{table}[htbp]
-\caption{Some Table Caption}
-\label{tab:sometab1}
-\resizebox{0.4\linewidth}{!}{\input{table/sometab1}}
-\end{table}
-
-Table \ref{tab:sometab2} presents some summaries of the performance of our model.
-
-\begin{table}[htbp]
-\caption{Some Other Table Caption}
-\label{tab:sometab2}
-\resizebox{0.9\linewidth}{!}{\input{table/sometab2}}
-\end{table}
-
-\subsection{Equations and Algorithms Examples}
-
-Algorithm \ref{alg:fuzzyKmeans} implements Fuzzy K-means.
-
-\begin{algorithm}
-\caption{Fuzzy K-means clustering algorithm}
-\label{alg:fuzzyKmeans}
-\begin{enumerate}
-    \item Choose primary centroids $v_{k}$
-    \item Compute the membership degree of all feature vectors in all clusters
-    \begin{equation}
-    u_{ki}  = \frac{1}{ \sum_{j=1}^K ( \frac{D^{2}(x_{i} - v_{k})}{D^{2}(x_{i} - v_{j})})^\frac{2} 
-    {m-1}}
-    \label{eq:kmeans}
-    \end{equation}
-\end{enumerate}
-\end{algorithm}
-
-Algorithm \ref{alg:net} calculates net activation.
-
-
-\begin{algorithm}
-\caption{Computing Net Activation}
-\label{alg:net}
-% \DontPrintSemicolon
-% \LinesNumbered
-\KwIn{$x_1, \ldots, x_n, w_1, \ldots, w_n$}
-\KwOut{$y$, the net activation}
-$y\leftarrow 0$\;
-\For{$i\leftarrow 1$ \KwTo $n$}{
-$y \leftarrow y + w_i*x_i$\;
-}
-\end{algorithm}
-
-In Variational Autoencoder (VAE), we directly maximize the Evidence Lower Bound (ELBO) using the following Equations \ref{eq:bla}--\ref{eq:blablabla}.
-\begin{align}
-  \mathbb{E}_{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\left[\log\frac{p(\boldsymbol{x}, \boldsymbol{z})}{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\right]
-  &= \mathbb{E}_{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\left[\log\frac{p_{\boldsymbol{\theta}}(\boldsymbol{x}\mid\boldsymbol{z})p(\boldsymbol{z})}{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\right] \label{eq:bla} \\
-  &= \mathbb{E}_{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\left[\log p_{\boldsymbol{\theta}}(\boldsymbol{x}\mid\boldsymbol{z})\right] + \mathbb{E}_{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\left[\log\frac{p(\boldsymbol{z})}{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\right] \label{eq:blabla} \\
-  &= \underbrace{\mathbb{E}_{q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x})}\left[\log p_{\boldsymbol{\theta}}(\boldsymbol{x}\mid\boldsymbol{z})\right]}_\text{reconstruction term} - \underbrace{\mathcal{D}_{\text{KL}}(q_{\boldsymbol{\phi}}(\boldsymbol{z}\mid\boldsymbol{x}) \mid\mid p(\boldsymbol{z}))}_\text{prior matching term} \label{eq:blablabla}
-\end{align}
-
-\subsection{Inline Citation Examples}
-
-Citation in text (no parentheses): use \texttt{{\textbackslash}cite\{citekey\}}. 
-For example, \cite{breiman2011}, \cite{devlin2019bert}.
-
-Citation in parentheses: use \texttt{{\textbackslash}citep\{citekey\}}. 
-For example: \citep{vaswani2023attention}, \citep{karras2019stylebased}.
-
-
-
-% \makereference
-
-% {\color{blue} To edit the contents of the ``References" section, edit \texttt{reference.bib}. Many conference websites format citations in BibTeX that you can copy into \texttt{reference.bib} directly; you can also search for the paper on Google Scholar, click ``Cite", and then click ``BibTeX" (\href{https://scholar.google.com/scholar?hl=en&as_sdt=0%2C23&q=attention+is+all+you+need&btnG=#d=gs_cit&t=1700436667623&u=%2Fscholar%3Fq%3Dinfo%3A5Gohgn6QFikJ%3Ascholar.google.com%2F%26output%3Dcite%26scirp%3D0%26hl%3Den}{here}'s an example).}
