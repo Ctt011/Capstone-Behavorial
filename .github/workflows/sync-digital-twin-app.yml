@@ -1,0 +1,45 @@
+name: Sync digital_twin_app (subtree)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 15 * * *"  # daily 15:00 UTC (~7am PST
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (full history required for subtree)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add remote + fetch digital_twin_app
+        run: |
+          git remote remove digital_twin 2>/dev/null || true
+          git remote add digital_twin https://github.com/DhyayThakrar/digital_twin_app.git
+          git fetch digital_twin main
+
+      - name: Subtree pull (squash)
+        run: |
+          git subtree pull --prefix=digital_twin_app digital_twin main --squash
+
+      - name: Create PR if there are changes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: bot/sync-digital-twin-app
+          delete-branch: true
+          title: "Sync digital_twin_app subtree"
+          commit-message: "Sync digital_twin_app subtree"
+          body: |
+            Automated subtree sync from https://github.com/DhyayThakrar/digital_twin_app (branch: main).
+          labels: sync, automated
