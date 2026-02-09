@@ -31,4 +31,4 @@ def run_notebook(input_path: str, output_path: str, timeout: int = 1200) -> None
 
 
 if __name__ == "__main__":
-    run_notebook("WISE_Stress_EDA_Model.ipynb", "WISE_Stress_EDA_Model_executed.ipynb")
+    run_notebook("notebooks/WISE_Stress_EDA_Model.ipynb", "notebooks/WISE_Stress_EDA_Model_executed.ipynb")

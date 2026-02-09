@@ -1,3 +1,9 @@
 .ipynb_checkpoints/
 .DS_Store
-.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.vscode/
+.claude/
+*.zip
+Q1_report_requirements.txt
+apple_health_export/

@@ -1,233 +1,182 @@
-#  Cognitive Behavioral Stress Prediction  
-Multimodal physiological dataset (Empatica E4) + curated metadata + stress labels used for modeling cognitive and physical stress responses, and developing personalized digital-twin systems.
+# Digital Twin: Hybrid Stress Detection from Apple Watch
+
+A hybrid stress detection system that combines ML activity classification with validated physiological formulas and a Body Battery energy management interface. Built for Apple Watch via HealthKit.
+
+**Team:** Camille Tran, Dhyay Thakrar, Levy Sahoo, Essie Chang, Selina Zhang
+**Mentor:** Tauhidur Rahman
+**Course:** DSC 180B Capstone, UC San Diego, Winter 2026
+
+Code: https://github.com/Ctt011/Capstone-Behavorial
 
 ---
 
-##  Getting Started
+## Architecture
 
-###  Prerequisites
-
-Install required Python packages:
-
-```bash
-pip install pandas numpy matplotlib
+```
+Apple Watch Data (HR, Steps, Sleep, HRV)
+         |
+   STAGE 1 (ML) — Activity Classifier (93.6% LOSO accuracy)
+   CoreML Random Forest: PHYSICAL vs COGNITIVE
+         |
+    PHYSICAL ──→ Skip stress detection (exercise ≠ stress)
+         |
+    COGNITIVE ──→ STAGE 2 (Rules) — Sleep-adjusted threshold
+                        |
+                  STAGE 3 (Formulas) — DC/AC stress score 0-100
+                        |
+                  Body Battery drains based on score
+                        |
+                  Recovery activities suggested + tracked
 ```
 
-To view notebooks, you will also need **Jupyter**:
+---
 
+## Getting Started
+
+### Prerequisites
+
+```bash
+pip install pandas numpy matplotlib scikit-learn scipy coremltools
+```
+
+For notebooks:
 ```bash
 pip install notebook
 ```
 
----
-
-##  Dataset Description
-
-This dataset is based on the **WISE Wearable Stress & Exercise Dataset**, combined with cleaned metadata and stress-level labels. It contains synchronized, high-resolution physiological measurements:
-
-- Electrodermal Activity (EDA)  
-- Heart Rate (HR)  
-- Skin Temperature (TEMP)  
-- Accelerometer Data (ACC, 3-axis)  
-- Blood Volume Pulse (BVP)  
-- Inter-Beat Intervals (IBI)
-
-After filtering corrupted or incomplete sessions, **22 participants** remain in the cleaned dataset.
-
----
-
-## Running the analysis
-
-To reproduce our analysis on DSMLP or any Python environment:
-
-    python main.py
-
-This will execute `WISE_Stress_EDA_Model.ipynb` and save a fully executed version
-as `WISE_Stress_EDA_Model_executed.ipynb`.
-
----
-
-##  Directory Structure
-
-```
-Capstone-Behavorial/
-│
-├── main.py                        # Entry-point script (DSMLP compatible)
-├── WISE_Stress_EDA_Model.ipynb    # Main analysis + model notebook
-├── stress_v1.png                  # Protocol V1 visualization
-├── stress_v2.png                  # Protocol V2 visualization
-│
-├── 22subjects/                    # Raw data (22 subjects who completed all 3 tests)
-│   └── STRESS/
-│       └── S04/, S05/, S08/, f01/, f02/, ...
-│
-├── WISE_data_files/               # Original dataset files from PhysioNet
-│   ├── Data_Dictionary.csv
-│   ├── LICENSE.txt
-│   ├── Stress_Level_v1.csv       # Self-reported stress labels (V1)
-│   ├── Stress_Level_v2.csv       # Self-reported stress labels (V2)
-│   ├── subject-info.csv          # Participant metadata
-│   ├── data_constraints.txt      # Data quality notes
-│   └── Wearable_Dataset.ipynb    # Original dataset exploration
-│
-├── notebook_drafts/               # Exploratory/draft notebooks
-│   ├── EDA-Levy.ipynb
-│   ├── EDA_pmdata_draft.ipynb
-│   └── WISE statistical analysis & eda.ipynb
-│
-├── Q1_report/                     # Quarter 1 LaTeX report
-└── Q2_report/                     # Quarter 2 LaTeX report
-```
-
-### Participant ID Format  
-- Men participants → `Sxx` → Stage 1  
-- Women participants → `fxx` → Stage 2  
-
----
-
-##  Files
-
-### Stress-Level Files
-Located in `WISE_data_files/`:
-- **Stress_Level_v1.csv** — Self-reported stress labels (Stage 1)
-- **Stress_Level_v2.csv** — Self-reported stress labels (Stage 2)
-
-###  Participant Metadata
-File: `WISE_data_files/subject-info.csv`
-Includes:
-- Age
-- Gender
-- Height
-- Weight
-- Physical activity regularity
-- Protocol version
-
-###  Data Quality Notes
-File: `WISE_data_files/data_constraints.txt`
-Includes:
-- Incorrect wristband placement
-- Signal dropout
-- Misaligned timestamps
-- Incomplete protocols
-
-###  Original Dataset Notebook
-File: `WISE_data_files/Wearable_Dataset.ipynb`
-Provides:
-- Signal visualization examples
-- Code for loading + aligning physiological streams
-- Event segmentation helpers  
-
----
-
-##  Physiological Signal Files
-
-Each participant folder contains:
-
-| File | Description |
-|------|-------------|
-| **ACC.csv** | Accelerometer (x, y, z), unit = 1/64 g |
-| **BVP.csv** | Photoplethysmography waveform |
-| **EDA.csv** | Skin conductance (µS) |
-| **TEMP.csv** | Skin temperature (°C) |
-| **HR.csv** | Heart rate extracted from BVP |
-| **IBI.csv** | Inter-beat intervals (timestamp + duration) |
-| **tags.csv** | Event markers |
-
-###  Empatica E4 File Format (Important)
-
-All E4 sensor files follow this structure:
-
-```
-Row 1 → Session start time (UTC)
-Row 2 → Sampling frequency (Hz)
-Row 3+ → Sensor values
-```
-
-This ensures correct cross-signal alignment.
-
----
-
-##  Stress-Level Labels
-
-These files provide ground-truth stress labels for modeling:
-
-- `WISE_data_files/Stress_Level_v1.csv` — Stage 1 (Sxx)
-- `WISE_data_files/Stress_Level_v2.csv` — Stage 2 (fxx)  
-
----
-
-##  Subject Metadata
-
-Included in `WISE_data_files/subject-info.csv`:
-
-- Age  
-- Gender  
-- Height  
-- Weight  
-- Physical activity habits  
-- Protocol version (V1 / V2)
-
----
-
-##  Session Types
-
-Each participant completed **three controlled laboratory sessions**:
-
-### 1.  Stress-Induced Cognitive Tasks  
-Tasks designed to trigger mental stress using cognitive load.
-
-### 2.  Aerobic Exercise  
-Moderate, continuous cycling.
-
-### 3.  Anaerobic Exercise  
-Short, high-intensity bursts producing sharp physiological changes.
-
-These allow comparison between **mental stress**, **physical exertion**, and **baseline activity**.
-
----
-
-##  Using the Dataset
-
-### Clone the Repository
+### Clone and Run
 
 ```bash
 git clone https://github.com/Ctt011/Capstone-Behavorial.git
 cd Capstone-Behavorial
 ```
 
-### Launch the Notebook
-
+To reproduce the Stage 1 model training + CoreML export:
 ```bash
-jupyter notebook WISE_Stress_EDA_Model.ipynb
+python export_stage1_model.py
 ```
 
-### View Files
+To parse an Apple Health export:
+```bash
+python parse_apple_health.py
+```
 
-- Open CSV files via  
-  - Pandas  
-  - VSCode  
-  - Excel  
-- Use the notebook to generate time-series plots  
-- Analyze stress patterns or build ML models
+To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
 
 ---
 
-##  Research Purpose
+## File Guide
 
-This dataset is used to:
+### Pipeline Scripts (repo root)
 
-- Extract robust physiological features  
-- Compare induced lab stress vs. real-world daily stress  
-- Evaluate domain adaptation methods (e.g., CORAL, DANN)  
-- Study cross-condition generalization  
-- Build toward a **personalized stress digital twin**
+| File | What It Does |
+|------|-------------|
+| `export_stage1_model.py` | Trains Activity Classifier on WISE data, exports to `models/`. Run this to regenerate the model. |
+| `stage3_stress_formulas.py` | DC/AC PRSA formulas for stress scoring (0-100). Python reference implementation. |
+| `stage2_sleep_rules.py` | Sleep quality threshold adjustment rules. Python reference implementation. |
+| `parse_apple_health.py` | Parses Apple Health `export.xml` into CSVs (HR, SDNN, Sleep). |
+| `preprocess_wise.py` | Single source of truth for WISE data preprocessing. Imported by all notebooks. |
+| `TEAM_PROJECT_UPDATE.md` | Team-facing project update with architecture, deadlines, and task assignments. |
 
+### Trained Models (`models/`)
 
+| File | What It Does |
+|------|-------------|
+| `ActivityClassifier.mlmodel` | CoreML Random Forest model (528KB). 4 features: HR_mean, HR_std, ACC_mean, ACC_std. 93.6% LOSO. |
+| `ActivityClassifier.pkl` | Serialized sklearn pipeline for Python testing. |
+| `ActivityClassifier.onnx` | ONNX format (cross-platform). |
+| `ActivityClassifier_preprocessing.json` | StandardScaler parameters (means + stds) for feature preprocessing in Swift. |
 
+### iOS App (`digital_twin_app/DigitalTwin/`)
 
+| File | What It Does |
+|------|--------------|
+| `ActivityClassifier.mlmodel` | CoreML model (copy for Xcode) |
+| `ActivityClassifier_preprocessing.json` | Preprocessing params (copy for Xcode) |
+| `StressDetectionPipeline.swift` | 3-stage hybrid pipeline (copy for Xcode) |
+| `BodyBatteryView.swift` | Body Battery system — drain, recharge, 30-day history, recovery activities |
+| `ActivityManager.swift` | Activity logging (Aerobic, Anaerobic, Cognitive) |
+| `HealthKitManager.swift` | HealthKit queries: HR, HRV, Steps, Sleep, workout sessions |
+| `ContentView.swift` | Dashboard: battery preview, insights, forecast, heart rate, steps, HRV, sleep |
+| `AddActivityView.swift` | UI for logging activities |
+| `DigitalTwinApp.swift` | App entry point |
 
+### Analysis Notebooks (`main_analysis_notebooks/`)
 
+| File | What It Does |
+|------|-------------|
+| `notebooks/Biomarker_Comparison.ipynb` | Stage 1 analysis: 3-way biomarker comparison (Cognitive vs Aerobic vs Anaerobic), LOSO validation, 2-class vs 3-class |
+| `notebooks/StressLevel_model.ipynb` | Stage 2 stress regression (LassoCV, R²=-0.035). Documents why pure ML regression fails on N=22. |
+| `notebooks/WISE_Stress_EDA_Model.ipynb` | Original binary stress classifier (77.1% CV). Q1 work. |
+| `notebooks/AerobicModel.ipynb` | Aerobic exercise classifier |
+| `notebooks/AnaerobicModel.ipynb` | Anaerobic exercise classifier |
+| `notebooks/CognitiveModel.ipynb` | Cognitive stress model |
+| `notebooks/_setup.py` | Path helper — auto-configures CWD and sys.path so notebooks work from the subdirectory |
 
+### Shared Preprocessing
 
+| File | What It Does |
+|------|-------------|
+| `preprocess_wise.py` | Single source of truth for all WISE data preprocessing. Signal loading, segmentation, sliding windows (30s, 50% overlap), per-subject HRV imputation. Imported by all notebooks. |
+| `main.py` | Entry-point script for DSMLP (runs WISE_Stress_EDA_Model.ipynb) |
 
+### Data
 
+| Directory | Contents |
+|-----------|----------|
+| `22subjects/` | Raw WISE data — 22 subjects, each with ACC, BVP, EDA, HR, IBI, TEMP CSVs |
+| `WISE_data_files/` | Dataset metadata: stress labels (v1, v2), subject info, data dictionary |
+| `notebook_drafts/` | Exploratory notebooks (Levy's EDA, PMData draft, statistical analysis) |
+
+### Reports
+
+| Directory | Contents |
+|-----------|----------|
+| `Q1_report/` | Quarter 1 LaTeX report (submitted Dec 2025) |
+| `Q2_report/` | Quarter 2 LaTeX report (in progress) |
+
+---
+
+## Dataset
+
+**WISE (Wearable Stress & Exercise)** — PhysioNet, 22 subjects, Empatica E4 wearable.
+
+Each participant completed 3 sessions:
+1. **Cognitive stress** — Stroop test, TMCT (mental math)
+2. **Aerobic exercise** — Steady cycling (70-110 RPM)
+3. **Anaerobic exercise** — Sprint intervals
+
+Signals: EDA, HR, HRV (IBI), TEMP, ACC (3-axis), BVP at up to 64 Hz.
+
+### Participant IDs
+- `Sxx` — Male participants (Stage 1 protocol)
+- `fxx` — Female participants (Stage 2 protocol)
+
+### Empatica E4 File Format
+```
+Row 1 → Session start time (UTC)
+Row 2 → Sampling frequency (Hz)
+Row 3+ → Sensor values
+```
+
+---
+
+## Key Results
+
+| Component | Result | Method |
+|-----------|--------|--------|
+| Activity Classifier (Stage 1) | **93.6% LOSO** | Random Forest, 4 features, 22-fold Leave-One-Subject-Out |
+| Stress Regression (attempted) | R²=-0.035 | LassoCV — worse than mean prediction, consistent with literature (Velmovitsky 2022: 55-64% with N=33) |
+| Binary Stress Classifier (attempted) | F1=0.46 | Predicts mostly REST due to class imbalance (87:13) |
+| DC/AC Stress Formulas (Stage 3) | Implemented | Bauer 2006 PRSA method, validated on WISE IBI data |
+
+---
+
+## References
+
+1. Velmovitsky et al. (2022) — Apple Watch stress detection, N=33, 55-64% accuracy
+2. Bonneval et al. (2025) — Apple Watch HRV validation: 1.15% error at rest, 93% during movement
+3. Hernando et al. (2018) — Apple Watch RR intervals, SDNN robust to data gaps
+4. Bahameish & Stockman — Stress vs Neutral F1=56%, Stress vs Relaxation F1=89%
+5. Apple (2024) — Behavioral Foundation Model: sleep + sensor fusion improves predictions
+6. Bauer et al. (2006) — PRSA method for Deceleration/Acceleration Capacity
