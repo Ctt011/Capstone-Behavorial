@@ -1,51 +1,466 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+% !TEX TS-program = xelatex
+% !BIB TS-program = bibtex
+\documentclass[12pt,letterpaper]{article}
+\usepackage{style/dsc180reportstyle}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{placeins}
 
-\title{Q2 Proposal}
-\author{xiz154 }
-\date{December 2025}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Title and Authors
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{A Hybrid Pipeline for Wearable Stress Detection: Combining Activity Classification, Sleep-Adjusted Thresholds, and Heart Rate Variability Formulas in a Digital Twin iOS Application}
+
+\author{Camille Tran \\
+  {\tt ctt011@ucsd.edu} \\\And
+  Dhyay Thakrar \\
+  {\tt dthakrar@ucsd.edu} \\\And
+  Levy Sahoo \\
+  {\tt slsahoo@ucsd.edu} \\\And
+  Essie Chang \\
+  {\tt e3cheng@ucsd.edu} \\\And
+  Selina Zhang \\
+  {\tt xiz154@ucsd.edu} \\\And
+  Tauhidur Rahman \\
+  {\tt trahman@ucsd.edu} \\}
 
 \begin{document}
-
 \maketitle
 
-\textbf{Q2 - Written Proposal }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Abstract and Links
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\textbf{Context: (Dhyay) }
+\begin{abstract}
+Wearable stress detection systems typically rely on end-to-end machine learning models trained on physiological signals, but these approaches struggle with small datasets and fail to distinguish physical exertion from cognitive stress. We present a hybrid three-stage pipeline that addresses both limitations by combining machine learning where data supports it with established physiological formulas and evidence-based rules where it does not. Stage~1 uses a Random Forest activity classifier trained on the WISE dataset (22 subjects) to distinguish physical activity from cognitive states, achieving 93.6\% leave-one-subject-out accuracy using only heart rate and accelerometer features. Stage~2 applies sleep-quality rules backed by recent research to adjust individual stress sensitivity thresholds. Stage~3 computes deceleration capacity (DC) and acceleration capacity (AC) of heart rate from inter-beat intervals using the Phase-Rectified Signal Averaging method, comparing values against personal baselines to generate a stress score (0--100). These stages feed into a Body Battery energy system that quantifies cumulative stress burden and triggers guided recovery activities with measurable physiological validation. The full pipeline is deployed as a CoreML model within an iOS application that reads Apple Watch data via HealthKit, forming a closed-loop digital twin: detect stress, quantify its impact, recommend recovery, measure the outcome, and update personal baselines. Our approach demonstrates that hybrid architectures can deliver practical stress monitoring systems even with limited training data, and that the combination of activity-aware filtering, personalized thresholds, and established cardiac formulas outperforms attempts at pure ML stress regression on small samples.
+\end{abstract}
 
-The context of the problem and why its worth solving and investing 10 weeks on the project. This should be accessible to anyone – for instance, methodology staff, your family and friends, and hiring managers for the jobs you apply to should all be able to read this and understand what you are proposing and why it matters.
+\begin{center}
+Code: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
+\end{center}
 
-\textbf{Problem Specifically (Selina + Camille) }
+\clearpage
+\maketoc
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Main Contents
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+Consumer wearable devices now record rich physiological signals---heart rate, heart rate variability (HRV), movement, and sleep patterns---that theoretically enable continuous stress monitoring outside the laboratory. However, translating these signals into reliable stress predictions remains an open challenge. Two fundamental problems limit current approaches: first, physiological responses to cognitive stress overlap substantially with responses to physical exertion, causing systems that lack activity context to generate false positives during exercise. Second, labeled stress datasets are small (typically 15--40 subjects), making it difficult to train generalizable end-to-end machine learning models.
+
+In our Quarter~1 work, we explored this problem using the PhysioNet Wearable Induced Stress and Exercise (WISE) dataset \citep{schlink2020wise}, which provides Empatica E4 recordings from 22 subjects during cognitive stress tasks and structured exercise sessions. We trained a Random Forest binary classifier that achieved 72\% accuracy distinguishing stress from rest states using nine physiological features. While this result fell within the range reported by comparable studies \citep{hickey2021smart, schmidt2018wesad}, it also exposed a critical limitation: the classifier could not distinguish between elevated heart rate caused by cognitive stress and elevated heart rate caused by physical exercise. Without activity context, applying this model during daily life would generate frequent false stress alerts whenever the user exercises.
+
+In Quarter~2, we attempted to improve upon these results. Our first approach---training a stress regression model to predict continuous stress levels---yielded a cross-validated $R^2 = -0.035$, worse than simply predicting the mean for every subject. This negative result, while discouraging, is consistent with the broader literature: \cite{velmovitsky2022smartwatch} achieved only 55--64\% accuracy with 33 Apple Watch subjects, and \cite{bahameish2022stress} reported $F_1 = 0.56$ for binary stress classification. The challenge is not implementation quality but data sufficiency: 22 subjects do not provide enough variance for machine learning to learn the subtle, person-specific patterns of cognitive stress.
+
+Rather than collecting more data or applying increasingly complex models, we pivoted to a hybrid architecture that uses machine learning only where the data supports it and relies on established physiological formulas and evidence-based rules elsewhere. The key insight is that not all components of a stress detection system require learned parameters. Activity classification---distinguishing sitting from exercising---is a problem with clear physical signatures (movement intensity) that generalizes well across subjects. Stress scoring, on the other hand, benefits from formula-based approaches like deceleration capacity (DC) and acceleration capacity (AC) of heart rate \citep{bauer2006prsa}, which require no training data and can be personalized through individual baselines.
+
+Our three-stage hybrid pipeline works as follows:
+\begin{enumerate}
+    \item \textbf{Stage~1 (Machine Learning):} An activity classifier determines whether the user is physically active or in a cognitive state, using heart rate and accelerometer features. This stage achieves 93.6\% leave-one-subject-out (LOSO) accuracy, trained on the WISE dataset.
+    \item \textbf{Stage~2 (Rules):} For cognitive states, sleep quality from the previous night adjusts the user's stress sensitivity threshold. Poor sleep lowers the threshold (more sensitive to stress), following findings from \cite{apple2024behavioral} that behavioral context improves physiological predictions.
+    \item \textbf{Stage~3 (Formulas):} DC/AC metrics computed from heart rate variability are compared against the user's personal baseline to produce a stress score on a 0--100 scale, using the Phase-Rectified Signal Averaging (PRSA) method \citep{bauer2006prsa}.
+\end{enumerate}
+
+The stress score feeds into a Body Battery energy system---inspired by but independently developed from Garmin's proprietary metric \citep{garmin2024bodybattery}---that tracks cumulative stress burden over time and recommends recovery activities when energy is low. Crucially, the system measures physiological outcomes (heart rate and HRV changes) during and after recovery sessions, creating a closed loop: detect, quantify, intervene, validate, and learn \citep{barricelli2019digital}.
+
+The full pipeline is deployed on-device as a CoreML model \citep{apple2023coreml} within an iOS application that reads Apple Watch data via HealthKit. This paper describes the architecture, implementation, and evaluation of each stage, reports results from our WISE dataset experiments and Apple Watch feature ablation studies, discusses the honest negative results that motivated the hybrid approach, and reflects on the implications for practical wearable stress monitoring systems.
+
+
+\section{Literature Review}
+
+\subsection{Wearable Stress Detection}
+
+The use of wearable physiological signals for stress detection has been studied extensively in controlled laboratory settings. \cite{hickey2021smart} reviewed 21 studies and found that heart rate variability (HRV) was the predominant biomarker, used in 10 of 15 stress detection studies, with accuracy ranging from 65--85\%. Most consumer devices, however, only provide average heart rate rather than the beat-to-beat intervals needed for accurate HRV computation, limiting real-world applicability.
+
+\cite{schmidt2018wesad} introduced the WESAD dataset with 15 subjects wearing both chest and wrist sensors, achieving 80\% stress detection accuracy with chest-worn ECG. Wrist-worn accuracy was notably lower, highlighting the signal quality gap between research-grade and consumer devices. More recently, \cite{velmovitsky2022smartwatch} attempted stress detection using Apple Watch ECG data with 33 subjects, achieving only 55--64\% accuracy---substantially below laboratory benchmarks. \cite{bahameish2022stress} reported $F_1 = 0.56$ for stress versus neutral classification, further demonstrating the difficulty of this task with limited subjects.
+
+A critical finding across studies is that HRV reliability degrades dramatically during movement. \cite{bonneval2025hrv} reported that Apple Watch HRV measurements had only 1.15\% error at rest but 93\% error during movement. This renders any stress detection system that does not account for physical activity fundamentally unreliable during large portions of daily life.
+
+\subsection{Heart Rate Variability and the PRSA Method}
+
+Heart rate variability captures the variation in time intervals between successive heartbeats and is modulated by the autonomic nervous system. SDNN (standard deviation of normal-to-normal intervals) reflects overall HRV, while RMSSD (root mean square of successive differences) captures short-term, beat-to-beat variability. Both metrics decrease under stress due to sympathetic dominance \citep{hernando2018sdnn}.
+
+The Phase-Rectified Signal Averaging (PRSA) method, introduced by \cite{bauer2006prsa}, provides robust estimates of deceleration capacity (DC) and acceleration capacity (AC) of heart rate even in the presence of noise and ectopic beats. DC reflects parasympathetic (vagal) activity: higher DC indicates greater capacity for heart rate deceleration, associated with relaxation and recovery. AC reflects sympathetic activation: elevated AC indicates heart rate acceleration, associated with stress. The PRSA method is attractive for consumer wearable applications because it is more robust to the sparse, irregular sampling typical of commercial devices compared to traditional time-domain HRV metrics.
+
+\subsection{The WISE Dataset}
+
+The WISE dataset \citep{schlink2020wise} provides multimodal physiological recordings from the Empatica E4 wearable during cognitive stress tasks and structured exercise sessions. Thirty-six volunteers participated in stress sessions, 30 in aerobic exercise, and 31 in anaerobic exercise, with 22 subjects completing all three. The dataset includes electrodermal activity (EDA, 4 Hz), blood volume pulse (BVP, 64 Hz), heart rate (HR, 1 Hz), skin temperature (TEMP, 4 Hz), 3-axis accelerometry (ACC, 32 Hz), and inter-beat intervals (IBI) derived from BVP. Cognitive stress was induced via validated protocols including the Trier Mental Challenge Test (TMCT), Stroop test, opinion tasks, and mental subtraction. This combination of cognitive and physical protocols makes WISE uniquely suited for developing activity-aware stress detection systems.
+
+\subsection{Digital Twins and Body Battery Concepts}
+
+A digital twin is a virtual representation of a physical entity that is continuously updated with real-world data \citep{barricelli2019digital}. In health applications, a digital twin can model an individual's physiological state, predict responses to stimuli, and recommend interventions. The concept extends beyond passive monitoring to active feedback loops where the system detects a condition, intervenes, and validates the outcome.
+
+Garmin's Body Battery \citep{garmin2024bodybattery} is the most widely deployed commercial implementation of energy-based stress quantification, combining HRV, stress, activity, and sleep data into a single 0--100 energy metric. However, its algorithm is proprietary and not reproducible. Our implementation builds on the same conceptual framework but uses transparent, published methods (PRSA-based DC/AC, evidence-based sleep rules) that can be validated and extended by the research community.
+
+
+\section{Methods}
+
+\subsection{Overview of the Hybrid Pipeline}
+
+Our system processes Apple Watch physiological data through three sequential stages, each using the appropriate analytical tool for its sub-problem:
+
+\begin{enumerate}
+    \item \textbf{Stage~1 --- Activity Classification (Machine Learning):} A Random Forest classifier determines whether the user is in a PHYSICAL or COGNITIVE state based on heart rate and movement features. If PHYSICAL, stress detection is skipped (exercise elevates HR/HRV independently of stress). If COGNITIVE, processing continues to Stage~2.
+    \item \textbf{Stage~2 --- Sleep-Based Threshold Adjustment (Rules):} The previous night's sleep quality adjusts the stress sensitivity threshold for the current day. Poor sleep makes the system more sensitive; good sleep makes it more tolerant.
+    \item \textbf{Stage~3 --- Stress Scoring (Formulas):} DC/AC metrics are computed from heart rate data using the PRSA method and compared against the user's personal baseline. The result is a stress score on a 0--100 scale.
+\end{enumerate}
+
+The stress score feeds into the Body Battery system, which tracks cumulative energy throughout the day and triggers recovery recommendations when energy is low.
+
+\subsection{Data Preprocessing}
+
+\subsubsection{Signal Loading and Segmentation}
+
+We used all 22 subjects from the WISE dataset who completed stress, aerobic, and anaerobic protocols. For each subject-session pair, we loaded five physiological signals (EDA, BVP, HR, TEMP, ACC) and IBI data at their native sampling rates. Protocol timestamps (tags) were used to segment continuous recordings into discrete phases labeled as STRESS or REST for cognitive sessions, and AEROBIC or ANAEROBIC for exercise sessions.
+
+\subsubsection{Sliding Window Feature Extraction}
+
+Rather than computing a single feature vector per protocol phase (as in our Q1 work), we adopted a sliding window approach to increase sample size and temporal resolution:
 
 \begin{itemize}
-    \item \textbf{\textbf{General problem}}
-    \item \textbf{\textbf{Previous methods/work}}
-    \item \textbf{\textbf{Our approach what we are doing differently }}
+    \item \textbf{Window size:} 30 seconds
+    \item \textbf{Overlap:} 50\% (15-second step)
+    \item \textbf{Sample increase:} From 341 phase-level segments to 2,449 windows
 \end{itemize}
 
-\textbf{A narrow, carefully crafted problem statement for the domain expert. Precision is key and I highly encourage you to try and specify this mathematically. Has previous work attempted to answer these specific problems? If so, how did they fail? If not, why are these problems still interesting? In what way does your investigation address a deficiency in existing solutions? This section should be quite technical – make sure to refer to specific methods.}
+For each window, the following features were computed:
 
-The broader problem motivating our work is that stress is measured very differently in laboratory settings compared to daily life, and current research struggles to connect these two worlds. In controlled environments like the WISE study, stress is clearly induced by cognitive tasks, and physiological responses such as heart rate spikes, EDA increases, temperature drift, accelerometer movement, and BVP fluctuations can be directly tied to annotated moments of mental strain. These signals provide a precise view of how the autonomic nervous system reacts to stress under clean, tightly scripted conditions. In contrast, datasets like PMData record stress in a free-living setting through daily Fitbit summaries and self-reported wellness measures. Here, stress is not induced but instead emerges naturally, is affected by sleep, exercise, lifestyle, and context, and is reported subjectively at the end of each day. Because these two approaches measure stress in fundamentally different ways, the general problem becomes: How do we understand and model stress when lab-recorded physiological patterns and real-world, self-reported stress may not align? Without a unified way of interpreting these signals, researchers struggle to translate physiological stress responses observed in WISE into meaningful predictions for daily behavior recorded in PMData.
+\begin{table}[H]
+\centering
+\caption{Features extracted per 30-second window.}
+\label{tab:features-q2}
+\begin{tabular}{p{3cm}p{3.5cm}p{7.5cm}}
+\toprule
+\textbf{Modality} & \textbf{Features} & \textbf{Description} \\
+\midrule
+Heart Rate & HR\_mean, HR\_std & Mean and standard deviation of 1~Hz HR signal within the window. \\
+HRV (from IBI) & SDNN, RMSSD & Computed from inter-beat intervals falling within the window. \\
+Accelerometer & ACC\_mean, ACC\_std & Mean and standard deviation of movement intensity (3-axis magnitude, smoothed with moving average). \\
+EDA & EDA\_mean, EDA\_std & Mean and standard deviation of electrodermal activity. \\
+Temperature & TEMP\_mean, TEMP\_std & Mean and standard deviation of skin temperature. \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Prior studies on the WISE dataset focus on how the body physiologically responds during induced stress sessions and specific exercise protocols. WISE provides high-resolution time-series signals collected through the Empatica E4, and previous research uses these continuous measurements to visualize how cognitive or physical stress affects HRV, EDA, temperature, accelerometer activity, and BVP. These works show that stress produces sharp, recognizable physiological signatures, and they typically analyze these patterns within the lab context, confirming that controlled stress tasks reliably change bodily signals. However, this line of research stops at demonstrating associations rather than building models that generalize those findings beyond the experimental setting.
+\subsubsection{Per-Subject HRV Imputation}
 
-PMData studies, on the other hand, shift the focus from controlled stress to natural, everyday life. Rather than using physiological windows, PMData integrates Fitbit-derived metrics sleep duration, resting heart rate, step counts, calories and subjective reports such as wellness, fatigue, mood, training load, and daily stress. Prior work using PMData has shown that its multimodal structure supports prediction tasks like next-day weight change, demonstrating its richness and complexity. But these studies highlight major challenges: Fitbit sensors can misestimate movement, daily self-reports introduce noise, and real-world stress lacks clear boundaries. Unlike WISE, PMData does not provide fine-grained physiological stress segments, making it difficult to isolate the moment-to-moment signals that correspond to subjective stress levels.
+Missing HRV values (SDNN, RMSSD) occurred in windows with fewer than two inter-beat intervals. Rather than using global mean imputation, we used per-subject mean imputation: each subject's missing HRV values were filled with that subject's own mean across non-missing windows. This preserves individual HRV variance and avoids biasing low-HRV subjects toward the population mean. A total of 829 missing values were imputed using this method.
 
-Together, WISE and PMData represent two strong but incomplete perspectives on stress: WISE offers precise physiological reactions under controlled mental stress, while PMData captures long-term daily behavior and subjective stress outside the lab. Previous studies treat these datasets separately, which leaves open the central research question of how the clear stress patterns observed in WISE relate to the messy, real-world stress experiences captured in PMData.
+\subsection{Stage 1: Activity Classifier}
 
-Our approach uses the WISE cognitive-stress dataset as a controlled environment where stress periods are clearly annotated and reflected across multiple physiological streams. We treat the dataset as a labeled source domain, where each sample consists of synchronized TEMP, HR, ACC, EDA, and BVP features extracted from windows across stress and non-stress intervals, and each labelindicates whether that window belongs to a stress segment. Unlike prior work that mainly visualizes or describes these signals, we mathematically structure them into feature windows so they can be used to train predictive models. These structured representations form the physiological “ground truth” basis for a digital twin: the model learns the underlying dynamics that distinguish cognitive stress from baseline conditions.
+\subsubsection{Problem Formulation}
 
-\textbf{Final deliverables-} wait to ask mentor or email him \textbf{(levy) }
+The goal of Stage~1 is to classify each time window as either PHYSICAL (aerobic or anaerobic exercise) or COGNITIVE (mental tasks or rest). This is a prerequisite for stress detection because exercise elevates heart rate and alters HRV independently of psychological stress, and HRV measurements from consumer wearables have up to 93\% error during movement \citep{bonneval2025hrv}.
 
-A statement of the primary output (i.e., state whether you will create a report/paper, a website, or an application). If your project analyzes data, specify how you will communicate the analyses. If your project generates data, how will you analyze the data it produces?
+Our initial approach used three activity classes (COGNITIVE, AEROBIC, ANAEROBIC), achieving 91.3\% LOSO accuracy. However, the ANAEROBIC class suffered from severe imbalance: sprints produced only 68 windows compared to 1,968 for AEROBIC, resulting in 46\% recall for ANAEROBIC and 86\% precision for COGNITIVE (meaning 14\% of predicted COGNITIVE windows were actually exercise). Since the downstream stress detection system only needs to know whether the user is exercising (not what kind), we merged AEROBIC and ANAEROBIC into a single PHYSICAL class. This increased accuracy to 93.6\% LOSO and eliminated the imbalance problem.
 
-Next steps\textbf{ ( Essie) }
+\subsubsection{Feature Selection}
 
-Talk about other data sets to use to make our model for generalizable or personal 
+We conducted systematic ablation experiments to determine the minimum feature set required for deployment on Apple Watch (Table~\ref{tab:stage1-ablation}).
 
-Contract: outlining what we can do in quarter 2
+\begin{table}[H]
+\centering
+\caption{Stage~1 ablation results: 2-class PHYSICAL vs COGNITIVE (LOSO).}
+\label{tab:stage1-ablation}
+\begin{tabular}{p{5cm}lll}
+\toprule
+\textbf{Feature Set} & \textbf{Accuracy} & \textbf{Best Clf} & \textbf{$F_1$ Macro} \\
+\midrule
+All Empatica (10 features) & 94.4\% & RF & 0.895 \\
+Apple Watch full (6 features) & 94.3\% & SVM & 0.890 \\
+\textbf{HR + ACC only (4 features)} & \textbf{94.5\%} & \textbf{SVM} & \textbf{0.897} \\
+HR + HRV only (5 features) & 81.5\% & SVM & 0.506 \\
+HR only (3 features) & 82.0\% & SVM & 0.450 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Specifically what each member would do in quarter 2:
+The key finding is that movement features (ACC\_mean, ACC\_std) are critical: accuracy drops from 94.5\% to 82.0\% without them, and $F_1$ drops from 0.897 to 0.450. Conversely, dropping EDA and temperature (which Apple Watch does not provide) has negligible impact (94.4\% $\rightarrow$ 94.3\%). HRV features add nothing to Stage~1 when movement is available. The minimum viable feature set is \{HR\_mean, HR\_std, ACC\_mean, ACC\_std\}.
+
+\subsubsection{Model Training and Export}
+
+The final Stage~1 model was trained using:
+\begin{itemize}
+    \item \textbf{Algorithm:} Random Forest with 100 trees \citep{breiman2001random}
+    \item \textbf{Pipeline:} Mean imputation $\rightarrow$ Standard scaling $\rightarrow$ Random Forest
+    \item \textbf{Features:} HR\_mean, HR\_std, ACC\_mean, ACC\_std
+    \item \textbf{Validation:} Leave-One-Subject-Out (22 folds)
+    \item \textbf{Final accuracy:} 93.6\% LOSO
+\end{itemize}
+
+The trained scikit-learn \citep{pedregosa2011sklearn} pipeline was exported to CoreML format \citep{apple2023coreml} for on-device inference on iOS. Due to incompatibilities between scikit-learn 1.7.2 and coremltools 9.0, we built the CoreML model specification directly from the Random Forest's tree internals using the \texttt{TreeEnsembleClassifier} builder API. Preprocessing parameters (imputer means and scaler statistics) were exported as a JSON file for the Swift application to apply before model inference.
+
+\subsection{Stage 2: Sleep-Based Threshold Adjustment}
+
+Stage~2 implements evidence-based rules that adjust the stress detection threshold based on the user's recent sleep quality. The rationale is supported by \cite{apple2024behavioral}, who demonstrated that behavioral context (particularly sleep patterns) significantly improves the accuracy of health predictions from wearable data.
+
+The adjustment is computed as follows:
+\begin{enumerate}
+    \item The user's sleep duration from the previous night is compared to their 30-day rolling average baseline.
+    \item A sleep quality ratio is computed: $r = \text{actual\_hours} / \text{baseline\_hours}$.
+    \item The stress threshold is adjusted:
+    \begin{itemize}
+        \item $r < 0.8$ (poor sleep): Threshold lowered by 15\%, making the system more sensitive to stress signals.
+        \item $0.8 \leq r \leq 1.1$ (normal sleep): No adjustment.
+        \item $r > 1.1$ (extra sleep): Threshold raised by 10\%, reflecting higher resilience.
+    \end{itemize}
+\end{enumerate}
+
+Sleep data is read from Apple HealthKit's \texttt{SleepAnalysis} records. For new users without 30 days of history, a default baseline of 7.0 hours is used.
+
+\subsection{Stage 3: DC/AC Stress Scoring}
+
+Stage~3 computes a continuous stress score (0--100) from heart rate data using the Phase-Rectified Signal Averaging (PRSA) method \citep{bauer2006prsa}.
+
+\subsubsection{Deceleration Capacity and Acceleration Capacity}
+
+Given a sequence of RR intervals (time between successive heartbeats), the PRSA method identifies anchor points where the heart rate decelerates ($RR_i > RR_{i-1}$, for DC) or accelerates ($RR_i < RR_{i-1}$, for AC). For each anchor point, a window of surrounding intervals is extracted and aligned. The average across all aligned windows produces the PRSA signal, from which DC and AC are computed as:
+
+\begin{equation}
+    DC = \frac{1}{4N}\sum_{i} \left[ X(0)_i + X(1)_i - X(-1)_i - X(-2)_i \right]
+\end{equation}
+
+where $X(k)_i$ is the $k$-th element of the aligned window centered at anchor point $i$, and $N$ is the number of anchor points. AC is computed identically but using acceleration anchor points.
+
+\subsubsection{Personal Baseline Comparison}
+
+Raw DC/AC values are not directly interpretable as stress scores because they vary substantially between individuals. Our system maintains a rolling baseline of each user's DC and AC values over the past 7 days. The current DC/AC values are compared to this baseline:
+
+\begin{equation}
+    \text{stress\_score} = \text{clip}\left(50 + 50 \times \frac{\text{baseline\_DC} - \text{current\_DC}}{\text{baseline\_DC}}, \ 0, \ 100\right)
+\end{equation}
+
+A score of 50 represents the user's normal state. Scores above 50 indicate elevated stress (DC below personal baseline), and scores below 50 indicate recovery (DC above baseline). The sleep adjustment from Stage~2 scales this score by the threshold modifier.
+
+\subsection{Body Battery System}
+
+The Body Battery provides an intuitive energy metaphor (0--100) that integrates stress detection, activity, and recovery into a single metric.
+
+\subsubsection{Energy Dynamics}
+
+\begin{itemize}
+    \item \textbf{Drain:} Battery drains proportionally to both stress intensity and duration. The drain rate is: $\Delta_{\text{drain}} = \alpha \times \text{stress\_score} \times \Delta t$, where $\alpha$ is a calibration constant and $\Delta t$ is the time interval.
+    \item \textbf{Recharge:} Battery recharges during sleep and guided recovery activities. The recharge rate depends on the activity type (breathing exercises, walking, meditation, stretching, hydration) and measured physiological response.
+    \item \textbf{Validation:} During recovery activities, the app tracks heart rate and HRV via HealthKit. If HR decreases and HRV increases post-activity, the recovery is considered successful and the battery recharge is applied.
+\end{itemize}
+
+\subsubsection{Closed-Loop Architecture}
+
+The Body Battery completes a five-stage closed loop that distinguishes our system from detection-only approaches:
+
+\begin{enumerate}
+    \item \textbf{Detect:} Stages 1--3 identify whether the user is stressed and compute a score.
+    \item \textbf{Quantify:} The Body Battery translates the stress score into cumulative energy impact.
+    \item \textbf{Intervene:} When energy is low, the app recommends specific recovery activities with estimated battery recovery amounts.
+    \item \textbf{Validate:} During recovery, physiological signals are monitored to confirm the activity's effectiveness.
+    \item \textbf{Learn:} Personal baselines (DC/AC values, sleep norms, recovery effectiveness) update over time, personalizing the system to the individual user.
+\end{enumerate}
+
+\subsection{iOS Application and Deployment}
+
+The pipeline is implemented as a native iOS application using SwiftUI and HealthKit. Key implementation details:
+
+\begin{itemize}
+    \item \textbf{Data source:} Apple Watch via HealthKit (heart rate, HRV/SDNN, step count, sleep analysis).
+    \item \textbf{Model inference:} Stage~1 CoreML model runs on-device with no network dependency. The model file is 528~KB.
+    \item \textbf{Real-time monitoring:} During active monitoring sessions, the app uses HealthKit workout sessions to receive heart rate updates every 5--6 seconds (compared to every 5--20 minutes in background mode).
+    \item \textbf{Step-to-ACC proxy:} Apple Watch does not provide raw accelerometer data to third-party apps. Step count is used as a movement intensity proxy for the activity classifier's ACC features.
+\end{itemize}
+
+\subsection{Validation Methodology}
+
+\subsubsection{Leave-One-Subject-Out Cross-Validation}
+
+All classification results are reported using LOSO cross-validation with 22 folds (one per subject). This provides a realistic estimate of model performance on unseen users, as no data from the test subject appears during training. LOSO is more conservative than random $k$-fold cross-validation, which can leak information when multiple windows from the same subject appear in both training and test sets.
+
+\subsubsection{DC/AC Statistical Validation}
+
+To evaluate whether DC/AC metrics distinguish stress from rest in the WISE dataset, we conducted paired $t$-tests comparing DC and AC values between STRESS and REST segments for each subject.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RESULTS SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Results}
+
+\subsection{Stage 1: Activity Classification}
+
+% TODO: Add table with LOSO results (3-class vs 2-class comparison)
+% TODO: Add confusion matrix for final 2-class model
+% TODO: Add feature importance plot (ACC_mean 52%, ACC_std 25%, HR_mean 13%, HR_std 10%)
+
+\subsection{Negative Results: Why Pure ML Stress Detection Failed}
+
+% TODO: Report stress regression R² = -0.035
+% TODO: Report binary classifier F1 = 0.46 (predicts mostly REST)
+% TODO: Compare with literature: Velmovitsky 55-64%, Bahameish F1=0.56
+% TODO: Discuss class imbalance (2860 REST vs 413 STRESS = 87:13)
+% TODO: Feature ablation showing features don't matter for Stage 2 (~85.5% all configs)
+
+\subsection{DC/AC Validation on WISE IBI Data}
+
+% TODO: Report paired t-test results (p=0.51 — NOT significant)
+% TODO: Discuss why this supports hybrid approach rather than undermining it
+% TODO: Note that DC/AC works better with personal baselines than population-level comparison
+
+\subsection{Apple Watch Feature Ablation}
+
+% TODO: Include full ablation table (already in CLAUDE.md)
+% TODO: Key finding: ACC is critical (94.5% → 82.0% without)
+% TODO: Key finding: EDA/TEMP not needed (94.4% → 94.3% without)
+
+\subsection{iOS Application}
+
+% TODO: Screenshots of dashboard and Body Battery views
+% TODO: CoreML inference latency
+% TODO: Description of user experience flow
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DISCUSSION SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Discussion}
+
+\subsection{The Case for Hybrid Architectures}
+
+% TODO: Discuss why ML fails on small stress datasets but works for activity classification
+% TODO: Compare with pure ML approaches in literature
+% TODO: Argue that hybrid is more honest and practical
+
+\subsection{Activity-Aware Filtering as a Prerequisite}
+
+% TODO: Discuss Bonneval 2025 finding (93% HRV error during movement)
+% TODO: Most stress apps skip this step — explain why that's a problem
+
+\subsection{Honest Reporting of Negative Results}
+
+% TODO: Discuss DC/AC p=0.51 finding and what it means
+% TODO: Stress regression R² = -0.035
+% TODO: Why these negative results are valuable to the community
+
+\subsection{Limitations}
+
+% TODO: Small sample (N=22), young adults only
+% TODO: Steps ≠ raw accelerometer (deployment gap)
+% TODO: SDNN sparsity on Apple Watch (2-3 readings/day)
+% TODO: No real-world validation yet (lab data only)
+% TODO: DC/AC not statistically significant on WISE IBI
+
+\subsection{Future Work}
+
+% TODO: Validation study with N=10-20 participants
+% TODO: Transfer learning to PMData
+% TODO: Calendar integration, proactive alerts
+% TODO: Longer-term personalization study
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONCLUSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Conclusion}
+
+% TODO: Summarize hybrid approach and why it works
+% TODO: Key numbers: 93.6% activity classification, closed-loop system
+% TODO: Broader impact: practical wearable stress monitoring with small data
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Reference / Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\makeappendix
+
+\subsection{Quarter 2 Project Proposal}
+
+The following is a summary of our Quarter~2 project proposal, which described the planned direction before the pivot to the hybrid architecture.
+
+\paragraph{Original Plan.}
+Our Q2 proposal outlined a continuation of the pure ML approach from Q1: train a stress regression model on WISE, improve it with feature engineering and methodology upgrades (sliding windows, LOSO validation), and then transfer the learned model to PMData for real-world daily stress prediction. The proposal described a two-stage pipeline where Stage~1 classifies activity type and Stage~2 predicts stress level within cognitive activities.
+
+\paragraph{What Changed.}
+The stress regression model yielded $R^2 = -0.035$ (worse than mean prediction), and the binary stress classifier had $F_1 = 0.46$ (essentially predicting ``not stressed'' for all inputs). These results, combined with similar failures in the published literature, led us to pivot from pure ML to the hybrid architecture described in this report. Stage~1 (activity classification) was retained and improved, while Stage~2 was replaced with sleep-based rules and Stage~3 with formula-based DC/AC stress scoring. The Body Battery closed-loop system was added as the integration layer.
+
+\paragraph{Key Differences from Proposal.}
+\begin{itemize}
+    \item \textbf{Proposed:} End-to-end ML pipeline (classification + regression)
+    \item \textbf{Actual:} Hybrid pipeline (ML + rules + formulas)
+    \item \textbf{Proposed:} Transfer learning from WISE to PMData
+    \item \textbf{Actual:} On-device deployment with Apple Watch via CoreML
+    \item \textbf{Proposed:} Stress level as primary output
+    \item \textbf{Actual:} Body Battery energy metric as primary output
+\end{itemize}
+
+
+\subsection{Code Repository Structure}
+
+All code is available at: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
+
+\begin{verbatim}
+Capstone-Behavorial/
+├── models/
+│   ├── ActivityClassifier.mlmodel    # CoreML model (528 KB)
+│   ├── ActivityClassifier.pkl        # sklearn pipeline (testing)
+│   ├── ActivityClassifier.onnx       # ONNX format (portability)
+│   └── ActivityClassifier_preprocessing.json
+├── main_analysis_notebooks/
+│   ├── Biomarker_Comparison.ipynb    # Stage 1 analysis
+│   ├── StressLevel_model.ipynb       # Stage 2 regression (negative)
+│   ├── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
+│   ├── Apple_Watch_Ablation.ipynb    # Feature ablation study
+│   ├── DC_AC_Validation.ipynb        # DC/AC statistical tests
+│   └── _setup.py                     # Path helper for notebooks
+├── notebook_drafts/                  # Exploratory notebooks
+├── digital_twin_app/DigitalTwin/     # iOS application
+│   ├── StressDetectionPipeline.swift # 3-stage pipeline
+│   ├── BodyBatteryView.swift         # Body Battery UI + logic
+│   ├── HealthKitManager.swift        # Apple Watch data access
+│   ├── ActivityManager.swift         # Activity logging
+│   ├── ContentView.swift             # Dashboard
+│   ├── ActivityClassifier.mlmodel    # Model copy for Xcode
+│   └── ActivityClassifier_preprocessing.json
+├── preprocess_wise.py                # Shared preprocessing
+├── export_stage1_model.py            # Model training + export
+├── stage3_stress_formulas.py         # DC/AC Python reference
+├── stage2_sleep_rules.py             # Sleep rules Python reference
+├── parse_apple_health.py             # Apple Health XML parser
+├── main.py                           # Pipeline orchestration
+└── Q2_report/                        # This report
+\end{verbatim}
+
+
+\subsection{Contributions}
+
+\begin{table}[H]
+\centering
+\caption{Team member contributions for Quarter 2.}
+\label{tab:contributions}
+\begin{tabular}{p{3cm}p{11cm}}
+\toprule
+\textbf{Member} & \textbf{Contributions} \\
+\midrule
+% Camille Tran & Designed the hybrid 3-stage architecture. Trained and exported the Stage~1 Activity Classifier (Random Forest, 93.6\% LOSO) to CoreML. Implemented Stage~2 sleep rules and Stage~3 DC/AC stress formulas in Python. Wrote the \texttt{StressDetectionPipeline.swift} for the iOS app. Conducted Apple Watch feature ablation experiments. Wrote all shared preprocessing code (\texttt{preprocess\_wise.py}). Led the pivot from pure ML to hybrid approach. Primary author of this report. \\[6pt]
+% Dhyay Thakrar & Built the Body Battery system (\texttt{BodyBatteryView.swift}), including energy drain/recharge logic, activity simulator, recovery activities, and 30-day history visualization. Developed the full iOS app dashboard (\texttt{ContentView.swift}) with HealthKit integration. Implemented \texttt{HealthKitManager.swift} for Apple Watch data access (HR, HRV, steps, sleep). Responsible for wiring the 3-stage pipeline into the app. \\[6pt]
+% Levy Sahoo & Validated DC/AC stress formulas on Apple Health export data. Implemented per-subject HRV imputation methodology. Documented IBI data quality findings. Contributed to data preprocessing improvements. Responsible for poster checkpoint. \\[6pt]
+% Essie Chang & Led the report writing and editing process. Proposed sliding window methodology (30s windows, 50\% overlap) that increased sample size from 341 to 2,449. Proposed Leave-One-Subject-Out validation. Designed poster layout. Responsible for discussion and limitations sections. \\[6pt]
+% Selina Zhang & Developed the project website (design, content, and implementation). Contributed to the Q2 proposal introduction and problem statement. Responsible for website checkpoint and final website updates. \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 
 \end{document}

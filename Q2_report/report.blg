@@ -1,0 +1,57 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: report.aux
+The style file: style/dsc180bibstyle.bst
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: reference.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Warning--there is no volume, number, and pages in bahameish2022stress
+Warning--there is no volume, number, and pages in bonneval2025hrv
+You've used 14 entries,
+            6528 wiz_defined-function locations,
+            1333 strings with 12474 characters,
+and the built_in function-call counts, 15042 in all, are:
+= -- 2244
+> -- 753
+< -- 36
++ -- 268
+- -- 254
+* -- 1031
+:= -- 2046
+add.period$ -- 0
+call.type$ -- 14
+change.case$ -- 122
+chr.to.int$ -- 14
+cite$ -- 16
+duplicate$ -- 324
+empty$ -- 673
+format.name$ -- 266
+if$ -- 3711
+int.to.chr$ -- 0
+int.to.str$ -- 0
+missing$ -- 0
+newline$ -- 51
+num.names$ -- 100
+pop$ -- 213
+preamble$ -- 1
+purify$ -- 122
+quote$ -- 0
+skip$ -- 1095
+stack$ -- 0
+substring$ -- 1049
+swap$ -- 80
+text.length$ -- 8
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 239
+warning$ -- 2
+while$ -- 88
+width$ -- 0
+write$ -- 222
+(There were 2 warnings)

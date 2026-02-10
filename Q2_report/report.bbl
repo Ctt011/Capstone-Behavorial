@@ -1,0 +1,51 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  This bbl file is created by econ.bst ver.2.1
+%  The latest econ.bst is available at
+%  <http://shirotakeda.org/home/tex/econ-bst.html>
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{thebibliography}{xxx}
+
+\harvarditem[{Apple Inc.}]{{Apple Inc.}}{2023}{apple2023coreml}
+\textbf{{Apple Inc.}.} 2023. ``{Core ML Framework}.'' Apple Developer Documentation
+
+\harvarditem[{Apple Inc.}]{{Apple Inc.}}{2024}{apple2024behavioral}
+\textbf{{Apple Inc.}.} 2024. ``{Using Behavioral Data for Health Predictions}.'' Apple Developer Documentation
+
+\harvarditem[Bahameish and Stockman]{Bahameish and Stockman}{2022}{bahameish2022stress}
+\textbf{Bahameish, Maha, and Tony Stockman.} 2022. ``{Towards a Model for Automatic Stress Detection Using Physiological Signals}.'' {\it PLOS ONE}. \href{http://dx.doi.org/10.1371/journal.pone.0281031}{[Link]}
+
+\harvarditem[Barricelli, Casiraghi and Fogli]{Barricelli, Casiraghi and Fogli}{2019}{barricelli2019digital}
+\textbf{Barricelli, Barbara~Rita, Elena Casiraghi, and Daniela Fogli.} 2019. ``{A Survey on Digital Twin: Definitions, Characteristics, Applications, and Design Implications}.'' {\it IEEE Access} 7\hspace{0.2ex}:  167653--167671. \href{http://dx.doi.org/10.1109/ACCESS.2019.2953499}{[Link]}
+
+\harvarditem[Bauer et~al.]{Bauer, Kantelhardt, Barthel, Schneider, M\"akikallio, Ulm, Ber and Schmidt}{2006}{bauer2006prsa}
+\textbf{Bauer, Axel, Jan~W. Kantelhardt, Petra Barthel, Raphael Schneider, Timo M\"akikallio, Kurt Ulm, Klaus Ber, and Georg Schmidt.} 2006. ``{Deceleration Capacity of Heart Rate as a Predictor of Mortality after Myocardial Infarction: Cohort Study}.'' {\it The Lancet} 367\hspace{0.2ex}(9523):  1674--1681. \href{http://dx.doi.org/10.1016/S0140-6736(06)68735-7}{[Link]}
+
+\harvarditem[Bonneval et~al.]{Bonneval et~al.}{2025}{bonneval2025hrv}
+\textbf{Bonneval, Titouan et~al.} 2025. ``{Reliability of Heart Rate Variability from Consumer-Grade Wearable Devices During Rest and Movement}.'' {\it Sensors}
+
+\harvarditem[Breiman]{Breiman}{2001}{breiman2001random}
+\textbf{Breiman, Leo.} 2001. ``{Random Forests}.'' {\it Machine Learning} 45\hspace{0.2ex}(1):  5--32. \href{http://dx.doi.org/10.1023/A:1010933404324}{[Link]}
+
+\harvarditem[{Garmin Ltd.}]{{Garmin Ltd.}}{2024}{garmin2024bodybattery}
+\textbf{{Garmin Ltd.}.} 2024. ``{Body Battery Energy Monitor}.'' \url{https://www.garmin.com/en-US/garmin-technology/health-science/body-battery/}
+
+\harvarditem[Hernando et~al.]{Hernando, Roca, Sancho, Alesanco and Bail\'on}{2018}{hernando2018sdnn}
+\textbf{Hernando, David, Santiago Roca, Jorge Sancho, \'Alvaro Alesanco, and Raquel Bail\'on.} 2018. ``{Validation of the Apple Watch for Heart Rate Variability Measurements during Relax and Mental Stress in Healthy Subjects}.'' {\it Sensors} 18\hspace{0.2ex}(8), p. 2619. \href{http://dx.doi.org/10.3390/s18082619}{[Link]}
+
+\harvarditem[Hickey et~al.]{Hickey, Chalmers, Newton, Lin, Luo, Laudato, Murali, Rber, Mishra, Motorber et~al.}{2021}{hickey2021smart}
+\textbf{Hickey, Brendon~A., Taryn Chalmers, Phillip Newton, Chin-Teng Lin, David Luo, Marco Laudato, Arindam Murali, Dustin Rber, Hrishikesh Mishra, Samantha Motorber et~al.} 2021. ``{Smart Devices and Wearable Technologies to Detect and Monitor Mental Health Conditions and Stress: A Systematic Review}.'' {\it Sensors} 21\hspace{0.2ex}(10), p. 3461. \href{http://dx.doi.org/10.3390/s21103461}{[Link]}
+
+\harvarditem[Pedregosa et~al.]{Pedregosa, Varoquaux, Gramfort, Michel, Thirion, Grisel, Blondel, Prettenhofer, Weiss, Dubourg et~al.}{2011}{pedregosa2011sklearn}
+\textbf{Pedregosa, F., G.~Varoquaux, A.~Gramfort, V.~Michel, B.~Thirion, O.~Grisel, M.~Blondel, P.~Prettenhofer, R.~Weiss, V.~Dubourg et~al.} 2011. ``{Scikit-learn: Machine Learning in Python}.'' {\it Journal of Machine Learning Research} 12\hspace{0.2ex}:  2825--2830
+
+\harvarditem[Schlink and Amft]{Schlink and Amft}{2020}{schlink2020wise}
+\textbf{Schlink, Benedikt, and Oliver Amft.} 2020. ``{WISE: Wearable Stress and Exercise Dataset}.'' {\it Scientific Reports} 10\hspace{0.2ex}(1), p. 23010. \href{https://physionet.org/content/wearable-device-dataset/1.0.1/}{[Link]}
+
+\harvarditem[Schmidt et~al.]{Schmidt, Reiss, Duerichen, Marberger and Van~Laerhoven}{2018}{schmidt2018wesad}
+\textbf{Schmidt, Philip, Attila Reiss, Robert Duerichen, Claus Marberger, and Kristof Van~Laerhoven.} 2018. ``{Introducing WESAD, a Multimodal Dataset for Wearable Stress and Affect Detection}.'' In  {\it Proceedings of the 20th ACM International Conference on Multimodal Interaction (ICMI '18)}. Boulder, CO, USA Association for Computing Machinery. \href{http://dx.doi.org/10.1145/3242969.3242985}{[Link]}
+
+\harvarditem[Velmovitsky et~al.]{Velmovitsky, Alencar, Cowan and Morita}{2022}{velmovitsky2022smartwatch}
+\textbf{Velmovitsky, Pedro~Elkind, Paulo Alencar, Donald Cowan, and Plinio~Pelegrini Morita.} 2022. ``{Using Apple Watch ECG Data for Heart Rate Variability Monitoring and Stress Prediction: A Pilot Study}.'' {\it Sensors} 22\hspace{0.2ex}(17), p. 6712. \href{http://dx.doi.org/10.3390/s22176712}{[Link]}
+
+\end{thebibliography}
