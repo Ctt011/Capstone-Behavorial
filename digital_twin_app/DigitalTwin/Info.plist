@@ -3,9 +3,18 @@
 <plist version="1.0">
 <dict>
 	<key>NSHealthShareUsageDescription</key>
-	<string>This app reads your heart rate, heart rate variability, and other health data to track your physiological response during recharge activities like breathing exercises, meditation, and walking.</string>
+	<string>This app reads your heart rate, heart rate variability, sleep stages, respiratory rate, and other health data to track your physiological metrics and provide personalized insights.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>This app records mindfulness workout sessions to enable high-frequency heart rate monitoring from your Apple Watch during breathing exercises and meditation.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.digitaltwin.healthsync</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

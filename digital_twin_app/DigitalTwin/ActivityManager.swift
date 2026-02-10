@@ -94,6 +94,44 @@ struct ActivityEntry: Identifiable, Codable {
     }
 }
 
+// MARK: - Auto-Detected Activity Entry
+/// Represents an activity detected by the ML classifier
+struct DetectedActivityEntry: Identifiable, Codable {
+    let id: UUID
+    let activityType: String  // "PHYSICAL" or "COGNITIVE"
+    let confidence: Double
+    let startTime: Date
+    var endTime: Date
+    let stressScore: Int?  // Only for cognitive activities
+    
+    init(id: UUID = UUID(), activityType: String, confidence: Double, startTime: Date, endTime: Date = Date(), stressScore: Int? = nil) {
+        self.id = id
+        self.activityType = activityType
+        self.confidence = confidence
+        self.startTime = startTime
+        self.endTime = endTime
+        self.stressScore = stressScore
+    }
+    
+    var durationMinutes: Int {
+        Int(endTime.timeIntervalSince(startTime) / 60)
+    }
+    
+    var formattedTimeRange: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return "\(formatter.string(from: startTime)) - \(formatter.string(from: endTime))"
+    }
+    
+    var icon: String {
+        activityType == "PHYSICAL" ? "figure.run" : "brain.head.profile"
+    }
+    
+    var color: Color {
+        activityType == "PHYSICAL" ? .green : .purple
+    }
+}
+
 // MARK: - Activity Manager
 /// Manages the storage and retrieval of self-reported activity data.
 /// 
@@ -122,11 +160,19 @@ class ActivityManager: ObservableObject {
     static let shared = ActivityManager()
     
     private let storageKey = "savedActivities"
+    private let detectedActivitiesKey = "detectedActivities"
     
     @Published var activities: [ActivityEntry] = []
+    @Published var detectedActivities: [DetectedActivityEntry] = []
+    
+    // Track the last detected activity to enable merging consecutive activities
+    private var lastDetectedActivityType: String?
+    private var lastDetectedActivityTime: Date?
+    private let mergeThresholdMinutes: Double = 10  // Merge activities within 10 minutes
     
     private init() {
         loadActivities()
+        loadDetectedActivities()
     }
     
     // MARK: - CRUD Operations
@@ -143,6 +189,61 @@ class ActivityManager: ObservableObject {
                 durationMinutes: activity.durationMinutes
             )
         }
+    }
+    
+    // MARK: - Auto-Detected Activity Logging
+    
+    /// Logs an activity detected by the ML classifier.
+    /// Automatically merges consecutive activities of the same type.
+    func logDetectedActivity(activityType: String, confidence: Double, stressScore: Int? = nil) {
+        let now = Date()
+        
+        // Check if we should merge with the previous activity
+        if let lastType = lastDetectedActivityType,
+           let lastTime = lastDetectedActivityTime,
+           lastType == activityType,
+           now.timeIntervalSince(lastTime) < mergeThresholdMinutes * 60 {
+            // Extend the last activity's end time
+            if let lastIndex = detectedActivities.firstIndex(where: { $0.activityType == lastType && Calendar.current.isDate($0.endTime, equalTo: lastTime, toGranularity: .minute) }) {
+                detectedActivities[lastIndex].endTime = now
+                lastDetectedActivityTime = now
+                saveDetectedActivities()
+                return
+            }
+        }
+        
+        // Create a new activity entry
+        let entry = DetectedActivityEntry(
+            activityType: activityType,
+            confidence: confidence,
+            startTime: now.addingTimeInterval(-5 * 60),  // Started 5 minutes ago (window size)
+            endTime: now,
+            stressScore: stressScore
+        )
+        
+        detectedActivities.insert(entry, at: 0)
+        lastDetectedActivityType = activityType
+        lastDetectedActivityTime = now
+        
+        // Keep only last 100 detected activities to manage storage
+        if detectedActivities.count > 100 {
+            detectedActivities = Array(detectedActivities.prefix(100))
+        }
+        
+        saveDetectedActivities()
+    }
+    
+    /// Returns detected activities for today, grouped by type with time ranges
+    var todaysDetectedActivities: [DetectedActivityEntry] {
+        detectedActivities.filter { Calendar.current.isDateInToday($0.startTime) }
+    }
+    
+    /// Returns a summary of detected activities for today
+    var todayActivitySummary: (physicalMinutes: Int, cognitiveMinutes: Int) {
+        let today = todaysDetectedActivities
+        let physical = today.filter { $0.activityType == "PHYSICAL" }.reduce(0) { $0 + $1.durationMinutes }
+        let cognitive = today.filter { $0.activityType == "COGNITIVE" }.reduce(0) { $0 + $1.durationMinutes }
+        return (physical, cognitive)
     }
     
     /// Removes an activity by its ID
@@ -228,6 +329,31 @@ class ActivityManager: ObservableObject {
         } catch {
             print("Failed to load activities: \(error)")
         }
+    }
+    
+    private func saveDetectedActivities() {
+        do {
+            let encoded = try JSONEncoder().encode(detectedActivities)
+            UserDefaults.standard.set(encoded, forKey: detectedActivitiesKey)
+        } catch {
+            print("Failed to save detected activities: \(error)")
+        }
+    }
+    
+    private func loadDetectedActivities() {
+        guard let data = UserDefaults.standard.data(forKey: detectedActivitiesKey) else { return }
+        do {
+            detectedActivities = try JSONDecoder().decode([DetectedActivityEntry].self, from: data)
+        } catch {
+            print("Failed to load detected activities: \(error)")
+        }
+    }
+    
+    /// Clears detected activities older than specified days
+    func cleanupOldDetectedActivities(olderThanDays: Int = 7) {
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -olderThanDays, to: Date()) ?? Date()
+        detectedActivities.removeAll { $0.endTime < cutoffDate }
+        saveDetectedActivities()
     }
     
     // MARK: - Export Methods
