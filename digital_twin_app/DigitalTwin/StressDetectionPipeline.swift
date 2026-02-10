@@ -263,6 +263,14 @@ class StressCalculator_Stage3 {
     private var baselineDCValues: [Double] = []
     private var baselineSDNNValues: [Double] = []
     private let maxBaselineSamples = 50
+    
+    // UserDefaults keys for persistence
+    private let baselineDCKey = "StressCalculator_BaselineDC"
+    private let baselineSDNNKey = "StressCalculator_BaselineSDNN"
+    
+    init() {
+        loadBaselinesFromStorage()
+    }
 
     var baselineDC: Double? {
         guard baselineDCValues.count >= 5 else { return nil }
@@ -276,6 +284,23 @@ class StressCalculator_Stage3 {
 
     var hasBaseline: Bool {
         return baselineDCValues.count >= 5
+    }
+    
+    // MARK: - Baseline Persistence
+    
+    private func loadBaselinesFromStorage() {
+        if let dcValues = UserDefaults.standard.array(forKey: baselineDCKey) as? [Double] {
+            baselineDCValues = dcValues
+        }
+        if let sdnnValues = UserDefaults.standard.array(forKey: baselineSDNNKey) as? [Double] {
+            baselineSDNNValues = sdnnValues
+        }
+        print("✅ Loaded \(baselineDCValues.count) DC baselines and \(baselineSDNNValues.count) SDNN baselines from storage")
+    }
+    
+    private func saveBaselinesToStorage() {
+        UserDefaults.standard.set(baselineDCValues, forKey: baselineDCKey)
+        UserDefaults.standard.set(baselineSDNNValues, forKey: baselineSDNNKey)
     }
 
     // MARK: - Core DC/AC Formula (PRSA)
@@ -366,8 +391,208 @@ class StressCalculator_Stage3 {
     }
 
     // MARK: - Stress Scoring
+    
+    /// Compute stress using HR-only method (for real-time when HRV unavailable)
+    /// This is more reliable than pseudo-RR conversion since HR samples are sparse
+    ///
+    /// Factors considered:
+    /// 1. HR elevation above resting baseline
+    /// 2. HR variability within the sample window
+    /// 3. Absolute HR thresholds
+    func computeStressFromHROnly(heartRateSamples: [HeartRateSample],
+                                  restingHR: Double? = nil) -> StressMetrics {
+        guard !heartRateSamples.isEmpty else {
+            return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
+                               meanHR: nil, stressScore: 50,
+                               stressLevel: .insufficientData)
+        }
+        
+        let hrValues = heartRateSamples.map { $0.bpm }
+        let meanHR = hrValues.reduce(0, +) / Double(hrValues.count)
+        
+        // Calculate HR std if we have enough samples
+        var hrStd: Double? = nil
+        if hrValues.count >= 2 {
+            let variance = hrValues.map { pow($0 - meanHR, 2) }.reduce(0, +) / Double(hrValues.count - 1)
+            hrStd = sqrt(variance)
+        }
+        
+        var score = 50
+        
+        // Factor 1: HR elevation above resting (most important)
+        let baseline = restingHR ?? 65.0  // Default if no RHR available
+        let hrElevation = (meanHR - baseline) / baseline
+        
+        if hrElevation > 0.5 {        // 50%+ above resting
+            score += 35
+        } else if hrElevation > 0.3 { // 30-50% above
+            score += 25
+        } else if hrElevation > 0.15 { // 15-30% above
+            score += 15
+        } else if hrElevation > 0.05 { // 5-15% above
+            score += 5
+        } else if hrElevation < -0.1 { // Below resting (very relaxed)
+            score -= 15
+        }
+        
+        // Factor 2: HR variability in sample window
+        // High variability during supposed rest = stress response
+        if let std = hrStd {
+            if std > 15 { score += 15 }      // Very variable
+            else if std > 10 { score += 10 } // Moderately variable
+            else if std > 5 { score += 5 }   // Slightly variable
+            else if std < 2 { score -= 5 }   // Very stable (relaxed)
+        }
+        
+        // Factor 3: Absolute HR thresholds
+        if meanHR > 100 { score += 10 }      // Tachycardic
+        else if meanHR > 90 { score += 5 }   // Elevated
+        else if meanHR < 55 { score -= 10 }  // Athletic/very relaxed
+        
+        score = max(0, min(100, score))
+        
+        let level: StressLevel
+        switch score {
+        case 0..<30: level = .low
+        case 30..<50: level = .moderate
+        case 50..<70: level = .high
+        default: level = .veryHigh
+        }
+        
+        return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
+                            meanHR: meanHR, stressScore: score, stressLevel: level)
+    }
+    
+    /// Compute stress using real SDNN from HealthKit (when available)
+    /// More accurate than HR-only, but only available 1-3x per day passively
+    func computeStressFromSDNN(sdnn: Double,
+                                restingHR: Double? = nil,
+                                currentHR: Double? = nil) -> StressMetrics {
+        var score = 50
+        
+        // SDNN-based scoring (validated ranges from HRV research)
+        // Lower SDNN = higher sympathetic activity = more stress
+        if hasBaseline, let bSDNN = baselineSDNN {
+            // Personalized: compare to user's baseline
+            let pctChange = ((sdnn - bSDNN) / bSDNN) * 100
+            score += Int(-pctChange * 0.6)  // Below baseline = positive score
+        } else {
+            // Population-based thresholds
+            if sdnn < 20 { score += 35 }       // Very low HRV = high stress
+            else if sdnn < 30 { score += 25 }  // Low HRV
+            else if sdnn < 40 { score += 15 }  // Below average
+            else if sdnn < 50 { score += 5 }   // Slightly below average
+            else if sdnn > 80 { score -= 20 }  // High HRV = very relaxed
+            else if sdnn > 60 { score -= 10 }  // Good HRV
+        }
+        
+        // Adjust with current HR if available
+        if let hr = currentHR, let rhr = restingHR {
+            let hrElevation = (hr - rhr) / rhr
+            if hrElevation > 0.3 { score += 15 }
+            else if hrElevation > 0.15 { score += 8 }
+            else if hrElevation < -0.05 { score -= 5 }
+        }
+        
+        score = max(0, min(100, score))
+        
+        let level: StressLevel
+        switch score {
+        case 0..<30: level = .low
+        case 30..<50: level = .moderate
+        case 50..<70: level = .high
+        default: level = .veryHigh
+        }
+        
+        return StressMetrics(dc: nil, ac: nil, sdnn: sdnn, rmssd: nil,
+                            meanHR: currentHR, stressScore: score, stressLevel: level)
+    }
+    
+    /// Opportunistic stress calculation - uses best available data
+    /// Smart priority system that balances data freshness with accuracy:
+    /// - If we have fresh HR samples (10+), prefer those for real-time response
+    /// - If HR samples are few but SDNN is very recent (<10min), use SDNN
+    /// - If SDNN is somewhat recent (<30min) and no HR samples, use SDNN
+    /// - Fall back to HR-only if we have any HR data at all
+    ///
+    /// - Parameters:
+    ///   - heartRateSamples: Recent HR samples from HealthKit
+    ///   - recentSDNN: SDNN value from HealthKit (if available)
+    ///   - sdnnTimestamp: When the SDNN was recorded
+    ///   - restingHR: User's resting heart rate baseline
+    /// - Returns: StressMetrics with the most accurate calculation possible
+    func computeStressOpportunistic(heartRateSamples: [HeartRateSample],
+                                     recentSDNN: Double?,
+                                     sdnnTimestamp: Date?,
+                                     restingHR: Double?) -> StressMetrics {
+        let now = Date()
+        
+        // Check SDNN freshness
+        let sdnnAge: TimeInterval? = {
+            guard let timestamp = sdnnTimestamp else { return nil }
+            return now.timeIntervalSince(timestamp)
+        }()
+        let sdnnAgeMinutes = sdnnAge.map { Int($0 / 60) }
+        
+        // Log what data we have available
+        print("📊 Stress calculation data available:")
+        print("   ├─ HR samples: \(heartRateSamples.count)")
+        if let sdnn = recentSDNN, let age = sdnnAgeMinutes {
+            print("   ├─ SDNN: \(String(format: "%.1f", sdnn))ms (age: \(age)min)")
+        } else {
+            print("   ├─ SDNN: N/A")
+        }
+        print("   └─ Resting HR: \(restingHR != nil ? String(format: "%.0f", restingHR!) : "N/A")")
+        
+        // Priority 1: If we have enough HR samples (10+), prefer real-time HR-derived calculation
+        // This gives us the most responsive stress tracking
+        if heartRateSamples.count >= 10 {
+            print("📊 → Using HR-derived metrics for stress calculation (\(heartRateSamples.count) samples)")
+            return computeStress(heartRateSamples: heartRateSamples)
+        }
+        
+        // Priority 2: If SDNN is very fresh (<10 min) and we have few HR samples,
+        // use SDNN as it's likely from the same time period
+        if let sdnn = recentSDNN,
+           let age = sdnnAge,
+           age < 10 * 60 {
+            print("📊 → Using very recent SDNN for stress calculation (age: \(Int(age/60))min)")
+            let currentHR = heartRateSamples.last?.bpm
+            return computeStressFromSDNN(sdnn: sdnn, restingHR: restingHR, currentHR: currentHR)
+        }
+        
+        // Priority 3: If we have some HR samples (3-9), use HR-only calculation
+        // This is more responsive than stale SDNN
+        if heartRateSamples.count >= 3 {
+            print("📊 → Using HR-only stress calculation (\(heartRateSamples.count) samples)")
+            return computeStressFromHROnly(heartRateSamples: heartRateSamples, restingHR: restingHR)
+        }
+        
+        // Priority 4: Use SDNN if available and less than 30 minutes old
+        if let sdnn = recentSDNN,
+           let age = sdnnAge,
+           age < 30 * 60 {
+            print("📊 → Using older SDNN for stress calculation (age: \(Int(age/60))min, no fresh HR data)")
+            let currentHR = heartRateSamples.last?.bpm
+            return computeStressFromSDNN(sdnn: sdnn, restingHR: restingHR, currentHR: currentHR)
+        }
+        
+        // Priority 5: HR-only calculation with whatever samples we have (even 1-2)
+        if !heartRateSamples.isEmpty {
+            print("📊 → Using limited HR-only calculation (\(heartRateSamples.count) samples)")
+            return computeStressFromHROnly(heartRateSamples: heartRateSamples, restingHR: restingHR)
+        }
+        
+        // No data available
+        print("📊 → Insufficient data for stress calculation")
+        return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
+                            meanHR: nil, stressScore: 50,
+                            stressLevel: .insufficientData)
+    }
 
     /// Compute full stress metrics from heart rate samples.
+    /// NOTE: This uses pseudo-RR intervals derived from sparse HR samples.
+    /// The DC/AC values are approximations - real DC/AC requires beat-to-beat RR.
     func computeStress(heartRateSamples: [HeartRateSample],
                        threshold: Int = 60) -> StressMetrics {
         let rr = hrToRR(heartRateSamples: heartRateSamples)
@@ -445,7 +670,17 @@ class StressCalculator_Stage3 {
                 baselineDCValues.removeFirst()
                 baselineSDNNValues.removeFirst()
             }
+            
+            // Persist to storage
+            saveBaselinesToStorage()
         }
+    }
+    
+    /// Clears all baseline data (for testing or reset purposes)
+    func clearBaselines() {
+        baselineDCValues.removeAll()
+        baselineSDNNValues.removeAll()
+        saveBaselinesToStorage()
     }
 }
 
@@ -460,6 +695,10 @@ class StressDetectionPipeline: ObservableObject {
     private let healthKitManager: HealthKitManager
     private let activityClassifier = ActivityClassifier_Stage1()
     private let stressCalculator = StressCalculator_Stage3()
+    
+    // Cached sleep baseline (fetched once per session)
+    private var cachedSleepBaseline: Double?
+    private var sleepBaselineFetched = false
 
     @Published var latestResult: PipelineResult?
     @Published var isRunning = false
@@ -488,6 +727,18 @@ class StressDetectionPipeline: ObservableObject {
             from: windowStart, to: now
         )
         let sleepHours = healthKitManager.lastNightSleep
+        
+        // Diagnostic logging for debugging HR sample issues
+        let dateFormatter = DateFormatter()
+        dateFormatter.timeStyle = .medium
+        print("🔍 Pipeline HR fetch: window \(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now))")
+        print("   └─ Found \(hrSamples.count) HR samples")
+        if !hrSamples.isEmpty {
+            let oldestSample = hrSamples.first!
+            let newestSample = hrSamples.last!
+            print("   └─ Sample range: \(dateFormatter.string(from: oldestSample.timestamp)) - \(dateFormatter.string(from: newestSample.timestamp))")
+            print("   └─ HR range: \(Int(hrSamples.map { $0.bpm }.min() ?? 0)) - \(Int(hrSamples.map { $0.bpm }.max() ?? 0)) BPM")
+        }
 
         // Compute HR stats for Stage 1
         let hrValues = hrSamples.map { $0.bpm }
@@ -499,23 +750,35 @@ class StressDetectionPipeline: ObservableObject {
             return sqrt(variance)
         }()
 
-        // Use steps as ACC proxy
-        // In deployment, fetch recent steps and compute steps/min as ACC_mean proxy
-        let stepsPerMin = (healthKitManager.todaySteps ?? 0) > 100 ? 10.0 : 0.5
-        // TODO: Replace with actual windowed step calculation from HealthKit
+        // Fetch real steps for last 5 minutes with proper statistics
+        // This replaces the previous hardcoded stepsStd with real variability calculation
+        let (stepsPerMin, stepsStd) = await healthKitManager.fetchStepsStatistics(minutes: 5)
 
         // ── STAGE 1: Activity Classification ────────────────────────────
         let (activityType, confidence) = activityClassifier.classify(
             hrMean: hrMean,
             hrStd: hrStd,
-            accMean: stepsPerMin,  // Steps as ACC proxy
-            accStd: 0.5           // Placeholder — compute from step variability
+            accMean: stepsPerMin,  // Real steps per minute mean from HealthKit
+            accStd: stepsStd       // Real step variability from minute-by-minute buckets
         )
 
         // ── STAGE 2: Sleep Threshold Adjustment ─────────────────────────
+        // Fetch 30-day sleep baseline if not cached
+        if !sleepBaselineFetched {
+            cachedSleepBaseline = await healthKitManager.fetchAverageSleepLast30Days()
+            sleepBaselineFetched = true
+            if let baseline = cachedSleepBaseline {
+                print("✅ Personal sleep baseline: \\(String(format: \"%.1f\", baseline)) hours (30-day average)")
+            } else {
+                print("ℹ️ Using default sleep baseline of 7.0 hours (insufficient data)")
+            }
+        }
+        
+        let sleepBaseline = cachedSleepBaseline ?? 7.0  // Fallback for new users
+        
         let (adjustedThreshold, sleepQuality) = SleepThresholdAdjuster.adjust(
             sleepHours: sleepHours,
-            baselineHours: 7.0  // TODO: Replace with user's personal average
+            baselineHours: sleepBaseline
         )
 
         // ── STAGE 3: Stress Metrics (only if COGNITIVE) ─────────────────
@@ -527,11 +790,33 @@ class StressDetectionPipeline: ObservableObject {
         var stressLevel: StressLevel = .physicalActivity
         var isStressed = false
 
-        if activityType == .cognitive && hrSamples.count >= 5 {
-            let metrics = stressCalculator.computeStress(
+        if activityType == .cognitive {
+            // Use opportunistic stress calculation:
+            // - Real SDNN if available and recent (within 30 min)
+            // - HR-derived metrics if 10+ samples
+            // - HR-only if few samples
+            let recentSDNN = healthKitManager.latestHRV
+            let sdnnTimestamp = healthKitManager.hrvMetric.lastUpdated
+            let restingHR = healthKitManager.restingHeartRate
+            
+            // Diagnostic: Log SDNN and RHR state
+            if let sdnn = recentSDNN, let timestamp = sdnnTimestamp {
+                let age = Int(now.timeIntervalSince(timestamp) / 60)
+                print("📊 SDNN from HealthKitManager: \(String(format: "%.1f", sdnn))ms, age: \(age)min")
+            } else {
+                print("📊 SDNN from HealthKitManager: not available")
+            }
+            if let rhr = restingHR {
+                print("📊 Resting HR: \(Int(rhr)) BPM")
+            }
+            
+            let metrics = stressCalculator.computeStressOpportunistic(
                 heartRateSamples: hrSamples,
-                threshold: adjustedThreshold
+                recentSDNN: recentSDNN,
+                sdnnTimestamp: sdnnTimestamp,
+                restingHR: restingHR
             )
+            
             dc = metrics.dc
             ac = metrics.ac
             sdnn = metrics.sdnn

@@ -19,27 +19,144 @@ struct DestressActivity: Identifiable {
         case meditation
         case stretching
         case hydration
+        case nap
+        case rest
     }
 }
 
-/// Represents a day's battery history
+/// Stress type classification
+enum StressType: String, Codable {
+    case cognitive = "Cognitive"
+    case physical = "Physical"
+    case mixed = "Mixed"
+    case none = "None"
+    
+    var icon: String {
+        switch self {
+        case .cognitive: return "brain.head.profile"
+        case .physical: return "figure.run"
+        case .mixed: return "bolt.fill"
+        case .none: return "checkmark.circle"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .cognitive: return .purple
+        case .physical: return .orange
+        case .mixed: return .red
+        case .none: return .green
+        }
+    }
+    
+    /// Battery drain multiplier for this stress type
+    var drainMultiplier: Double {
+        switch self {
+        case .cognitive: return 1.2  // Mental work drains a bit more
+        case .physical: return 1.0   // Physical activity has standard drain
+        case .mixed: return 1.5      // Combined stress drains most
+        case .none: return 0.1       // Minimal drain when relaxed
+        }
+    }
+}
+
+/// Represents a 15-minute stress prediction interval
+struct StressPrediction: Identifiable, Codable {
+    let id: UUID
+    let timestamp: Date
+    let predictedStressLevel: Int // 0-100
+    let stressType: StressType
+    let hrvValue: Double?
+    let heartRate: Double?
+    let batteryDrain: Int
+    
+    init(id: UUID = UUID(), timestamp: Date = Date(), predictedStressLevel: Int, stressType: StressType, hrvValue: Double? = nil, heartRate: Double? = nil, batteryDrain: Int) {
+        self.id = id
+        self.timestamp = timestamp
+        self.predictedStressLevel = predictedStressLevel
+        self.stressType = stressType
+        self.hrvValue = hrvValue
+        self.heartRate = heartRate
+        self.batteryDrain = batteryDrain
+    }
+}
+
+/// Recharge event (sleep, nap, rest, mindfulness)
+struct RechargeEvent: Identifiable, Codable {
+    let id: UUID
+    let timestamp: Date
+    let type: RechargeType
+    let duration: TimeInterval // in seconds
+    let batteryGained: Int
+    let sleepStages: [String]? // For sleep events
+    
+    init(id: UUID = UUID(), timestamp: Date = Date(), type: RechargeType, duration: TimeInterval, batteryGained: Int, sleepStages: [String]? = nil) {
+        self.id = id
+        self.timestamp = timestamp
+        self.type = type
+        self.duration = duration
+        self.batteryGained = batteryGained
+        self.sleepStages = sleepStages
+    }
+    
+    enum RechargeType: String, Codable {
+        case nightSleep = "Night Sleep"
+        case nap = "Nap"
+        case rest = "Rest"
+        case mindfulness = "Mindfulness"
+        case breathing = "Breathing"
+        case meditation = "Meditation"
+        
+        var icon: String {
+            switch self {
+            case .nightSleep: return "moon.zzz.fill"
+            case .nap: return "powersleep"
+            case .rest: return "figure.mind.and.body"
+            case .mindfulness: return "brain.head.profile"
+            case .breathing: return "wind"
+            case .meditation: return "sparkles"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .nightSleep: return .indigo
+            case .nap: return .blue
+            case .rest: return .cyan
+            case .mindfulness: return .purple
+            case .breathing: return .mint
+            case .meditation: return .pink
+            }
+        }
+    }
+}
+
+/// Represents a day's battery history with detailed tracking
 struct BatteryHistoryEntry: Identifiable, Codable {
     let id: UUID
     let date: Date
-    var batteryLevel: Int
-    var stressEvents: Int
-    var recoveryActivities: Int
+    var startingBattery: Int // Battery at start of day (after sleep)
+    var currentBattery: Int
     var minBattery: Int
     var maxBattery: Int
+    var totalDrain: Int
+    var totalRecharge: Int
+    var stressPredictions: [StressPrediction]
+    var rechargeEvents: [RechargeEvent]
+    var isUnloggedDay: Bool
     
-    init(id: UUID = UUID(), date: Date, batteryLevel: Int, stressEvents: Int = 0, recoveryActivities: Int = 0, minBattery: Int? = nil, maxBattery: Int? = nil) {
+    init(id: UUID = UUID(), date: Date, startingBattery: Int = 100, currentBattery: Int? = nil, minBattery: Int? = nil, maxBattery: Int? = nil, totalDrain: Int = 0, totalRecharge: Int = 0, stressPredictions: [StressPrediction] = [], rechargeEvents: [RechargeEvent] = [], isUnloggedDay: Bool = false) {
         self.id = id
         self.date = date
-        self.batteryLevel = batteryLevel
-        self.stressEvents = stressEvents
-        self.recoveryActivities = recoveryActivities
-        self.minBattery = minBattery ?? batteryLevel
-        self.maxBattery = maxBattery ?? batteryLevel
+        self.startingBattery = startingBattery
+        self.currentBattery = currentBattery ?? startingBattery
+        self.minBattery = minBattery ?? startingBattery
+        self.maxBattery = maxBattery ?? startingBattery
+        self.totalDrain = totalDrain
+        self.totalRecharge = totalRecharge
+        self.stressPredictions = stressPredictions
+        self.rechargeEvents = rechargeEvents
+        self.isUnloggedDay = isUnloggedDay
     }
 }
 
@@ -57,6 +174,52 @@ struct CompletedRecoveryActivity: Identifiable, Codable {
         self.completedAt = completedAt
         self.batteryGained = batteryGained
         self.sessionMetricsId = sessionMetricsId
+    }
+}
+
+/// Detailed sleep recovery score with sub-components
+struct SleepRecoveryScore: Codable {
+    let date: Date
+    let totalScore: Double          // Combined 0-1 score
+    let quantityScore: Double       // Sleep duration score
+    let continuityScore: Double     // Sleep fragmentation score
+    let stageScore: Double          // Deep + REM quality score
+    let physioScore: Double         // HRV/HR recovery score
+    
+    // Raw data
+    let totalSleepMinutes: Double
+    let awakeMinutes: Double
+    let deepSleepMinutes: Double
+    let remSleepMinutes: Double
+    let overnightHRV: Double?
+    let overnightHR: Double?
+    
+    // Computed recharge
+    let rechargePoints: Int
+    let sleepDebtChange: Double
+    
+    var totalSleepHours: Double {
+        totalSleepMinutes / 60.0
+    }
+    
+    var scoreDescription: String {
+        switch totalScore {
+        case 0.8...1.0: return "Excellent"
+        case 0.6..<0.8: return "Good"
+        case 0.4..<0.6: return "Fair"
+        case 0.2..<0.4: return "Poor"
+        default: return "Very Poor"
+        }
+    }
+    
+    var scoreColor: String {
+        switch totalScore {
+        case 0.8...1.0: return "green"
+        case 0.6..<0.8: return "blue"
+        case 0.4..<0.6: return "yellow"
+        case 0.2..<0.4: return "orange"
+        default: return "red"
+        }
     }
 }
 
@@ -107,25 +270,61 @@ struct ActiveRecoverySession {
 class BodyBatteryManager: ObservableObject {
     static let shared = BodyBatteryManager()
     
+    // Reference to HealthKitManager for pipeline access
+    private weak var healthKitManager: HealthKitManager?
+    
+    // Stress Detection Pipeline (DC/AC based)
+    private var stressPipeline: StressDetectionPipeline?
+    
+    // Persistence keys
     private let batteryKey = "bodyBatteryLevel"
-    private let historyKey = "batteryHistory"
+    private let historyKey = "batteryHistory_v2"
     private let recoveryKey = "recoveryActivities"
     private let lastUpdateKey = "lastBatteryUpdate"
     private let sessionMetricsKey = "savedSessionMetrics"
+    private let lastLoggedDayKey = "lastLoggedDay"
+    private let stressPredictionsKey = "todayStressPredictions"
+    private let sleepDebtKey = "sleepDebtHours"
+    private let hrvBaselineKey = "hrvBaseline"
+    private let rhrBaselineKey = "rhrBaseline"
+    private let lastSleepScoreKey = "lastSleepRecoveryScore"
     
-    @Published var currentBattery: Int = 75
+    // Sleep algorithm constants
+    private let sleepTargetHours: Double = 7.5  // Target sleep hours
+    private let maxOvernightRecharge: Int = 80  // Max recharge from sleep
+    private let minBatteryCap: Int = 60         // Minimum battery cap from sleep debt
+    private let sleepDebtDecayRate: Double = 0.5 // How fast debt decays when oversleeping
+    
+    // Stress threshold for classification
+    private let stressThreshold: Int = 40 // Above this = stressed
+    
+    // Published properties
+    @Published var currentBattery: Int = 100
     @Published var batteryHistory: [BatteryHistoryEntry] = []
     @Published var completedRecoveryActivities: [CompletedRecoveryActivity] = []
     @Published var savedSessionMetrics: [SavedSessionMetrics] = []
+    @Published var todayStressPredictions: [StressPrediction] = []
+    @Published var lastStressPrediction: StressPrediction?
+    @Published var currentStressLevel: Int = 0
+    @Published var currentStressType: StressType = .none
+    
+    // Sleep metrics
+    @Published var sleepDebtHours: Double = 0
+    @Published var lastSleepRecoveryScore: SleepRecoveryScore?
+    @Published var hrvBaseline: Double = 50  // Rolling HRV baseline (ms)
+    @Published var rhrBaseline: Double = 60  // Rolling RHR baseline (bpm)
+    
+    // Session tracking
+    @Published var activeSession: ActiveRecoverySession? = nil
     @Published var activeBreathingSession: Bool = false
     @Published var breathingTimeRemaining: Int = 0
     
-    // Simulated activity in progress
+    // Simulation
     @Published var simulatedActivity: String? = nil
     @Published var simulatedBatteryChange: Int = 0
     
-    // Active session tracking
-    @Published var activeSession: ActiveRecoverySession? = nil
+    // Timer for 15-minute stress predictions
+    private var stressPredictionTimer: Timer?
     
     let destressActivities: [DestressActivity] = [
         DestressActivity(
@@ -165,6 +364,24 @@ class BodyBatteryManager: ObservableObject {
             activityType: .stretching
         ),
         DestressActivity(
+            name: "Power Nap",
+            icon: "powersleep",
+            duration: 20,
+            batteryGain: 25,
+            description: "A quick nap to restore energy",
+            color: .indigo,
+            activityType: .nap
+        ),
+        DestressActivity(
+            name: "Rest & Relax",
+            icon: "figure.mind.and.body",
+            duration: 10,
+            batteryGain: 8,
+            description: "Simply rest and let your body recover",
+            color: .blue,
+            activityType: .rest
+        ),
+        DestressActivity(
             name: "Hydrate",
             icon: "drop.fill",
             duration: 1,
@@ -178,6 +395,607 @@ class BodyBatteryManager: ObservableObject {
     private init() {
         loadData()
         checkForNewDay()
+        startStressPredictionTimer()
+    }
+    
+    /// Configure with HealthKitManager to enable DC/AC stress pipeline
+    func configure(with healthKitManager: HealthKitManager) {
+        self.healthKitManager = healthKitManager
+        self.stressPipeline = StressDetectionPipeline(healthKitManager: healthKitManager)
+        print("✅ BodyBatteryManager configured with DC/AC stress pipeline")
+    }
+    
+    deinit {
+        stressPredictionTimer?.invalidate()
+    }
+    
+    // MARK: - Stress Prediction System
+    
+    /// Prediction interval in seconds
+    /// Research-backed: 5 minutes is optimal for HRV responsiveness (Firstbeat/Garmin standard)
+    /// - HRV responds to stressors within 2-3 minutes
+    /// - 5 minutes provides enough samples for statistical validity
+    /// - Balances battery life vs. granularity
+    private let stressPredictionIntervalSeconds: TimeInterval = 5 * 60  // 5 minutes
+    
+    /// Starts the stress prediction timer
+    private func startStressPredictionTimer() {
+        // Predict immediately on start
+        Task {
+            await predictCurrentStress()
+        }
+        
+        // Then predict at research-backed interval (5 minutes)
+        stressPredictionTimer = Timer.scheduledTimer(withTimeInterval: stressPredictionIntervalSeconds, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.predictCurrentStress()
+            }
+        }
+    }
+    
+    /// Predicts current stress level using the full DC/AC stress pipeline
+    /// Uses 3-stage pipeline: Activity Classification → Sleep Adjustment → DC/AC Stress Metrics
+    func predictCurrentStress(hrv: Double? = nil, heartRate: Double? = nil, activeEnergy: Double? = nil) async {
+        // Skip stress prediction during active recovery sessions
+        // These sessions have their own metrics collection and stress calculation would be inaccurate
+        // because the workout session triggers high-frequency HR sampling that needs to sync from Watch
+        if activeSession != nil {
+            print("📊 Skipping stress prediction - active recovery session in progress")
+            return
+        }
+        
+        // Use full DC/AC pipeline if configured, otherwise fall back to simplified method
+        if let pipeline = stressPipeline {
+            await predictCurrentStressWithPipeline(pipeline: pipeline)
+        } else {
+            await predictCurrentStressFallback(hrv: hrv, heartRate: heartRate, activeEnergy: activeEnergy)
+        }
+    }
+    
+    /// Full DC/AC stress prediction using StressDetectionPipeline
+    /// Stage 1: ML-based activity classification (PHYSICAL vs COGNITIVE)
+    /// Stage 2: Sleep-adjusted stress threshold
+    /// Stage 3: DC/AC PRSA metrics calculation
+    private func predictCurrentStressWithPipeline(pipeline: StressDetectionPipeline) async {
+        // Run the full 3-stage pipeline
+        let result = await pipeline.runFullPipeline()
+        
+        // Map pipeline activity type to BodyBattery stress type
+        let stressType: StressType
+        switch result.activityType {
+        case .physical:
+            stressType = .physical
+        case .cognitive:
+            // For cognitive activity, determine type based on stress level
+            if result.stressScore < stressThreshold {
+                stressType = .none
+            } else {
+                stressType = .cognitive
+            }
+        case .unknown:
+            stressType = .mixed
+        }
+        
+        let stressLevel = result.stressScore
+        
+        // Calculate battery drain for this interval
+        let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
+        
+        // Create prediction with full pipeline data
+        let prediction = StressPrediction(
+            predictedStressLevel: stressLevel,
+            stressType: stressType,
+            hrvValue: result.sdnn,  // Use real SDNN from pipeline
+            heartRate: result.dc != nil ? 60000.0 / (result.dc! + 500) : nil, // Approximate HR if DC available
+            batteryDrain: drain
+        )
+        
+        // Update state
+        currentStressLevel = stressLevel
+        currentStressType = stressType
+        lastStressPrediction = prediction
+        todayStressPredictions.append(prediction)
+        
+        // Apply drain (only for cognitive stress - physical activity has different drain mechanics)
+        if result.activityType == .cognitive {
+            applyStressDrain(drain)
+        }
+        
+        // Save
+        saveData()
+        
+        // Log with DC/AC details
+        let dcStr = result.dc != nil ? String(format: "%.2f", result.dc!) : "N/A"
+        let acStr = result.ac != nil ? String(format: "%.2f", result.ac!) : "N/A"
+        let sdnnStr = result.sdnn != nil ? String(format: "%.1f", result.sdnn!) : "N/A"
+        print("📊 DC/AC Stress: Level=\(stressLevel), Type=\(stressType.rawValue), Activity=\(result.activityType.rawValue)")
+        print("   └─ DC=\(dcStr)ms, AC=\(acStr)ms, SDNN=\(sdnnStr)ms, Threshold=\(result.adjustedThreshold), Drain=\(drain)%")
+    }
+    
+    /// Fallback stress prediction when pipeline is not configured
+    /// Uses simplified HRV/HR-based calculation
+    private func predictCurrentStressFallback(hrv: Double?, heartRate: Double?, activeEnergy: Double?) async {
+        var stressLevel: Int = 30 // Base stress level
+        var stressType: StressType = .none
+        
+        // Factor 1: HRV (lower HRV = higher stress)
+        if let hrv = hrv {
+            if hrv < 20 {
+                stressLevel += 40
+            } else if hrv < 35 {
+                stressLevel += 25
+            } else if hrv < 50 {
+                stressLevel += 10
+            }
+        }
+        
+        // Factor 2: Heart Rate (higher resting HR = higher stress)
+        if let hr = heartRate {
+            if hr > 100 {
+                stressLevel += 30
+                stressType = .physical
+            } else if hr > 85 {
+                stressLevel += 20
+            } else if hr > 75 {
+                stressLevel += 10
+            }
+        }
+        
+        // Factor 3: Active Energy (high energy = physical stress)
+        if let energy = activeEnergy, energy > 300 {
+            stressType = stressType == .none ? .physical : .mixed
+            stressLevel += 15
+        }
+        
+        // Classify stress type
+        if stressLevel >= stressThreshold && stressType == .none {
+            stressType = .mixed
+        } else if stressLevel < stressThreshold {
+            stressType = .none
+        }
+        
+        // Cap at 100
+        stressLevel = min(100, stressLevel)
+        
+        // Calculate battery drain
+        let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
+        
+        // Create prediction
+        let prediction = StressPrediction(
+            predictedStressLevel: stressLevel,
+            stressType: stressType,
+            hrvValue: hrv,
+            heartRate: heartRate,
+            batteryDrain: drain
+        )
+        
+        // Update state
+        currentStressLevel = stressLevel
+        currentStressType = stressType
+        lastStressPrediction = prediction
+        todayStressPredictions.append(prediction)
+        
+        // Apply drain
+        applyStressDrain(drain)
+        
+        // Save
+        saveData()
+        
+        print("📊 Fallback Stress: Level=\(stressLevel), Type=\(stressType.rawValue), Drain=\(drain)% (pipeline not configured)")
+    }
+    
+    /// Calculates battery drain for a 15-minute interval
+    private func calculateIntervalDrain(stressLevel: Int, stressType: StressType) -> Int {
+        // Base drain: 0.5% per 15 minutes at rest
+        // High stress: up to 3% per 15 minutes
+        
+        let baseDrain = 0.5
+        let stressFactor = Double(stressLevel) / 100.0
+        let typeMul = stressType.drainMultiplier
+        
+        let drain = baseDrain + (2.5 * stressFactor * typeMul)
+        return Int(ceil(drain))
+    }
+    
+    /// Applies stress drain to current battery
+    private func applyStressDrain(_ drain: Int) {
+        currentBattery = max(5, currentBattery - drain)
+        updateTodayHistory(drain: drain)
+    }
+    
+    // MARK: - Sleep & Recharge System
+    
+    /// Comprehensive sleep recovery algorithm
+    /// Computes a Sleep Recovery Score (0-1) from 4 sub-scores and converts to recharge points
+    func processSleepRecharge(
+        sleepHours: Double,
+        sleepStages: [SleepStageData] = [],
+        overnightHRV: Double? = nil,
+        overnightHR: Double? = nil
+    ) {
+        let totalSleepMinutes = sleepHours * 60.0
+        
+        // Extract stage durations from sleep data
+        let awakeMinutes = sleepStages.filter { $0.stage == .awake }.reduce(0.0) { $0 + $1.duration / 60.0 }
+        let deepSleepMinutes = sleepStages.filter { $0.stage == .deep }.reduce(0.0) { $0 + $1.duration / 60.0 }
+        let remSleepMinutes = sleepStages.filter { $0.stage == .rem }.reduce(0.0) { $0 + $1.duration / 60.0 }
+        
+        // Step 1: Compute 4 sub-scores
+        let quantityScore = calculateQuantityScore(sleepHours: sleepHours)
+        let continuityScore = calculateContinuityScore(awakeMinutes: awakeMinutes, totalSleepMinutes: totalSleepMinutes)
+        let stageScore = calculateStageScore(deepMinutes: deepSleepMinutes, remMinutes: remSleepMinutes, totalSleepMinutes: totalSleepMinutes)
+        let physioScore = calculatePhysioScore(overnightHRV: overnightHRV, overnightHR: overnightHR)
+        
+        // Combine scores with weights: 35% Quantity, 20% Continuity, 20% Stage, 25% Physio
+        let totalScore = (0.35 * quantityScore) + (0.20 * continuityScore) + (0.20 * stageScore) + (0.25 * physioScore)
+        
+        // Step 2: Convert score to recharge points
+        let rechargePoints = Int(Double(maxOvernightRecharge) * totalScore)
+        
+        // Step 3: Update sleep debt
+        let sleepDebtChange = updateSleepDebt(sleepHours: sleepHours)
+        
+        // Calculate battery cap based on sleep debt
+        let batteryCap = max(minBatteryCap, 100 - Int(5.0 * sleepDebtHours))
+        
+        // Apply recharge with debt cap
+        let batteryBeforeSleep = currentBattery
+        let uncappedBattery = min(100, batteryBeforeSleep + rechargePoints)
+        currentBattery = min(uncappedBattery, batteryCap)
+        
+        let actualRecharge = currentBattery - batteryBeforeSleep
+        
+        // Create and save the sleep recovery score
+        let sleepScore = SleepRecoveryScore(
+            date: Date(),
+            totalScore: totalScore,
+            quantityScore: quantityScore,
+            continuityScore: continuityScore,
+            stageScore: stageScore,
+            physioScore: physioScore,
+            totalSleepMinutes: totalSleepMinutes,
+            awakeMinutes: awakeMinutes,
+            deepSleepMinutes: deepSleepMinutes,
+            remSleepMinutes: remSleepMinutes,
+            overnightHRV: overnightHRV,
+            overnightHR: overnightHR,
+            rechargePoints: rechargePoints,
+            sleepDebtChange: sleepDebtChange
+        )
+        lastSleepRecoveryScore = sleepScore
+        
+        // Update HRV/HR baselines if we have data
+        if let hrv = overnightHRV {
+            updateHRVBaseline(newValue: hrv)
+        }
+        if let hr = overnightHR {
+            updateRHRBaseline(newValue: hr)
+        }
+        
+        // Record recharge event
+        let rechargeEvent = RechargeEvent(
+            type: .nightSleep,
+            duration: sleepHours * 3600,
+            batteryGained: max(0, actualRecharge),
+            sleepStages: sleepStages.map { $0.stage.rawValue }
+        )
+        recordRechargeEvent(rechargeEvent)
+        
+        // Save data
+        saveData()
+        
+        print("""
+        😴 Sleep Recovery Analysis:
+           Total Score: \(String(format: "%.2f", totalScore)) (\(sleepScore.scoreDescription))
+           - Quantity: \(String(format: "%.2f", quantityScore)) (\(String(format: "%.1f", sleepHours))h)
+           - Continuity: \(String(format: "%.2f", continuityScore)) (\(String(format: "%.0f", awakeMinutes))min awake)
+           - Stage Quality: \(String(format: "%.2f", stageScore)) (Deep: \(String(format: "%.0f", deepSleepMinutes))min, REM: \(String(format: "%.0f", remSleepMinutes))min)
+           - Physio Recovery: \(String(format: "%.2f", physioScore))
+           Recharge: +\(rechargePoints)pts (actual: +\(actualRecharge)%)
+           Sleep Debt: \(String(format: "%.1f", sleepDebtHours))h (cap: \(batteryCap)%)
+           Battery: \(batteryBeforeSleep)% → \(currentBattery)%
+        """)
+    }
+    
+    // MARK: - Sleep Score Sub-calculations
+    
+    /// A) Quantity Score: Maps TST to 0-1 with soft clamp (4h→0, 7.5h→1)
+    private func calculateQuantityScore(sleepHours: Double) -> Double {
+        let minHours = 4.0
+        let optimalHours = sleepTargetHours
+        
+        if sleepHours <= minHours {
+            return 0.0
+        } else if sleepHours >= optimalHours {
+            // Slight bonus for oversleeping up to 9h, then diminishing returns
+            let extraHours = sleepHours - optimalHours
+            let bonus = min(0.1, extraHours * 0.05)
+            return min(1.0, 1.0 + bonus)
+        } else {
+            // Linear interpolation between min and optimal
+            return (sleepHours - minHours) / (optimalHours - minHours)
+        }
+    }
+    
+    /// B) Continuity Score: Penalizes fragmented sleep (more awake time → lower score)
+    private func calculateContinuityScore(awakeMinutes: Double, totalSleepMinutes: Double) -> Double {
+        guard totalSleepMinutes > 0 else { return 0.5 }
+        
+        // Awake percentage of total time in bed
+        let awakePercentage = awakeMinutes / (totalSleepMinutes + awakeMinutes)
+        
+        // Score: 0% awake → 1.0, 15%+ awake → 0.0
+        // Typical healthy sleep has 5-10% awake time
+        let maxAwakePercent = 0.15
+        let score = max(0, 1.0 - (awakePercentage / maxAwakePercent))
+        
+        return score
+    }
+    
+    /// C) Stage Score: Rewards Deep + REM sleep (restorative stages)
+    private func calculateStageScore(deepMinutes: Double, remMinutes: Double, totalSleepMinutes: Double) -> Double {
+        guard totalSleepMinutes > 0 else { return 0.5 }
+        
+        // Optimal targets (for 7.5h sleep):
+        // Deep: 60-90 minutes (13-20% of sleep)
+        // REM: 90-120 minutes (20-25% of sleep)
+        
+        let optimalDeepMinutes = 75.0  // ~1.25 hours
+        let optimalREMMinutes = 105.0  // ~1.75 hours
+        
+        // Deep sleep score (0-1): more important for physical recovery
+        let deepScore = min(1.0, deepMinutes / optimalDeepMinutes)
+        
+        // REM score (0-1): important for cognitive recovery
+        let remScore = min(1.0, remMinutes / optimalREMMinutes)
+        
+        // If no stage data available (older devices), use neutral score
+        if deepMinutes == 0 && remMinutes == 0 {
+            return 0.5
+        }
+        
+        // Weighted combination: Deep slightly more important
+        return (0.55 * deepScore) + (0.45 * remScore)
+    }
+    
+    /// D) Physio Score: Compares overnight HRV/HR to rolling baseline
+    private func calculatePhysioScore(overnightHRV: Double?, overnightHR: Double?) -> Double {
+        var score = 0.5 // Neutral if no data
+        var hasData = false
+        
+        // HRV comparison (higher than baseline = better recovery)
+        if let hrv = overnightHRV, hrvBaseline > 0 {
+            hasData = true
+            let hrvRatio = hrv / hrvBaseline
+            
+            // HRV 20%+ above baseline → excellent (1.0)
+            // HRV at baseline → good (0.6)
+            // HRV 20%+ below baseline → poor (0.2)
+            if hrvRatio >= 1.2 {
+                score = 1.0
+            } else if hrvRatio >= 1.0 {
+                score = 0.6 + (hrvRatio - 1.0) * 2.0 // 0.6 to 1.0
+            } else if hrvRatio >= 0.8 {
+                score = 0.2 + (hrvRatio - 0.8) * 2.0 // 0.2 to 0.6
+            } else {
+                score = max(0, hrvRatio * 0.25) // Below 0.2
+            }
+        }
+        
+        // HR comparison (lower than baseline = better recovery)
+        if let hr = overnightHR, rhrBaseline > 0 {
+            let hrRatio = hr / rhrBaseline
+            
+            // HR 10%+ below baseline → excellent recovery indicator
+            // HR at baseline → neutral
+            // HR 10%+ above baseline → poor recovery
+            var hrScore: Double
+            if hrRatio <= 0.9 {
+                hrScore = 1.0
+            } else if hrRatio <= 1.0 {
+                hrScore = 0.6 + (1.0 - hrRatio) * 4.0 // 0.6 to 1.0
+            } else if hrRatio <= 1.1 {
+                hrScore = 0.2 + (1.1 - hrRatio) * 4.0 // 0.2 to 0.6
+            } else {
+                hrScore = max(0, 0.2 - (hrRatio - 1.1) * 2.0)
+            }
+            
+            if hasData {
+                // Average HRV and HR scores
+                score = (score + hrScore) / 2.0
+            } else {
+                score = hrScore
+            }
+        }
+        
+        return score
+    }
+    
+    // MARK: - Sleep Debt Management
+    
+    /// Updates sleep debt based on last night's sleep
+    /// Returns the change in debt (positive = debt increased, negative = paid off)
+    private func updateSleepDebt(sleepHours: Double) -> Double {
+        let deficit = sleepTargetHours - sleepHours
+        var debtChange: Double
+        
+        if deficit > 0 {
+            // Slept less than target - accumulate debt
+            debtChange = deficit
+            sleepDebtHours += deficit
+        } else {
+            // Slept more than target - pay off debt (with decay rate)
+            let excess = -deficit
+            let payoff = min(sleepDebtHours, excess * sleepDebtDecayRate)
+            debtChange = -payoff
+            sleepDebtHours = max(0, sleepDebtHours - payoff)
+        }
+        
+        // Cap sleep debt at reasonable maximum (2 weeks of 2h deficit)
+        sleepDebtHours = min(sleepDebtHours, 28.0)
+        
+        return debtChange
+    }
+    
+    /// Updates HRV rolling baseline (exponential moving average)
+    private func updateHRVBaseline(newValue: Double) {
+        let alpha = 0.2 // Smoothing factor
+        if hrvBaseline == 0 {
+            hrvBaseline = newValue
+        } else {
+            hrvBaseline = (alpha * newValue) + ((1 - alpha) * hrvBaseline)
+        }
+    }
+    
+    /// Updates RHR rolling baseline (exponential moving average)
+    private func updateRHRBaseline(newValue: Double) {
+        let alpha = 0.2 // Smoothing factor
+        if rhrBaseline == 0 {
+            rhrBaseline = newValue
+        } else {
+            rhrBaseline = (alpha * newValue) + ((1 - alpha) * rhrBaseline)
+        }
+    }
+    
+    /// Gets current battery cap based on sleep debt
+    var currentBatteryCap: Int {
+        max(minBatteryCap, 100 - Int(5.0 * sleepDebtHours))
+    }
+    
+    /// Sleep debt description for UI
+    var sleepDebtDescription: String {
+        switch sleepDebtHours {
+        case 0..<2: return "Fully rested"
+        case 2..<5: return "Mild sleep debt"
+        case 5..<10: return "Moderate sleep debt"
+        case 10..<20: return "Significant sleep debt"
+        default: return "Severe sleep debt"
+        }
+    }
+    
+    /// Processes a nap recharge
+    func processNapRecharge(durationMinutes: Int) {
+        // Naps: 2% per 5 minutes, capped at 30% for a 20-minute power nap
+        let rechargePercent = min(30, (durationMinutes / 5) * 2)
+        let recharge = min(rechargePercent, 100 - currentBattery)
+        currentBattery = min(100, currentBattery + recharge)
+        
+        let rechargeEvent = RechargeEvent(
+            type: .nap,
+            duration: Double(durationMinutes * 60),
+            batteryGained: recharge
+        )
+        
+        recordRechargeEvent(rechargeEvent)
+        print("💤 Nap Recharge: +\(recharge)% from \(durationMinutes) min nap")
+    }
+    
+    /// Processes a mindfulness session recharge
+    func processMindfulnessRecharge(durationMinutes: Int) {
+        // Mindfulness: 1% per minute, capped at 15%
+        let rechargePercent = min(15, durationMinutes)
+        let recharge = min(rechargePercent, 100 - currentBattery)
+        currentBattery = min(100, currentBattery + recharge)
+        
+        let rechargeEvent = RechargeEvent(
+            type: .mindfulness,
+            duration: Double(durationMinutes * 60),
+            batteryGained: recharge
+        )
+        
+        recordRechargeEvent(rechargeEvent)
+        print("🧘 Mindfulness Recharge: +\(recharge)% from \(durationMinutes) min session")
+    }
+    
+    /// Records a recharge event to today's history
+    private func recordRechargeEvent(_ event: RechargeEvent) {
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        if let index = batteryHistory.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            batteryHistory[index].rechargeEvents.append(event)
+            batteryHistory[index].totalRecharge += event.batteryGained
+            batteryHistory[index].currentBattery = currentBattery
+            batteryHistory[index].maxBattery = max(batteryHistory[index].maxBattery, currentBattery)
+        }
+        
+        saveData()
+    }
+    
+    // MARK: - Day Management
+    
+    /// Checks for a new day and handles unlogged days
+    private func checkForNewDay() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        if let lastLoggedData = UserDefaults.standard.data(forKey: lastLoggedDayKey),
+           let lastLogged = try? JSONDecoder().decode(Date.self, from: lastLoggedData) {
+            
+            let daysBetween = calendar.dateComponents([.day], from: lastLogged, to: today).day ?? 0
+            
+            if daysBetween > 1 {
+                // There are unlogged days - reset to 100%
+                print("⚠️ Detected \(daysBetween - 1) unlogged days. Resetting battery to 100%")
+                currentBattery = 100
+                
+                // Mark those days as unlogged in history
+                for dayOffset in 1..<daysBetween {
+                    if let unloggedDate = calendar.date(byAdding: .day, value: dayOffset, to: lastLogged) {
+                        let unloggedEntry = BatteryHistoryEntry(
+                            date: unloggedDate,
+                            startingBattery: 100,
+                            isUnloggedDay: true
+                        )
+                        batteryHistory.insert(unloggedEntry, at: 0)
+                    }
+                }
+            } else if daysBetween == 1 {
+                // Normal new day - carry over battery from yesterday
+                // Sleep recharge will be processed separately from HealthKit data
+                print("🌅 New day started with battery at \(currentBattery)%")
+            }
+        }
+        
+        // Ensure today has an entry
+        if !batteryHistory.contains(where: { calendar.isDate($0.date, inSameDayAs: today) }) {
+            let todayEntry = BatteryHistoryEntry(
+                date: today,
+                startingBattery: currentBattery
+            )
+            batteryHistory.insert(todayEntry, at: 0)
+        }
+        
+        // Update last logged day
+        if let encodedDate = try? JSONEncoder().encode(today) {
+            UserDefaults.standard.set(encodedDate, forKey: lastLoggedDayKey)
+        }
+        
+        // Clear today's stress predictions
+        todayStressPredictions.removeAll()
+        
+        saveData()
+    }
+    
+    /// Updates today's history entry
+    private func updateTodayHistory(drain: Int = 0, recharge: Int = 0) {
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        if let index = batteryHistory.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            batteryHistory[index].currentBattery = currentBattery
+            batteryHistory[index].minBattery = min(batteryHistory[index].minBattery, currentBattery)
+            batteryHistory[index].maxBattery = max(batteryHistory[index].maxBattery, currentBattery)
+            batteryHistory[index].totalDrain += drain
+            batteryHistory[index].totalRecharge += recharge
+            
+            if let lastPrediction = lastStressPrediction {
+                batteryHistory[index].stressPredictions.append(lastPrediction)
+            }
+        }
+        
+        // Keep only last 60 days
+        if batteryHistory.count > 60 {
+            batteryHistory = Array(batteryHistory.prefix(60))
+        }
     }
     
     // MARK: - Active Session Management
@@ -209,17 +1027,34 @@ class BodyBatteryManager: ObservableObject {
         }
         
         // Add battery gain
-        currentBattery = min(100, currentBattery + session.activity.batteryGain)
+        let gained = session.activity.batteryGain
+        currentBattery = min(100, currentBattery + gained)
         
         // Record completed activity
         let completed = CompletedRecoveryActivity(
             activityName: session.activity.name,
-            batteryGained: session.activity.batteryGain,
+            batteryGained: gained,
             sessionMetricsId: sessionMetricsId
         )
         completedRecoveryActivities.insert(completed, at: 0)
         
-        updateTodayHistory(recoveryEvent: true)
+        // Record as recharge event
+        let rechargeType: RechargeEvent.RechargeType
+        switch session.activity.activityType {
+        case .breathing: rechargeType = .breathing
+        case .meditation: rechargeType = .meditation
+        case .nap: rechargeType = .nap
+        case .rest: rechargeType = .rest
+        default: rechargeType = .mindfulness
+        }
+        
+        let rechargeEvent = RechargeEvent(
+            type: rechargeType,
+            duration: Double(session.activity.duration * 60),
+            batteryGained: gained
+        )
+        recordRechargeEvent(rechargeEvent)
+        
         activeSession = nil
         saveData()
     }
@@ -229,37 +1064,35 @@ class BodyBatteryManager: ObservableObject {
         activeSession = nil
     }
     
-    // MARK: - Battery Calculations
+    // MARK: - Legacy Methods (for compatibility)
     
     /// Calculate battery drain based on stress level and duration
     func calculateBatteryDrain(stressLevel: Int, durationMinutes: Int) -> Int {
-        // Higher stress = more drain per minute
-        // Base drain: 0.5% per 10 minutes at stress level 1
-        // Max drain: 2% per 10 minutes at stress level 10
         let drainPerTenMinutes = Double(stressLevel) * 0.2
         let totalDrain = (Double(durationMinutes) / 10.0) * drainPerTenMinutes
         return Int(ceil(totalDrain))
     }
     
-    /// Apply stress to battery
+    /// Apply stress to battery (legacy method)
     func applyStress(stressLevel: Int, durationMinutes: Int) {
         let drain = calculateBatteryDrain(stressLevel: stressLevel, durationMinutes: durationMinutes)
         currentBattery = max(5, currentBattery - drain)
-        updateTodayHistory(stressEvent: true)
+        updateTodayHistory(drain: drain)
         saveData()
     }
     
-    /// Complete a recovery activity
+    /// Complete a recovery activity (legacy method)
     func completeRecoveryActivity(_ activity: DestressActivity) {
-        currentBattery = min(100, currentBattery + activity.batteryGain)
+        let gained = activity.batteryGain
+        currentBattery = min(100, currentBattery + gained)
         
         let completed = CompletedRecoveryActivity(
             activityName: activity.name,
-            batteryGained: activity.batteryGain
+            batteryGained: gained
         )
         completedRecoveryActivities.insert(completed, at: 0)
         
-        updateTodayHistory(recoveryEvent: true)
+        updateTodayHistory(recharge: gained)
         saveData()
     }
     
@@ -274,49 +1107,6 @@ class BodyBatteryManager: ObservableObject {
         simulatedBatteryChange = 0
     }
     
-    // MARK: - History Management
-    
-    private func updateTodayHistory(stressEvent: Bool = false, recoveryEvent: Bool = false) {
-        let today = Calendar.current.startOfDay(for: Date())
-        
-        if let index = batteryHistory.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
-            batteryHistory[index].batteryLevel = currentBattery
-            batteryHistory[index].minBattery = min(batteryHistory[index].minBattery, currentBattery)
-            batteryHistory[index].maxBattery = max(batteryHistory[index].maxBattery, currentBattery)
-            if stressEvent { batteryHistory[index].stressEvents += 1 }
-            if recoveryEvent { batteryHistory[index].recoveryActivities += 1 }
-        } else {
-            let newEntry = BatteryHistoryEntry(
-                date: today,
-                batteryLevel: currentBattery,
-                stressEvents: stressEvent ? 1 : 0,
-                recoveryActivities: recoveryEvent ? 1 : 0
-            )
-            batteryHistory.insert(newEntry, at: 0)
-        }
-        
-        // Keep only last 30 days
-        if batteryHistory.count > 30 {
-            batteryHistory = Array(batteryHistory.prefix(30))
-        }
-    }
-    
-    private func checkForNewDay() {
-        let lastUpdate = UserDefaults.standard.object(forKey: lastUpdateKey) as? Date ?? Date()
-        let calendar = Calendar.current
-        
-        if !calendar.isDateInToday(lastUpdate) {
-            // New day - apply overnight recovery
-            let hoursSlept = 7.0 // Could integrate with HealthKit sleep data
-            let overnightRecovery = Int(hoursSlept * 3) // ~3% per hour of sleep
-            currentBattery = min(100, currentBattery + overnightRecovery)
-            updateTodayHistory()
-        }
-        
-        UserDefaults.standard.set(Date(), forKey: lastUpdateKey)
-        saveData()
-    }
-    
     /// Get history for a specific date
     func historyForDate(_ date: Date) -> BatteryHistoryEntry? {
         batteryHistory.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
@@ -326,7 +1116,7 @@ class BodyBatteryManager: ObservableObject {
     var weeklyAverageBattery: Int? {
         let weekEntries = batteryHistory.prefix(7)
         guard !weekEntries.isEmpty else { return nil }
-        let total = weekEntries.reduce(0) { $0 + $1.batteryLevel }
+        let total = weekEntries.reduce(0) { $0 + $1.currentBattery }
         return total / weekEntries.count
     }
     
@@ -347,14 +1137,48 @@ class BodyBatteryManager: ObservableObject {
         }
     }
     
+    var stressInsight: String {
+        // Insights aligned with DC/AC pipeline stress levels:
+        // 0-29 = Low, 30-49 = Moderate, 50-69 = High, 70+ = Very High
+        switch currentStressLevel {
+        case 0..<30:
+            return "You're relaxed. DC metrics show strong vagal tone."
+        case 30..<50:
+            return "Moderate stress. Your nervous system is balanced."
+        case 50..<70:
+            return "High stress detected. Consider a recovery activity."
+        default:
+            return "Very high stress. Your body needs immediate recovery."
+        }
+    }
+    
     var recommendedActivity: DestressActivity {
         if currentBattery < 30 {
             return destressActivities.first { $0.activityType == .breathing }!
         } else if currentBattery < 50 {
-            return destressActivities.first { $0.activityType == .walking }!
+            return destressActivities.first { $0.activityType == .nap } ?? destressActivities.first { $0.activityType == .walking }!
         } else {
             return destressActivities.first { $0.activityType == .hydration }!
         }
+    }
+    
+    /// Today's stress summary
+    var todayStressSummary: (avgStress: Int, dominantType: StressType, totalDrain: Int) {
+        guard !todayStressPredictions.isEmpty else {
+            return (0, .none, 0)
+        }
+        
+        let avgStress = todayStressPredictions.reduce(0) { $0 + $1.predictedStressLevel } / todayStressPredictions.count
+        let totalDrain = todayStressPredictions.reduce(0) { $0 + $1.batteryDrain }
+        
+        // Find dominant stress type
+        var typeCounts: [StressType: Int] = [:]
+        for prediction in todayStressPredictions {
+            typeCounts[prediction.stressType, default: 0] += 1
+        }
+        let dominantType = typeCounts.max(by: { $0.value < $1.value })?.key ?? .none
+        
+        return (avgStress, dominantType, totalDrain)
     }
     
     // MARK: - Persistence
@@ -373,11 +1197,24 @@ class BodyBatteryManager: ObservableObject {
         if let metricsData = try? JSONEncoder().encode(savedSessionMetrics) {
             UserDefaults.standard.set(metricsData, forKey: sessionMetricsKey)
         }
+        
+        if let stressData = try? JSONEncoder().encode(todayStressPredictions) {
+            UserDefaults.standard.set(stressData, forKey: stressPredictionsKey)
+        }
+        
+        // Save sleep-related data
+        UserDefaults.standard.set(sleepDebtHours, forKey: sleepDebtKey)
+        UserDefaults.standard.set(hrvBaseline, forKey: hrvBaselineKey)
+        UserDefaults.standard.set(rhrBaseline, forKey: rhrBaselineKey)
+        
+        if let sleepScoreData = try? JSONEncoder().encode(lastSleepRecoveryScore) {
+            UserDefaults.standard.set(sleepScoreData, forKey: lastSleepScoreKey)
+        }
     }
     
     private func loadData() {
         currentBattery = UserDefaults.standard.integer(forKey: batteryKey)
-        if currentBattery == 0 { currentBattery = 75 } // Default for new users
+        if currentBattery == 0 { currentBattery = 100 } // Start at 100% for new users
         
         if let historyData = UserDefaults.standard.data(forKey: historyKey),
            let history = try? JSONDecoder().decode([BatteryHistoryEntry].self, from: historyData) {
@@ -393,12 +1230,223 @@ class BodyBatteryManager: ObservableObject {
            let metrics = try? JSONDecoder().decode([SavedSessionMetrics].self, from: metricsData) {
             savedSessionMetrics = metrics
         }
+        
+        if let stressData = UserDefaults.standard.data(forKey: stressPredictionsKey),
+           let predictions = try? JSONDecoder().decode([StressPrediction].self, from: stressData) {
+            todayStressPredictions = predictions
+            lastStressPrediction = predictions.last
+        }
+        
+        // Load sleep-related data
+        sleepDebtHours = UserDefaults.standard.double(forKey: sleepDebtKey)
+        hrvBaseline = UserDefaults.standard.double(forKey: hrvBaselineKey)
+        rhrBaseline = UserDefaults.standard.double(forKey: rhrBaselineKey)
+        
+        // Set defaults if not previously saved
+        if hrvBaseline == 0 { hrvBaseline = 50 }
+        if rhrBaseline == 0 { rhrBaseline = 60 }
+        
+        if let sleepScoreData = UserDefaults.standard.data(forKey: lastSleepScoreKey),
+           let sleepScore = try? JSONDecoder().decode(SleepRecoveryScore.self, from: sleepScoreData) {
+            lastSleepRecoveryScore = sleepScore
+        }
     }
     
     /// Retrieves saved metrics for a completed activity
     func getSessionMetrics(for activityId: UUID?) -> SavedSessionMetrics? {
         guard let id = activityId else { return nil }
         return savedSessionMetrics.first { $0.id == id }
+    }
+    
+    /// Manually trigger stress prediction with current health data
+    func updateStressPrediction(hrv: Double?, heartRate: Double?, activeEnergy: Double?) {
+        Task {
+            await predictCurrentStress(hrv: hrv, heartRate: heartRate, activeEnergy: activeEnergy)
+        }
+    }
+    
+    /// Update stress state directly from pipeline result (called by HealthKitManager background updates)
+    /// This allows background pipeline runs to reflect in the UI without re-running the pipeline
+    func updateFromPipelineResult(stressScore: Int, activityType: String, dc: Double?, ac: Double?, sdnn: Double?) {
+        // Map activity type to stress type
+        let stressType: StressType
+        if activityType == "PHYSICAL" {
+            stressType = .physical
+        } else if stressScore < stressThreshold {
+            stressType = .none
+        } else {
+            stressType = .cognitive
+        }
+        
+        // Calculate drain
+        let drain = calculateIntervalDrain(stressLevel: stressScore, stressType: stressType)
+        
+        // Create prediction
+        let prediction = StressPrediction(
+            predictedStressLevel: stressScore,
+            stressType: stressType,
+            hrvValue: sdnn,
+            heartRate: nil,
+            batteryDrain: drain
+        )
+        
+        // Update state
+        currentStressLevel = stressScore
+        currentStressType = stressType
+        lastStressPrediction = prediction
+        todayStressPredictions.append(prediction)
+        
+        // Apply drain only for cognitive stress
+        if activityType == "COGNITIVE" {
+            applyStressDrain(drain)
+        }
+        
+        saveData()
+        
+        let dcStr = dc != nil ? String(format: "%.2f", dc!) : "N/A"
+        let acStr = ac != nil ? String(format: "%.2f", ac!) : "N/A"
+        print("📊 Background Pipeline Update: Stress=\(stressScore), Type=\(stressType.rawValue), DC=\(dcStr), AC=\(acStr)")
+    }
+    
+    // MARK: - Baseline Export/Import
+    
+    /// Data structure for exporting all personalized baselines
+    struct BaselineExportData: Codable {
+        let exportDate: Date
+        let appVersion: String
+        let calibrationDays: Int
+        
+        // HRV/HR baselines
+        let hrvBaseline: Double
+        let rhrBaseline: Double
+        
+        // Sleep data
+        let sleepDebtHours: Double
+        
+        // DC/AC baselines (from StressCalculator)
+        let dcBaselineValues: [Double]
+        let sdnnBaselineValues: [Double]
+        
+        // Battery history (last 30 days)
+        let recentBatteryHistory: [BatteryHistoryEntry]
+        
+        // Metadata
+        let totalStressPredictions: Int
+        let averageDailySleep: Double?
+    }
+    
+    /// Exports all baseline data as JSON
+    /// Returns: JSON data that can be saved to file or shared
+    func exportBaselineData() -> Data? {
+        // Fetch DC/AC baselines from StressCalculator
+        let dcValues = UserDefaults.standard.array(forKey: "StressCalculator_BaselineDC") as? [Double] ?? []
+        let sdnnValues = UserDefaults.standard.array(forKey: "StressCalculator_BaselineSDNN") as? [Double] ?? []
+        
+        // Calculate average daily sleep from history
+        let sleepEntries = batteryHistory.compactMap { $0.rechargeEvents.first(where: { $0.type == .nightSleep })?.duration }
+        let avgSleep = sleepEntries.isEmpty ? nil : sleepEntries.reduce(0, +) / Double(sleepEntries.count) / 3600.0
+        
+        let exportData = BaselineExportData(
+            exportDate: Date(),
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+            calibrationDays: dcValues.count,
+            hrvBaseline: hrvBaseline,
+            rhrBaseline: rhrBaseline,
+            sleepDebtHours: sleepDebtHours,
+            dcBaselineValues: dcValues,
+            sdnnBaselineValues: sdnnValues,
+            recentBatteryHistory: Array(batteryHistory.prefix(30)),
+            totalStressPredictions: batteryHistory.reduce(0) { $0 + $1.stressPredictions.count },
+            averageDailySleep: avgSleep
+        )
+        
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        
+        return try? encoder.encode(exportData)
+    }
+    
+    /// Exports baseline data as a shareable JSON string
+    func exportBaselineAsString() -> String? {
+        guard let data = exportBaselineData() else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    /// Imports baseline data from JSON
+    /// - Parameter jsonData: The JSON data to import
+    /// - Returns: true if import was successful
+    func importBaselineData(from jsonData: Data) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        guard let importedData = try? decoder.decode(BaselineExportData.self, from: jsonData) else {
+            print("❌ Failed to decode baseline data")
+            return false
+        }
+        
+        // Restore HRV/HR baselines
+        hrvBaseline = importedData.hrvBaseline
+        rhrBaseline = importedData.rhrBaseline
+        sleepDebtHours = importedData.sleepDebtHours
+        
+        // Restore DC/AC baselines to UserDefaults (for StressCalculator)
+        UserDefaults.standard.set(importedData.dcBaselineValues, forKey: "StressCalculator_BaselineDC")
+        UserDefaults.standard.set(importedData.sdnnBaselineValues, forKey: "StressCalculator_BaselineSDNN")
+        
+        // Optionally restore battery history (merge or replace)
+        // For now, we merge to preserve local data
+        for entry in importedData.recentBatteryHistory {
+            if !batteryHistory.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: entry.date) }) {
+                batteryHistory.append(entry)
+            }
+        }
+        batteryHistory.sort { $0.date > $1.date }
+        
+        saveData()
+        
+        print("""
+        ✅ Baseline data imported successfully:
+           - Calibration days: \(importedData.calibrationDays)
+           - HRV baseline: \(importedData.hrvBaseline) ms
+           - RHR baseline: \(importedData.rhrBaseline) bpm
+           - Sleep debt: \(importedData.sleepDebtHours) hours
+           - DC values: \(importedData.dcBaselineValues.count)
+           - SDNN values: \(importedData.sdnnBaselineValues.count)
+        """)
+        
+        return true
+    }
+    
+    /// Imports baseline data from a JSON string
+    func importBaselineFromString(_ jsonString: String) -> Bool {
+        guard let data = jsonString.data(using: .utf8) else { return false }
+        return importBaselineData(from: data)
+    }
+    
+    /// Returns true if user has completed minimum calibration period (7 days)
+    var isCalibrated: Bool {
+        let dcValues = UserDefaults.standard.array(forKey: "StressCalculator_BaselineDC") as? [Double] ?? []
+        return dcValues.count >= 5
+    }
+    
+    /// Returns calibration progress (0.0 to 1.0)
+    var calibrationProgress: Double {
+        let dcValues = UserDefaults.standard.array(forKey: "StressCalculator_BaselineDC") as? [Double] ?? []
+        let minRequired = 5  // Minimum readings for baseline
+        let targetDays = 14  // Ideal calibration period
+        return min(1.0, Double(dcValues.count) / Double(targetDays))
+    }
+    
+    /// Resets all baselines (for testing or recalibration)
+    func resetAllBaselines() {
+        hrvBaseline = 50
+        rhrBaseline = 60
+        sleepDebtHours = 0
+        UserDefaults.standard.removeObject(forKey: "StressCalculator_BaselineDC")
+        UserDefaults.standard.removeObject(forKey: "StressCalculator_BaselineSDNN")
+        saveData()
+        print("🔄 All baselines reset to defaults")
     }
 }
 
@@ -450,12 +1498,30 @@ struct BodyBatteryView: View {
                     )
                     .padding(.horizontal)
                     
+                    // Current Stress Card
+                    CurrentStressCard(batteryManager: batteryManager)
+                        .padding(.horizontal)
+                    
                     // Insight Card
                     InsightCard(
                         insight: batteryManager.batteryInsight,
                         batteryLevel: batteryManager.currentBattery
                     )
                     .padding(.horizontal)
+                    
+                    // Sleep Recovery Card (if we have sleep data)
+                    if let sleepScore = batteryManager.lastSleepRecoveryScore {
+                        SleepRecoveryCard(
+                            sleepScore: sleepScore,
+                            sleepDebt: batteryManager.sleepDebtHours,
+                            batteryCap: batteryManager.currentBatteryCap
+                        )
+                        .padding(.horizontal)
+                    }
+                    
+                    // Today's Stress Summary
+                    TodayStressSummaryCard(batteryManager: batteryManager)
+                        .padding(.horizontal)
                     
                     // Activity Impact Simulator
                     ActivityImpactCard(batteryManager: batteryManager)
@@ -501,9 +1567,467 @@ struct BodyBatteryView: View {
                     }
                 }
             }
+            .onAppear {
+                // Configure the stress pipeline with HealthKitManager (enables DC/AC calculation)
+                batteryManager.configure(with: healthKitManager)
+                
+                // Trigger immediate stress prediction using the full DC/AC pipeline
+                // This will run: Stage 1 (Activity Classification) → Stage 2 (Sleep Adjustment) → Stage 3 (DC/AC Metrics)
+                batteryManager.updateStressPrediction(
+                    hrv: healthKitManager.latestHRV,
+                    heartRate: healthKitManager.latestHeartRate,
+                    activeEnergy: healthKitManager.activeCalories
+                )
+                
+                // Process sleep data if available (with overnight HRV/HR for physio score)
+                if let sleepHours = healthKitManager.lastNightSleep {
+                    batteryManager.processSleepRecharge(
+                        sleepHours: sleepHours,
+                        sleepStages: healthKitManager.sleepStages,
+                        overnightHRV: healthKitManager.latestHRV,
+                        overnightHR: healthKitManager.restingHeartRate
+                    )
+                }
+            }
         }
         .sheet(isPresented: $showingBreathingExercise) {
             BreathingExerciseView(batteryManager: batteryManager)
+        }
+    }
+}
+
+// MARK: - Current Stress Card
+struct CurrentStressCard: View {
+    @ObservedObject var batteryManager: BodyBatteryManager
+    
+    // Color thresholds aligned with DC/AC pipeline:
+    // 0-29 = Low (green), 30-49 = Moderate (blue), 50-69 = High (orange), 70+ = Very High (red)
+    var stressColor: Color {
+        switch batteryManager.currentStressLevel {
+        case 0..<30: return .green
+        case 30..<50: return .blue
+        case 50..<70: return .orange
+        default: return .red
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: batteryManager.currentStressType.icon)
+                    .font(.title2)
+                    .foregroundColor(batteryManager.currentStressType.color)
+                
+                Text("Current Stress")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text(batteryManager.currentStressType.rawValue)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(batteryManager.currentStressType.color)
+                    .cornerRadius(8)
+            }
+            
+            HStack(alignment: .bottom, spacing: 8) {
+                Text("\(batteryManager.currentStressLevel)")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundColor(stressColor)
+                
+                Text("/ 100")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 8)
+                
+                Spacer()
+                
+                // Stress gauge
+                StressGauge(level: batteryManager.currentStressLevel)
+                    .frame(width: 80, height: 80)
+            }
+            
+            Text(batteryManager.stressInsight)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            if let lastPrediction = batteryManager.lastStressPrediction {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10))
+                    Text("Last checked: \(formatTime(lastPrediction.timestamp))")
+                        .font(.caption2)
+                }
+                .foregroundColor(.secondary)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Stress Gauge
+struct StressGauge: View {
+    let level: Int
+    
+    // Color thresholds aligned with DC/AC pipeline:
+    // 0-29 = Low, 30-49 = Moderate, 50-69 = High, 70+ = Very High
+    var color: Color {
+        switch level {
+        case 0..<30: return .green
+        case 30..<50: return .blue
+        case 50..<70: return .orange
+        default: return .red
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color(.systemGray5), lineWidth: 8)
+            
+            Circle()
+                .trim(from: 0, to: CGFloat(level) / 100.0)
+                .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            
+            VStack(spacing: 0) {
+                Image(systemName: level >= 40 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+        }
+    }
+}
+
+// MARK: - Today's Stress Summary Card
+struct TodayStressSummaryCard: View {
+    @ObservedObject var batteryManager: BodyBatteryManager
+    
+    var summary: (avgStress: Int, dominantType: StressType, totalDrain: Int) {
+        batteryManager.todayStressSummary
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .font(.title2)
+                    .foregroundColor(.purple)
+                
+                Text("Today's Summary")
+                    .font(.headline)
+                
+                Spacer()
+            }
+            
+            HStack(spacing: 20) {
+                // Average Stress
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Avg Stress")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(summary.avgStress)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+                
+                Divider().frame(height: 40)
+                
+                // Dominant Type
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Main Type")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: summary.dominantType.icon)
+                            .foregroundColor(summary.dominantType.color)
+                        Text(summary.dominantType.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+                
+                Divider().frame(height: 40)
+                
+                // Total Drain
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Drained")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("-\(summary.totalDrain)%")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.red)
+                }
+                
+                Spacer()
+            }
+            
+            // Stress timeline (simplified)
+            if !batteryManager.todayStressPredictions.isEmpty {
+                StressTimelineView(predictions: batteryManager.todayStressPredictions)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Stress Timeline View
+struct StressTimelineView: View {
+    let predictions: [StressPrediction]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("STRESS TIMELINE")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+            
+            GeometryReader { geometry in
+                HStack(spacing: 2) {
+                    ForEach(predictions.suffix(12)) { prediction in
+                        Rectangle()
+                            .fill(colorForStress(prediction.predictedStressLevel))
+                            .frame(height: heightForStress(prediction.predictedStressLevel, maxHeight: 30))
+                            .cornerRadius(2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 30)
+            
+            HStack {
+                Text("Earlier")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("Now")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private func colorForStress(_ level: Int) -> Color {
+        switch level {
+        case 0..<20: return .green
+        case 20..<40: return .blue
+        case 40..<60: return .yellow
+        case 60..<80: return .orange
+        default: return .red
+        }
+    }
+    
+    private func heightForStress(_ level: Int, maxHeight: CGFloat) -> CGFloat {
+        max(4, CGFloat(level) / 100.0 * maxHeight)
+    }
+}
+
+// MARK: - Sleep Recovery Card
+struct SleepRecoveryCard: View {
+    let sleepScore: SleepRecoveryScore
+    let sleepDebt: Double
+    let batteryCap: Int
+    
+    var scoreColor: Color {
+        switch sleepScore.totalScore {
+        case 0.8...1.0: return .green
+        case 0.6..<0.8: return .blue
+        case 0.4..<0.6: return .yellow
+        case 0.2..<0.4: return .orange
+        default: return .red
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: "moon.zzz.fill")
+                    .font(.title2)
+                    .foregroundColor(.indigo)
+                
+                Text("Sleep Recovery")
+                    .font(.headline)
+                
+                Spacer()
+                
+                // Overall score badge
+                Text(sleepScore.scoreDescription)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(scoreColor)
+                    .cornerRadius(8)
+            }
+            
+            // Main score display
+            HStack(alignment: .bottom, spacing: 8) {
+                Text("\(Int(sleepScore.totalScore * 100))")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundColor(scoreColor)
+                
+                Text("/ 100")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 8)
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("+\(sleepScore.rechargePoints)%")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("recharged")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Sub-scores breakdown
+            VStack(spacing: 12) {
+                SleepScoreRow(
+                    icon: "clock.fill",
+                    title: "Duration",
+                    score: sleepScore.quantityScore,
+                    detail: String(format: "%.1fh sleep", sleepScore.totalSleepHours),
+                    color: .blue
+                )
+                
+                SleepScoreRow(
+                    icon: "waveform.path",
+                    title: "Continuity",
+                    score: sleepScore.continuityScore,
+                    detail: String(format: "%.0fmin awake", sleepScore.awakeMinutes),
+                    color: .cyan
+                )
+                
+                SleepScoreRow(
+                    icon: "brain.head.profile",
+                    title: "Sleep Stages",
+                    score: sleepScore.stageScore,
+                    detail: "Deep: \(Int(sleepScore.deepSleepMinutes))m, REM: \(Int(sleepScore.remSleepMinutes))m",
+                    color: .purple
+                )
+                
+                SleepScoreRow(
+                    icon: "heart.fill",
+                    title: "Physio Recovery",
+                    score: sleepScore.physioScore,
+                    detail: sleepScore.overnightHRV != nil ? "HRV: \(Int(sleepScore.overnightHRV!))ms" : "No HRV data",
+                    color: .pink
+                )
+            }
+            
+            Divider()
+            
+            // Sleep debt info
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sleep Debt")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(String(format: "%.1fh", sleepDebt))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(sleepDebt > 5 ? .orange : .primary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Battery Cap")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(batteryCap)%")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(batteryCap < 80 ? .orange : .primary)
+                }
+            }
+            
+            if sleepDebt > 2 {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Text("Sleep debt is limiting your max battery capacity")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Sleep Score Row
+struct SleepScoreRow: View {
+    let icon: String
+    let title: String
+    let score: Double
+    let detail: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundColor(color)
+                .frame(width: 20)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 80, alignment: .leading)
+            
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .frame(height: 6)
+                        .cornerRadius(3)
+                    
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: geometry.size.width * CGFloat(score), height: 6)
+                        .cornerRadius(3)
+                }
+            }
+            .frame(height: 6)
+            
+            Text(String(format: "%.0f%%", score * 100))
+                .font(.caption)
+                .fontWeight(.medium)
+                .frame(width: 35, alignment: .trailing)
+            
+            Text(detail)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .frame(width: 90, alignment: .trailing)
+                .lineLimit(1)
         }
     }
 }
@@ -876,9 +2400,9 @@ struct BatteryCalendarCard: View {
                         .fontWeight(.medium)
                     
                     HStack(spacing: 20) {
-                        StatItem(title: "Battery", value: "\(entry.batteryLevel)%", icon: "battery.75", color: batteryColor(for: entry.batteryLevel))
-                        StatItem(title: "Stress Events", value: "\(entry.stressEvents)", icon: "exclamationmark.triangle", color: .orange)
-                        StatItem(title: "Recovery", value: "\(entry.recoveryActivities)", icon: "heart.fill", color: .green)
+                        StatItem(title: "Battery", value: "\(entry.currentBattery)%", icon: "battery.75", color: batteryColor(for: entry.currentBattery))
+                        StatItem(title: "Stress", value: "\(entry.stressPredictions.count)", icon: "exclamationmark.triangle", color: .orange)
+                        StatItem(title: "Recovery", value: "\(entry.rechargeEvents.count)", icon: "heart.fill", color: .green)
                     }
                     
                     if entry.minBattery != entry.maxBattery {
@@ -927,7 +2451,7 @@ struct DayBatteryView: View {
     }
     
     var batteryColor: Color {
-        guard let level = entry?.batteryLevel else { return .gray }
+        guard let level = entry?.currentBattery else { return .gray }
         switch level {
         case 70...100: return .green
         case 40..<70: return .yellow
@@ -947,7 +2471,7 @@ struct DayBatteryView: View {
                     .fill(batteryColor.opacity(0.2))
                     .frame(width: 36, height: 36)
                 
-                if let level = entry?.batteryLevel {
+                if let level = entry?.currentBattery {
                     Circle()
                         .trim(from: 0, to: CGFloat(level) / 100.0)
                         .stroke(batteryColor, lineWidth: 3)
@@ -1094,7 +2618,7 @@ struct CalendarDayCell: View {
     }
     
     var batteryColor: Color {
-        guard let level = entry?.batteryLevel else { return .clear }
+        guard let level = entry?.currentBattery else { return .clear }
         switch level {
         case 70...100: return .green
         case 40..<70: return .yellow
@@ -1164,6 +2688,12 @@ struct RecoveryActivitiesSection: View {
                                     showingMeditationSession = true
                                 case .stretching:
                                     showingStretchSession = true
+                                case .nap:
+                                    // Nap session - use meditation view for now
+                                    showingMeditationSession = true
+                                case .rest:
+                                    // Rest session - use meditation view for now
+                                    showingMeditationSession = true
                                 case .hydration:
                                     // Hydrate is quick - just mark as complete
                                     batteryManager.completeRecoveryActivity(activity)
@@ -2151,8 +3681,22 @@ struct BreathingExerciseView: View {
                 VStack(spacing: 40) {
                     Spacer()
                     
-                    // Recording indicator
-                    if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
+                    // Recording indicator with Watch tip
+                    if breathPhase == .ready {
+                        VStack(spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "applewatch")
+                                    .foregroundColor(.blue)
+                                Text("Tip: Start Breathe app on Watch for best HR tracking")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    } else if breathPhase != .complete && breathPhase != .completing {
                         HStack(spacing: 8) {
                             Circle()
                                 .fill(Color.red)

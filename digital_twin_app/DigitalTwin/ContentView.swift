@@ -114,75 +114,127 @@ struct DashboardView: View {
     @State private var heartScale: CGFloat = 1.0
     @State private var showingAddActivity = false
     @State private var showingBodyBattery = false
+    @ObservedObject var activityManager = ActivityManager.shared
     
     var body: some View {
         NavigationView {
             ZStack {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
                         // Body Battery Card - Prominent at the top
                         BodyBatteryPreviewCard(showingBodyBattery: $showingBodyBattery)
                             .padding(.horizontal)
                         
-                        // Insights & Forecast Section at the top
-                        InsightsAndForecastCard(
-                            hrv: healthKitManager.latestHRV,
-                            sleepHours: healthKitManager.lastNightSleep,
-                            todaySteps: healthKitManager.todaySteps,
-                            weeklySteps: healthKitManager.weeklySteps,
-                            restingHR: healthKitManager.restingHeartRate
+                        // Sync Status Banner
+                        if healthKitManager.isBackgroundDeliveryEnabled {
+                            SyncStatusBanner(lastSync: healthKitManager.lastBackgroundSync)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Detected Activity Timeline Card
+                        DetectedActivityCard(activities: activityManager.todaysDetectedActivities, currentActivity: healthKitManager.latestActivityType)
+                            .padding(.horizontal)
+                        
+                        // Sleep Card with Stages
+                        SleepMetricCard(
+                            sleepHours: healthKitManager.sleepMetric.value,
+                            stages: healthKitManager.sleepStages,
+                            timestamp: healthKitManager.sleepMetric.detailedTimestamp
                         )
                         .padding(.horizontal)
                         
-                        HeartRateCard(
-                            heartRate: healthKitManager.latestHeartRate,
-                            heartScale: $heartScale
-                        )
-                        .onAppear { startHeartAnimation() }
-                        
+                        // Heart Metrics Row
                         HStack(spacing: 12) {
-                            QuickStatCard(
-                                icon: "figure.walk",
-                                title: "Steps",
-                                value: formatNumber(healthKitManager.todaySteps),
-                                color: .green
+                            MetricCard(
+                                icon: "heart",
+                                iconColor: .pink,
+                                title: "Resting HR",
+                                value: healthKitManager.restingHeartRateMetric.value != nil ? String(format: "%.0f", healthKitManager.restingHeartRateMetric.value!) : "--",
+                                unit: "BPM",
+                                timestamp: healthKitManager.restingHeartRateMetric.formattedTimestamp
                             )
                             
-                            QuickStatCard(
-                                icon: "flame.fill",
-                                title: "Calories",
-                                value: formatNumber(healthKitManager.activeCalories),
-                                unit: "kcal",
-                                color: .orange
+                            MetricCard(
+                                icon: "heart.fill",
+                                iconColor: .red,
+                                title: "Heart Rate",
+                                value: healthKitManager.heartRateMetric.value != nil ? String(format: "%.0f", healthKitManager.heartRateMetric.value!) : "--",
+                                unit: "BPM",
+                                timestamp: healthKitManager.heartRateMetric.formattedTimestamp
                             )
                         }
                         .padding(.horizontal)
                         
-                        HRVCard(hrv: healthKitManager.latestHRV)
-                            .padding(.horizontal)
+                        // HRV & Respiratory Rate Row
+                        HStack(spacing: 12) {
+                            MetricCard(
+                                icon: "waveform.path.ecg",
+                                iconColor: .purple,
+                                title: "HRV (SDNN)",
+                                value: healthKitManager.hrvMetric.value != nil ? String(format: "%.0f", healthKitManager.hrvMetric.value!) : "--",
+                                unit: "ms",
+                                timestamp: healthKitManager.hrvMetric.formattedTimestamp
+                            )
+                            
+                            MetricCard(
+                                icon: "lungs.fill",
+                                iconColor: .cyan,
+                                title: "Respiratory",
+                                value: healthKitManager.respiratoryRateMetric.value != nil ? String(format: "%.1f", healthKitManager.respiratoryRateMetric.value!) : "--",
+                                unit: "br/min",
+                                timestamp: healthKitManager.respiratoryRateMetric.formattedTimestamp
+                            )
+                        }
+                        .padding(.horizontal)
                         
-                        // Self-Reported Activities Card
-                        ActivityHistoryCard()
-                            .padding(.horizontal)
+                        // Activity Row
+                        HStack(spacing: 12) {
+                            MetricCard(
+                                icon: "flame.fill",
+                                iconColor: .orange,
+                                title: "Active Energy",
+                                value: formatEnergy(healthKitManager.activeEnergyMetric.value),
+                                unit: "kcal",
+                                timestamp: healthKitManager.activeEnergyMetric.formattedTimestamp
+                            )
+                            
+                            MetricCard(
+                                icon: "figure.walk",
+                                iconColor: .green,
+                                title: "Steps",
+                                value: formatNumber(healthKitManager.stepsMetric.value),
+                                unit: "",
+                                timestamp: healthKitManager.stepsMetric.formattedTimestamp
+                            )
+                        }
+                        .padding(.horizontal)
                         
-                        SleepCard(sleepHours: healthKitManager.lastNightSleep)
-                            .padding(.horizontal)
-                        
-                        ActivitySummaryCard(
-                            distance: healthKitManager.todayDistance,
-                            restingHR: healthKitManager.restingHeartRate
+                        // Distance Card
+                        MetricCard(
+                            icon: "location.fill",
+                            iconColor: .blue,
+                            title: "Distance",
+                            value: healthKitManager.distanceMetric.value != nil ? String(format: "%.2f", healthKitManager.distanceMetric.value! / 1000) : "--",
+                            unit: "km",
+                            timestamp: healthKitManager.distanceMetric.formattedTimestamp,
+                            isWide: true
                         )
                         .padding(.horizontal)
                         
-                        WeeklyInsightsCard(weeklyData: healthKitManager.weeklySteps)
+                        // Workouts Section
+                        WorkoutsSummaryCard(workouts: healthKitManager.workouts)
                             .padding(.horizontal)
                         
-                        Spacer(minLength: 100) // Extra space for floating button
+                        // Mindful Sessions Section
+                        MindfulSessionsCard(sessions: healthKitManager.mindfulSessions)
+                            .padding(.horizontal)
+                        
+                        Spacer(minLength: 100)
                     }
                     .padding(.top)
                 }
                 .background(Color(.systemGroupedBackground))
-                .navigationTitle("Today")
+                .navigationTitle("Health Metrics")
                 .navigationBarTitleDisplayMode(.large)
                 .refreshable {
                     await healthKitManager.refreshAllData()
@@ -214,14 +266,6 @@ struct DashboardView: View {
         }
     }
     
-    private func startHeartAnimation() {
-        let bpm = healthKitManager.latestHeartRate ?? 72
-        let interval = 60.0 / bpm
-        withAnimation(.easeInOut(duration: interval / 2).repeatForever(autoreverses: true)) {
-            heartScale = 1.2
-        }
-    }
-    
     private func formatNumber(_ value: Double?) -> String {
         guard let value = value else { return "--" }
         if value >= 1000 {
@@ -229,8 +273,548 @@ struct DashboardView: View {
         }
         return String(format: "%.0f", value)
     }
+    
+    private func formatEnergy(_ value: Double?) -> String {
+        guard let value = value else { return "--" }
+        return String(format: "%.0f", value)
+    }
 }
 
+// MARK: - Sync Status Banner
+struct SyncStatusBanner: View {
+    let lastSync: Date?
+    
+    private var formattedLastSync: String {
+        guard let lastSync = lastSync else { return "" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: lastSync, relativeTo: Date())
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 8, height: 8)
+            
+            Text("Background sync active")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            if lastSync != nil {
+                Text("Last: \(formattedLastSync)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.green.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Detected Activity Card
+struct DetectedActivityCard: View {
+    let activities: [DetectedActivityEntry]
+    let currentActivity: String?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with current activity indicator
+            HStack {
+                Image(systemName: "waveform.badge.magnifyingglass")
+                    .font(.title2)
+                    .foregroundColor(.teal)
+                
+                Text("Activity Detection")
+                    .font(.headline)
+                
+                Spacer()
+                
+                // Current activity indicator
+                if let current = currentActivity {
+                    HStack(spacing: 4) {
+                        Image(systemName: current == "PHYSICAL" ? "figure.run" : "brain.head.profile")
+                            .font(.caption)
+                        Text(current.capitalized)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(current == "PHYSICAL" ? .green : .purple)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background((current == "PHYSICAL" ? Color.green : Color.purple).opacity(0.15))
+                    .cornerRadius(8)
+                }
+            }
+            
+            // Activity summary for today
+            let summary = ActivityManager.shared.todayActivitySummary
+            if summary.physicalMinutes > 0 || summary.cognitiveMinutes > 0 {
+                HStack(spacing: 20) {
+                    ActivitySummaryItem(
+                        icon: "figure.run",
+                        label: "Physical",
+                        minutes: summary.physicalMinutes,
+                        color: .green
+                    )
+                    
+                    ActivitySummaryItem(
+                        icon: "brain.head.profile",
+                        label: "Cognitive",
+                        minutes: summary.cognitiveMinutes,
+                        color: .purple
+                    )
+                }
+            }
+            
+            // Recent activity timeline (max 5)
+            if !activities.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TODAY'S TIMELINE")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(activities.prefix(5)) { activity in
+                        DetectedActivityRow(activity: activity)
+                    }
+                }
+            } else {
+                HStack {
+                    Image(systemName: "clock")
+                        .foregroundColor(.secondary)
+                    Text("No activities detected yet today")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+struct ActivitySummaryItem: View {
+    let icon: String
+    let label: String
+    let minutes: Int
+    let color: Color
+    
+    var formattedTime: String {
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            return mins > 0 ? "\(hours)h \(mins)m" : "\(hours)h"
+        }
+        return "\(minutes)m"
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formattedTime)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(label)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct DetectedActivityRow: View {
+    let activity: DetectedActivityEntry
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Activity icon
+            Image(systemName: activity.icon)
+                .font(.caption)
+                .foregroundColor(activity.color)
+                .frame(width: 24, height: 24)
+                .background(activity.color.opacity(0.15))
+                .cornerRadius(6)
+            
+            // Time range
+            Text(activity.formattedTimeRange)
+                .font(.caption)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            // Duration
+            Text("\(activity.durationMinutes) min")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            
+            // Activity type badge
+            Text(activity.activityType.capitalized)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(activity.color)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Metric Card
+struct MetricCard: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let value: String
+    let unit: String
+    let timestamp: String
+    var isWide: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(iconColor)
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+            }
+            
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: isWide ? 32 : 24, weight: .bold, design: .rounded))
+                
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            HStack(spacing: 4) {
+                Image(systemName: "clock")
+                    .font(.system(size: 10))
+                Text(timestamp)
+                    .font(.caption2)
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Sleep Metric Card with Stages
+struct SleepMetricCard: View {
+    let sleepHours: Double?
+    let stages: [SleepStageData]
+    let timestamp: String
+    
+    var sleepQuality: (text: String, color: Color) {
+        guard let hours = sleepHours else { return ("No data", .gray) }
+        if hours >= 7 { return ("Great", .green) }
+        else if hours >= 6 { return ("Fair", .yellow) }
+        else { return ("Needs improvement", .red) }
+    }
+    
+    // Aggregate stages by type
+    var stagesSummary: [(stage: SleepStage, duration: TimeInterval)] {
+        var summary: [SleepStage: TimeInterval] = [:]
+        for stageData in stages {
+            summary[stageData.stage, default: 0] += stageData.duration
+        }
+        return summary.map { ($0.key, $0.value) }
+            .sorted { $0.duration > $1.duration }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "moon.zzz.fill")
+                    .font(.title2)
+                    .foregroundColor(.indigo)
+                
+                Text("Sleep")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text(sleepQuality.text)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(sleepQuality.color)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(sleepQuality.color.opacity(0.15))
+                    .cornerRadius(8)
+            }
+            
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(sleepHours != nil ? String(format: "%.1f", sleepHours!) : "--")
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                Text("hours")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Sleep stages breakdown
+            if !stagesSummary.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("SLEEP STAGES")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 12) {
+                        ForEach(stagesSummary.prefix(4), id: \.stage.rawValue) { item in
+                            SleepStageItem(stage: item.stage, duration: item.duration)
+                        }
+                    }
+                }
+            }
+            
+            HStack(spacing: 4) {
+                Image(systemName: "clock")
+                    .font(.system(size: 10))
+                Text(timestamp)
+                    .font(.caption2)
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+struct SleepStageItem: View {
+    let stage: SleepStage
+    let duration: TimeInterval
+    
+    var formattedDuration: String {
+        let hours = Int(duration / 3600)
+        let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+    
+    var stageColor: Color {
+        switch stage {
+        case .awake: return .orange
+        case .rem: return .purple
+        case .core: return .blue
+        case .deep: return .indigo
+        case .asleep: return .blue
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: stage.icon)
+                .font(.caption)
+                .foregroundColor(stageColor)
+            Text(formattedDuration)
+                .font(.caption2)
+                .fontWeight(.semibold)
+            Text(stage.rawValue)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Workouts Summary Card
+struct WorkoutsSummaryCard: View {
+    let workouts: [WorkoutSummary]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "figure.run")
+                    .font(.title3)
+                    .foregroundColor(.green)
+                
+                Text("Workouts Today")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("\(workouts.count)")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(workouts.isEmpty ? Color.gray : Color.green)
+                    .cornerRadius(8)
+            }
+            
+            if workouts.isEmpty {
+                Text("No workouts recorded today")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(workouts.prefix(3)) { workout in
+                    HStack {
+                        Image(systemName: workout.icon)
+                            .foregroundColor(.green)
+                            .frame(width: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(workout.workoutName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack(spacing: 8) {
+                                Text(workout.formattedDuration)
+                                if let cal = workout.calories {
+                                    Text("•")
+                                    Text("\(Int(cal)) kcal")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text(formatTime(workout.startDate))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    if workout.id != workouts.prefix(3).last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Mindful Sessions Card
+struct MindfulSessionsCard: View {
+    let sessions: [MindfulSession]
+    
+    var totalDuration: TimeInterval {
+        sessions.reduce(0) { $0 + $1.duration }
+    }
+    
+    var formattedTotal: String {
+        let minutes = Int(totalDuration / 60)
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            return "\(hours)h \(mins)m"
+        }
+        return "\(minutes) min"
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .font(.title3)
+                    .foregroundColor(.purple)
+                
+                Text("Mindful Sessions")
+                    .font(.headline)
+                
+                Spacer()
+                
+                if !sessions.isEmpty {
+                    Text(formattedTotal)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.purple)
+                }
+            }
+            
+            if sessions.isEmpty {
+                Text("No mindful sessions today")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(sessions.count)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text("Sessions")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Divider().frame(height: 40)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(formattedTotal)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text("Total Time")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                
+                if let lastSession = sessions.first {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 10))
+                        Text("Last session: \(formatTime(lastSession.endDate))")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+}
 // MARK: - Body Battery Preview Card
 
 struct BodyBatteryPreviewCard: View {
