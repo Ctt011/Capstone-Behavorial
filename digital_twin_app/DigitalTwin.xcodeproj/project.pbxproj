@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -38,10 +38,6 @@
 		A1000012226B8D7B00F12345 /* AddActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddActivityView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		2CE7C14C2F3C37A600F8C035 /* Testing_files */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Testing_files; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		A0FFFFED226B8D7A00F12345 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -74,7 +70,6 @@
 		A0FFFFF2226B8D7A00F12345 /* DigitalTwin */ = {
 			isa = PBXGroup;
 			children = (
-				2CE7C14C2F3C37A600F8C035 /* Testing_files */,
 				A1000000226B8D7A00F12345 /* DigitalTwinApp.swift */,
 				A1000002226B8D7A00F12345 /* ContentView.swift */,
 				027F471C2F244B67003E6708 /* ActivityManager.swift */,
@@ -113,9 +108,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				2CE7C14C2F3C37A600F8C035 /* Testing_files */,
 			);
 			name = DigitalTwin;
 			productName = DigitalTwin;
@@ -315,7 +307,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5CXN5G9Q6F;
+				DEVELOPMENT_TEAM = 93M2JP2K3N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalTwin/Info.plist;
@@ -335,7 +327,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.camille.digitaltwin;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lev.digitaltwin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -353,7 +345,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5CXN5G9Q6F;
+				DEVELOPMENT_TEAM = 93M2JP2K3N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalTwin/Info.plist;
@@ -373,7 +365,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.camille.digitaltwin;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lev.digitaltwin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
