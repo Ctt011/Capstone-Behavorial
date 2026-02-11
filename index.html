@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Capstone Project</title>
-  <meta name="description" content="A clean, modern GitHub Pages site template." />
+  <title>Behavioral Capstone • Digital Twin Stress Detection</title>
+  <meta name="description" content="Digital Twin: Hybrid Stress Detection from Apple Watch data with a Body Battery energy interface (UCSD DSC 180B, Winter 2026)." />
 
   <style>
     /* ========== DEMO BUTTON ========== */
@@ -368,44 +368,43 @@ Mentor: Tauhidur Rahman Course: DSC 180B Capstone, UC San Diego, Winter 2026
 
           <div class="stats">
             <div class="stat">
-              <div class="k">2–4 hrs</div>
-              <div class="s">Example metric</div>
+              <div class="k">93.6%</div>
+              <div class="s">Activity classifier accuracy</div>
             </div>
             <div class="stat">
-              <div class="k">99%</div>
-              <div class="s">Example metric</div>
+              <div class="k">N = 22</div>
+              <div class="s">Apple Watch subjects</div>
             </div>
             <div class="stat">
               <div class="k">v1</div>
-              <div class="s">Deployment status</div>
+              <div class="s">Hybrid pipeline prototype</div>
             </div>
           </div>
 
           <div style="margin-top:16px; color:var(--muted); line-height:1.6;">
-            <b style="color:var(--text);">Quick edit tips:</b>
-            Replace the headline, description, and cards below.
-            If you want a different vibe, change <code>--accent</code>, <code>--accent2</code>, and <code>--accent3</code>.
+            <b style="color:var(--text);">Pipeline summary:</b>
+            Stage 1 filters movement vs stillness (ML), Stage 2 adjusts sensitivity using sleep rules, and Stage 3 computes a personalized HRV-based stress score (0–100) that drives Body Battery drain and recovery guidance.
           </div>
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-pad feature">
-          <h2 class="gradient">What this page includes</h2>
+          <h2 class="gradient">What this project delivers</h2>
           <p>
-            Sticky navigation, gradient headline, responsive layout, animated hover cards, and a simple structure
-            that looks “designed” without any external libraries.
+            A motion-aware, duration-aware stress system that turns HR/HRV signals into an intuitive “Body Battery” energy percentage, then recommends recovery actions and validates improvement through HealthKit measurements.
           </p>
           <div class="chiprow">
-            <span class="chip">Responsive</span>
-            <span class="chip">Fast</span>
-            <span class="chip">Single file</span>
-            <span class="chip">Easy to customize</span>
+            <span class="chip">3-stage hybrid pipeline</span>
+            <span class="chip">Activity filtering</span>
+            <span class="chip">HRV formulas</span>
+            <span class="chip">Personal baselines</span>
           </div>
           <div class="chiprow">
-            <span class="chip">Docs-friendly</span>
-            <span class="chip">GitHub Pages</span>
-            <span class="chip">Dark theme</span>
+            <span class="chip">Sleep-adjusted thresholds</span>
+            <span class="chip">Body Battery</span>
+            <span class="chip">Closed-loop validation</span>
+            <span class="chip">HealthKit</span>
           </div>
         </div>
       </div>
@@ -424,7 +423,7 @@ Mentor: Tauhidur Rahman Course: DSC 180B Capstone, UC San Diego, Winter 2026
           <div class="icon">🧠</div>
           <h4>Problem</h4>
           <p>
-            We built a hybrid stress detection system that combines machine learning, physiological formulas, and adaptive rules to estimate real-time stress from Apple Watch data. Instead of relying on pure ML (which struggles with small datasets), our system filters physical activity, adjusts for sleep quality, and computes a personalized stress score using heart rate variability metrics. The result is a dynamic, user-specific stress model that improves over time.
+             Stress signals are subtle, highly individual, and difficult to learn from small cohorts, so we pivoted to a hybrid system that stays accurate, interpretable, and user-personalized.
           </p>
         </div>
 
@@ -432,7 +431,7 @@ Mentor: Tauhidur Rahman Course: DSC 180B Capstone, UC San Diego, Winter 2026
           <div class="icon">📊</div>
           <h4>Approach</h4>
           <p>
-            Our core innovation is the Body Battery — an intuitive energy meter that translates complex physiological signals into a simple percentage (0–100%). Rather than telling users “your HRV is low,” we show them how much energy they have left. Stress drains the battery over time, while recovery activities recharge it. This makes stress visible, measurable, and actionable.
+            We designed a 3-stage hybrid pipeline for Apple Watch data (HR, HRV, steps, sleep). Stage 1 uses ML to classify physical vs cognitive states (93.6% accuracy), preventing exercise from being mislabeled as stress. Stage 2 applies sleep-based rules to adjust daily sensitivity. Stage 3 computes an HRV-based stress score (0–100) using DC/AC metrics and personal baselines.
           </p>
         </div>
 
@@ -440,9 +439,7 @@ Mentor: Tauhidur Rahman Course: DSC 180B Capstone, UC San Diego, Winter 2026
           <div class="icon">✅</div>
           <h4>Impact</h4>
           <p>
-            Unlike typical stress apps that just say “You’re stressed,” our system closes the loop:
-Detect → Quantify → Drain Energy → Recommend Recovery → Measure Improvement → Adapt Baseline
-The battery drains based on both stress intensity and duration, making it more realistic. A long, moderate stress period impacts you more than a short spike. The system also adapts to each user’s normal HRV patterns, reducing false alerts.
+            Our core product is the Body Battery, a simple energy percentage that users instantly understand. It drains based on both stress intensity and duration (not just a snapshot), then recommends recovery actions (breathing, walk, meditation, stretch, hydrate). During recovery, the system measures HR/HRV changes via HealthKit to validate improvement and update personal baselines over time, closing the loop from Detect → Quantify → Intervene → Validate → Learn.
           </p>
         </div>
       </div>
@@ -451,52 +448,52 @@ The battery drains based on both stress intensity and duration, making it more r
     <section id="team">
       <div class="section-title">
         <h3>About Us</h3>
-        <span>Put names + roles here</span>
+        <span>Team roles and contributions</span>
       </div>
 
       <div class="cards">
         <div class="card">
           <div class="icon">👤</div>
           <h4>Camille Tran</h4>
-          <p>Role: Data / Modeling / Frontend / PM</p>
+          <p>Role: Data / Modeling</p>
           <p style="margin-top:10px;">
-            Add 1–2 lines about what you contributed and what you’re excited about.
+            Contributed to data preprocessing, feature engineering, and model experimentation to evaluate stress modeling feasibility and support system integration.
           </p>
         </div>
 
         <div class="card">
           <div class="icon">👤</div>
-          <h4>Dhyay Thakar</h4>
-          <p>Role: Data / Modeling / Frontend / PM</p>
+          <h4>Dhyay Thakrar</h4>
+          <p>Role: App Design / Product</p>
           <p style="margin-top:10px;">
-            Add 1–2 lines about their contributions.
+            Built the UI and Body Battery experience, including battery visualization, duration-aware drain logic, and recovery activity components for an actionable user workflow.
           </p>
         </div>
 
         <div class="card">
           <div class="icon">👤</div>
           <h4>Selina Zhang </h4>
-          <p>Role: Data / Modeling / Frontend / PM</p>
+          <p>Role: Modeling / System Design</p>
           <p style="margin-top:10px;">
-            Add 1–2 lines about their contributions.
+            Designed the hybrid architecture and stress-scoring pipeline by combining ML activity filtering with HRV formulas, sleep-based rules, and adaptive personal baselines.
           </p>
         </div>
 
         <div class="card">
           <div class="icon">👤</div>
-          <h4>Essie Cheng</h4>
-          <p>Role: Data / Modeling / Frontend / PM</p>
+          <h4>Essie Chang</h4>
+          <p>Role: Data / Modeling</p>
           <p style="margin-top:10px;">
-            Add 1–2 lines about their contributions.
+            Supported dataset organization and validation workflows, helping align wearable signals with stress scoring logic and ensuring reliable feature extraction across subjects.
           </p>
         </div>
 
         <div class="card">
           <div class="icon">👤</div>
           <h4>Levy Sahoo </h4>
-          <p>Role: Data / Modeling / Frontend / PM</p>
+          <p>Role: Data / Modeling</p>
           <p style="margin-top:10px;">
-            Add 1–2 lines about their contributions.
+            Assisted with experimentation and analysis for wearable-based stress detection, contributing to evaluation, iteration, and documentation for the hybrid pivot.
           </p>
         </div>
       </div>
@@ -505,7 +502,7 @@ The battery drains based on both stress intensity and duration, making it more r
     <section id="contact">
       <div class="section-title">
         <h3>Contact</h3>
-        <span>Link your repo, email, or report</span>
+        <span>Links and project resources</span>
       </div>
 
       <div class="cards">
@@ -513,8 +510,8 @@ The battery drains based on both stress intensity and duration, making it more r
           <div class="icon">🔗</div>
           <h4>Project Links</h4>
           <p>
-            GitHub Repo: <a href="#" onclick="toast('Update this link in the HTML'); return false;" style="text-decoration:underline;">link here</a><br/>
-            Final Report: <a href="#" onclick="toast('Update this link in the HTML'); return false;" style="text-decoration:underline;">link here</a>
+            GitHub Repo: <a href="https://github.com/Ctt011/Capstone-Behavorial" target="_blank" style="text-decoration:underline;">https://github.com/Ctt011/Capstone-Behavorial</a><br/>
+            Project Page: <a href="https://ctt011.github.io/Capstone-Behavorial/" target="_blank" style="text-decoration:underline;">https://ctt011.github.io/Capstone-Behavorial/</a>
           </p>
         </div>
 
@@ -522,7 +519,7 @@ The battery drains based on both stress intensity and duration, making it more r
           <div class="icon">✉️</div>
           <h4>Email</h4>
           <p>
-            Contact: <a href="mailto:your-email@ucsd.edu" style="text-decoration:underline;">your-email@ucsd.edu</a>
+            Contact: <a href="#" onclick="toast('Add a team email or point to the repo Issues page.'); return false;" style="text-decoration:underline;">(add team contact email)</a>
           </p>
         </div>
 
@@ -530,7 +527,7 @@ The battery drains based on both stress intensity and duration, making it more r
           <div class="icon">🗓️</div>
           <h4>Next Steps</h4>
           <p>
-            Add your timeline: demo date, paper submission, poster session, etc.
+            Demo + user testing, refine stress scoring calibration, expand subject coverage, and polish the closed-loop recovery validation workflow for a final capstone presentation.
           </p>
         </div>
       </div>
@@ -543,13 +540,13 @@ The battery drains based on both stress intensity and duration, making it more r
       Experience the Body Battery in Action
     </h2>
 
-    <a href="YOUR_DEMO_LINK_HERE" target="_blank" 
+    <a href="https://ctt011.github.io/Capstone-Behavorial/" target="_blank"
        class="demo-btn">
-       🚀 Go to Live Demo
+       🚀 Go to Project Demo
     </a>
 
     <p style="margin-top:16px; color:var(--muted); font-size:14px;">
-      See how stress drains energy and recovery recharges it in real time.
+      See how stress drains energy and recovery recharges it in a closed-loop digital twin workflow.
     </p>
   </div>
 </section>
