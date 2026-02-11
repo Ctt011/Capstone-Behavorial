@@ -7,6 +7,27 @@
   <meta name="description" content="A clean, modern GitHub Pages site template." />
 
   <style>
+    /* ========== DEMO BUTTON ========== */
+.demo-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px 36px;
+  font-size:20px;
+  font-weight:800;
+  border-radius:999px;
+  background: linear-gradient(135deg, var(--accent3), var(--accent), var(--accent2));
+  color:white;
+  text-decoration:none;
+  box-shadow: 0 25px 60px rgba(124,58,237,.35);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.demo-btn:hover{
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 35px 80px rgba(124,58,237,.45);
+}
+
     /* ========== THEME (change these) ========== */
     :root{
       --bg0:#070A12;          /* page background */
@@ -515,6 +536,24 @@ The battery drains based on both stress intensity and duration, making it more r
       </div>
     </section>
   </main>
+
+  <section style="padding:60px 0 40px; text-align:center;">
+  <div class="container">
+    <h2 style="font-size:32px; margin-bottom:20px; letter-spacing:-.5px;">
+      Experience the Body Battery in Action
+    </h2>
+
+    <a href="YOUR_DEMO_LINK_HERE" target="_blank" 
+       class="demo-btn">
+       🚀 Go to Live Demo
+    </a>
+
+    <p style="margin-top:16px; color:var(--muted); font-size:14px;">
+      See how stress drains energy and recovery recharges it in real time.
+    </p>
+  </div>
+</section>
+
 
   <footer class="container">
     <div class="footergrid">
