@@ -7,3 +7,9 @@ __pycache__/
 *.zip
 Q1_report_requirements.txt
 apple_health_export/
+digital_twin_app/.DS_Store
+digital_twin_app/DigitalTwin.xcodeproj/project.pbxproj
+digital_twin_app/DigitalTwin.xcodeproj/project.xcworkspace/xcuserdata/camilletran.xcuserdatad/UserInterfaceState.xcuserstate
+digital_twin_app/DigitalTwin.xcodeproj/xcuserdata/camilletran.xcuserdatad/xcschemes/xcschememanagement.plist
+digital_twin_app/DigitalTwin/.DS_Store
+digital_twin_app/DigitalTwin.xcodeproj/project.pbxproj
