@@ -696,6 +696,19 @@ class StressDetectionPipeline: ObservableObject {
     private let activityClassifier = ActivityClassifier_Stage1()
     private let stressCalculator = StressCalculator_Stage3()
     
+    // MARK: - Configuration
+    
+    /// Window duration (in minutes) to fetch HR samples for stress calculation.
+    /// Apple Watch records HR every ~5-10 min passively, so a larger window
+    /// captures more samples for reliable stress estimation.
+    /// Default: 15 minutes (typically yields 3-5+ samples)
+    static let hrSampleWindowMinutes: Double = 15
+    
+    /// Minimum number of HR samples required for reliable stress calculation.
+    /// If fewer samples are available, the calculation uses fallback methods.
+    static let minHRSamplesForReliable: Int = 10
+    static let minHRSamplesForBasic: Int = 3
+    
     // Cached sleep baseline (fetched once per session)
     private var cachedSleepBaseline: Double?
     private var sleepBaselineFetched = false
@@ -720,7 +733,8 @@ class StressDetectionPipeline: ObservableObject {
         defer { isRunning = false }
 
         let now = Date()
-        let windowStart = now.addingTimeInterval(-5 * 60) // Last 5 minutes
+        let windowMinutes = Self.hrSampleWindowMinutes
+        let windowStart = now.addingTimeInterval(-windowMinutes * 60) // Configurable window (default 15 min)
 
         // Fetch data from HealthKit
         let hrSamples = await healthKitManager.fetchHeartRateSamples(
@@ -731,8 +745,8 @@ class StressDetectionPipeline: ObservableObject {
         // Diagnostic logging for debugging HR sample issues
         let dateFormatter = DateFormatter()
         dateFormatter.timeStyle = .medium
-        print("🔍 Pipeline HR fetch: window \(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now))")
-        print("   └─ Found \(hrSamples.count) HR samples")
+        print("🔍 Pipeline HR fetch: window \(Int(windowMinutes))min (\(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now)))")
+        print("   └─ Found \(hrSamples.count) HR samples (need \(Self.minHRSamplesForReliable)+ for reliable, \(Self.minHRSamplesForBasic)+ for basic)")
         if !hrSamples.isEmpty {
             let oldestSample = hrSamples.first!
             let newestSample = hrSamples.last!
@@ -750,9 +764,9 @@ class StressDetectionPipeline: ObservableObject {
             return sqrt(variance)
         }()
 
-        // Fetch real steps for last 5 minutes with proper statistics
+        // Fetch real steps for the same window with proper statistics
         // This replaces the previous hardcoded stepsStd with real variability calculation
-        let (stepsPerMin, stepsStd) = await healthKitManager.fetchStepsStatistics(minutes: 5)
+        let (stepsPerMin, stepsStd) = await healthKitManager.fetchStepsStatistics(minutes: Int(windowMinutes))
 
         // ── STAGE 1: Activity Classification ────────────────────────────
         let (activityType, confidence) = activityClassifier.classify(
