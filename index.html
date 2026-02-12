@@ -1,592 +1,695 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Behavioral Capstone • Digital Twin Stress Detection</title>
-  <meta name="description" content="Digital Twin: Hybrid Stress Detection from Apple Watch data with a Body Battery energy interface (UCSD DSC 180B, Winter 2026)." />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pulse — Hybrid Stress Detection</title>
+<meta name="description" content="A 3-stage pipeline that separates exercise from stress, adjusts for sleep, and scores stress against your personal baseline." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: #0A0A0B; color: #fff; overflow-x: hidden;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(0,229,160,0.25); color: #fff; }
 
-  <style>
-    /* ========== DEMO BUTTON ========== */
-.demo-btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px 36px;
-  font-size:20px;
-  font-weight:800;
-  border-radius:999px;
-  background: linear-gradient(135deg, var(--accent3), var(--accent), var(--accent2));
-  color:white;
-  text-decoration:none;
-  box-shadow: 0 25px 60px rgba(124,58,237,.35);
-  transition: transform .18s ease, box-shadow .18s ease;
-}
+  /* Grain overlay */
+  body::after {
+    content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.03; animation: grain 8s steps(10) infinite;
+  }
 
-.demo-btn:hover{
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 35px 80px rgba(124,58,237,.45);
-}
+  @keyframes grain {
+    0%, 100% { transform: translate(0,0); }
+    10% { transform: translate(-5%,-10%); }
+    30% { transform: translate(3%,-15%); }
+    50% { transform: translate(12%,9%); }
+    70% { transform: translate(9%,4%); }
+    90% { transform: translate(-1%,7%); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.4; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-    /* ========== THEME (change these) ========== */
-    :root{
-      --bg0:#070A12;          /* page background */
-      --bg1:#0B1020;          /* elevated panels */
-      --card:#0F1730;         /* card background */
-      --text:#E9ECF5;         /* main text */
-      --muted:#B7C0D9;        /* secondary text */
-      --line:rgba(255,255,255,.08);
+  .reveal {
+    opacity: 0; transform: translateY(40px);
+    transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
 
-      --accent:#7C3AED;       /* purple */
-      --accent2:#22D3EE;      /* cyan */
-      --accent3:#F472B6;      /* pink */
-      --good:#22C55E;         /* green */
+  a { transition: color 0.2s; }
 
-      --shadow: 0 20px 70px rgba(0,0,0,.45);
-      --radius: 22px;
-    }
+  /* Nav */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 20px 48px; display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.3s ease;
+  }
+  .nav.scrolled {
+    background: rgba(10,10,11,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+  .nav-logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #00E5A0, #00B4FF);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; font-family: 'Syne', sans-serif;
+  }
+  .nav-logo-text { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-link {
+    color: rgba(255,255,255,0.5); text-decoration: none; font-size: 14px;
+    font-family: 'DM Sans', sans-serif; font-weight: 400; letter-spacing: 0.02em;
+  }
+  .nav-link:hover { color: #fff; }
+  .nav-cta {
+    color: #0A0A0B; text-decoration: none; font-size: 13px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif; background: #00E5A0;
+    padding: 8px 20px; border-radius: 100px; transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .nav-cta:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,229,160,0.25); color: #0A0A0B; }
 
-    /* ========== BASE ========== */
-    *{ box-sizing:border-box; }
-    html{ scroll-behavior:smooth; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background:
-        radial-gradient(900px 500px at 20% 15%, rgba(124,58,237,.20), transparent 55%),
-        radial-gradient(900px 500px at 85% 30%, rgba(34,211,238,.18), transparent 55%),
-        radial-gradient(900px 500px at 70% 85%, rgba(244,114,182,.14), transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      min-height:100vh;
-    }
-    a{ color:inherit; text-decoration:none; }
-    .container{
-      width:min(1120px, 92vw);
-      margin:0 auto;
-    }
+  /* Hero */
+  .hero {
+    min-height: 100vh; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center;
+    padding: 120px 24px 80px; position: relative; overflow: hidden;
+  }
+  .hero-orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
+  }
+  .hero-orb-1 {
+    top: 10%; left: 20%; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 70%);
+    animation: float 8s ease-in-out infinite;
+  }
+  .hero-orb-2 {
+    bottom: 10%; right: 15%; width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0,180,255,0.06) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite 1s;
+  }
+  .hero-tag {
+    font-size: 13px; font-family: 'JetBrains Mono', monospace;
+    color: #00E5A0; letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 24px; display: flex; align-items: center; gap: 8px;
+  }
+  .hero-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #00E5A0;
+    display: inline-block; position: relative;
+  }
+  .hero-dot::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1px solid #00E5A0; animation: pulse-ring 2s ease-out infinite;
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif; font-size: clamp(48px, 8vw, 96px);
+    font-weight: 800; letter-spacing: -0.04em; line-height: 0.95; margin-bottom: 24px;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 18px; color: rgba(255,255,255,0.5); max-width: 520px;
+    line-height: 1.7; font-weight: 300; margin-bottom: 40px;
+  }
+  .scroll-hint {
+    margin-top: 48px; display: flex; gap: 8px; align-items: center;
+    color: rgba(255,255,255,0.25); font-size: 13px;
+  }
 
-    /* ========== NAV ========== */
-    .nav{
-      position:sticky;
-      top:0;
-      z-index:50;
-      backdrop-filter: blur(10px);
-      background: rgba(7,10,18,.55);
-      border-bottom:1px solid var(--line);
-    }
-    .nav-inner{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:14px 0;
-      gap:14px;
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:700;
-      letter-spacing:.2px;
-    }
-    .dot{
-      width:12px; height:12px; border-radius:999px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 0 0 6px rgba(124,58,237,.12);
-    }
-    .navlinks{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      color:var(--text);
-      font-weight:600;
-      transition: transform .15s ease, background .15s ease, border-color .15s ease;
-    }
-    .btn:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); }
-    .btn.primary{
-      border:none;
-      background: linear-gradient(135deg, var(--accent), var(--accent3));
-      box-shadow: 0 18px 40px rgba(124,58,237,.22);
-    }
-    .btn.primary:hover{ transform: translateY(-2px); }
+  /* Stats */
+  .stats-bar {
+    padding: 60px 48px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .stats-grid {
+    max-width: 1100px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+  }
+  .stat { text-align: center; }
+  .stat-value {
+    font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 700;
+    color: #fff; letter-spacing: -0.03em;
+  }
+  .stat-label { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+  .stat-sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: rgba(255,255,255,0.25); margin-top: 2px;
+  }
 
-    /* ========== HERO ========== */
-    .hero{
-      padding:54px 0 22px;
-    }
-    .pill{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:8px 12px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      border-radius:999px;
-      color:var(--muted);
-      font-weight:600;
-    }
-    .pill b{ color:var(--text); }
-    .hero-grid{
-      display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:18px;
-      margin-top:18px;
-      align-items:stretch;
-    }
-    @media (max-width: 900px){
-      .hero-grid{ grid-template-columns:1fr; }
-    }
-    h1{
-      margin:14px 0 12px;
-      font-size: clamp(34px, 4.4vw, 54px);
-      line-height:1.04;
-      letter-spacing:-.7px;
-    }
-    .gradient{
-      background: linear-gradient(90deg, var(--accent3), var(--accent), var(--accent2));
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-    }
-    .lead{
-      margin:0;
-      color:var(--muted);
-      font-size: 16.5px;
-      line-height:1.65;
-      max-width: 60ch;
-    }
-    .panel{
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255,255,255,.03);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .panel-pad{ padding:22px; }
-    .hero-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:18px;
-    }
-    .stats{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:10px;
-      margin-top:18px;
-    }
-    .stat{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background: rgba(255,255,255,.02);
-      padding:14px;
-    }
-    .stat .k{
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:-.3px;
-    }
-    .stat .s{
-      color:var(--muted);
-      font-weight:600;
-      font-size:12.5px;
-      margin-top:4px;
-    }
+  /* Sections */
+  .section { padding: 120px 48px; }
+  .section-inner { max-width: 900px; margin: 0 auto; }
+  .section-alt { padding: 80px 48px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255,255,255,0.05); }
+  .section-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: clamp(32px, 4vw, 52px);
+    font-weight: 700; letter-spacing: -0.03em; margin-top: 12px; margin-bottom: 60px;
+  }
+  .section-title-sm {
+    font-family: 'Syne', sans-serif; font-size: 36px;
+    font-weight: 700; letter-spacing: -0.03em; margin-top: 12px; margin-bottom: 20px;
+  }
+  .muted { color: rgba(255,255,255,0.35); }
+  .body-text {
+    font-size: 16px; color: rgba(255,255,255,0.5); line-height: 1.7; margin-bottom: 32px;
+  }
 
-    /* Right card */
-    .feature{
-      height:100%;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-    .feature h2{
-      margin:0;
-      font-size:22px;
-      letter-spacing:-.2px;
-    }
-    .feature p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.6;
-    }
-    .chiprow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:6px;
-    }
-    .chip{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      color:var(--muted);
-      padding:8px 10px;
-      border-radius:999px;
-      font-weight:650;
-      font-size:12px;
-    }
+  /* Pipeline stages */
+  .stage {
+    display: grid; grid-template-columns: 80px 1fr; gap: 24px;
+    padding: 36px 0; align-items: start;
+  }
+  .stage + .stage { border-top: 1px solid rgba(255,255,255,0.06); }
+  .stage-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 48px;
+    font-weight: 700; line-height: 1; opacity: 0.9;
+  }
+  .stage-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .stage-title {
+    font-size: 26px; font-weight: 600; color: #fff; margin: 0;
+    font-family: 'Syne', sans-serif; letter-spacing: -0.02em;
+  }
+  .stage-badge {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px; border-radius: 100px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .stage-desc {
+    font-size: 16px; color: rgba(255,255,255,0.6); line-height: 1.7;
+    margin: 0 0 12px; max-width: 540px;
+  }
+  .stage-detail {
+    font-size: 13px; font-family: 'JetBrains Mono', monospace;
+    color: rgba(255,255,255,0.35);
+  }
 
-    /* ========== SECTIONS ========== */
-    section{ padding:28px 0; }
-    .section-title{
-      display:flex;
-      align-items:end;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-    }
-    .section-title h3{
-      margin:0;
-      font-size:22px;
-      letter-spacing:-.2px;
-    }
-    .section-title span{
-      color:var(--muted);
-      font-weight:600;
-      font-size:13px;
-    }
-    .cards{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:14px;
-    }
-    @media (max-width: 980px){
-      .cards{ grid-template-columns:1fr; }
-    }
-    .card{
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(15,23,48,.72);
-      box-shadow: var(--shadow);
-      padding:18px;
-      transition: transform .18s ease, border-color .18s ease;
-    }
-    .card:hover{ transform: translateY(-2px); border-color: rgba(255,255,255,.16); }
-    .icon{
-      width:38px; height:38px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background: linear-gradient(135deg, rgba(124,58,237,.35), rgba(34,211,238,.22));
-      border: 1px solid rgba(255,255,255,.10);
-      margin-bottom:12px;
-    }
-    .card h4{ margin:0 0 8px; font-size:16px; }
-    .card p{ margin:0; color:var(--muted); line-height:1.6; font-size:14.3px; }
+  /* Body Battery */
+  .battery-chart {
+    display: flex; align-items: flex-end; gap: 6px; height: 140px; padding: 24px 0;
+  }
+  .battery-bar-wrap {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .battery-val {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: rgba(255,255,255,0.4);
+  }
+  .battery-bar {
+    width: 100%; max-width: 40px; border-radius: 4px 4px 0 0;
+    transition: height 1.2s cubic-bezier(0.16,1,0.3,1);
+  }
+  .battery-time {
+    font-size: 10px; color: rgba(255,255,255,0.3);
+    font-family: 'JetBrains Mono', monospace;
+  }
 
-    /* ========== FOOTER ========== */
-    footer{
-      padding:26px 0 40px;
-      color:var(--muted);
-      border-top:1px solid var(--line);
-      margin-top:18px;
-    }
-    .footergrid{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .small{ font-size:13px; }
+  /* References */
+  .ref-card {
+    padding: 32px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,107,107,0.06), rgba(0,180,255,0.04));
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .ref-card h3 {
+    font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 600;
+    margin-bottom: 20px; color: rgba(255,255,255,0.8);
+  }
+  .ref-row {
+    display: grid; grid-template-columns: 180px 1fr; gap: 16px;
+    align-items: start; padding: 8px 0;
+  }
+  .ref-key {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: #00E5A0; opacity: 0.8;
+  }
+  .ref-desc { font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.5; }
 
-    /* ========== TOAST ========== */
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:22px;
-      transform: translateX(-50%);
-      background: rgba(15,23,48,.92);
-      border:1px solid rgba(255,255,255,.12);
-      padding:12px 14px;
-      border-radius: 999px;
-      box-shadow: var(--shadow);
-      color: var(--muted);
-      font-weight:650;
-      opacity:0;
-      pointer-events:none;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    .toast.show{
-      opacity:1;
-      transform: translateX(-50%) translateY(-2px);
-    }
-  </style>
+  /* Data cards */
+  .data-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .data-card {
+    padding: 24px; border-radius: 12px; text-align: center;
+  }
+  .data-card-value { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; }
+  .data-card-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: rgba(255,255,255,0.4); margin-top: 4px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* Team */
+  .team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .team-card {
+    padding: 36px 28px; border-radius: 16px; text-align: center;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .team-card:hover { border-color: rgba(0,229,160,0.2); transform: translateY(-4px); }
+  .team-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(0,229,160,0.12), rgba(0,180,255,0.12));
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700;
+    color: rgba(255,255,255,0.6);
+  }
+  .team-name { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .team-role { font-size: 14px; color: rgba(255,255,255,0.4); }
+  .team-caption {
+    text-align: center; font-size: 15px; color: rgba(255,255,255,0.35); margin-top: 48px;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 40px 48px; border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-left { display: flex; align-items: center; gap: 10px; }
+  .footer-logo {
+    width: 24px; height: 24px; border-radius: 6px;
+    background: linear-gradient(135deg, #00E5A0, #00B4FF);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; font-family: 'Syne', sans-serif;
+  }
+  .footer-text { font-size: 13px; color: rgba(255,255,255,0.3); }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-link {
+    color: rgba(255,255,255,0.3); text-decoration: none; font-size: 13px;
+  }
+  .footer-link:hover { color: rgba(255,255,255,0.6); }
+
+  /* Canvas */
+  #hrv-canvas { width: 100%; max-width: 600px; height: 120px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .nav { padding: 16px 20px; }
+    .nav-links { gap: 16px; }
+    .nav-link { display: none; }
+    .hero { padding: 100px 20px 60px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 32px 16px; }
+    .stats-bar { padding: 40px 20px; }
+    .section { padding: 80px 20px; }
+    .section-alt { padding: 60px 20px; }
+    .stage { grid-template-columns: 1fr; gap: 12px; }
+    .stage-num { font-size: 36px; }
+    .data-cards { grid-template-columns: 1fr; }
+    .team-grid { grid-template-columns: 1fr; }
+    .ref-row { grid-template-columns: 1fr; gap: 4px; }
+    .footer { flex-direction: column; gap: 16px; text-align: center; }
+  }
+</style>
 </head>
-
 <body>
-  <div class="nav">
-    <div class="container nav-inner">
-      <div class="brand">
-        <span class="dot"></span>
-        <span>Behavioral Capstone</span>
-      </div>
 
-      <div class="navlinks">
-        <a class="btn primary" href="#project">The Project</a>
-        <a class="btn" href="#team">About Us</a>
-        <a class="btn" href="#contact">Contact</a>
-      </div>
+<!-- Navigation -->
+<nav class="nav" id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">P</div>
+    <span class="nav-logo-text">Pulse</span>
+  </a>
+  <div class="nav-links">
+    <a href="#pipeline" class="nav-link">Pipeline</a>
+    <a href="#science" class="nav-link">Science</a>
+    <a href="#team" class="nav-link">Team</a>
+    <a href="https://github.com" target="_blank" rel="noreferrer" class="nav-cta">View on GitHub</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+
+  <div class="reveal" data-delay="0">
+    <div class="hero-tag">
+      <span class="hero-dot"></span>
+      Hybrid Stress Detection
     </div>
   </div>
 
-  <header class="hero container" id="project">
-    <div class="pill">
-      <span>🚀</span>
-      <span><b>2026</b> DSC 180B Capstone</span>
-      <span>• Professor Tauhidur Rahman</span>
-      <span></span>
+  <div class="reveal" data-delay="0.1">
+    <h1>Know your<br>stress.</h1>
+  </div>
+
+  <div class="reveal" data-delay="0.2">
+    <p>A 3-stage pipeline that separates exercise from stress, adjusts for your sleep, and scores your stress against your own baseline — not someone else's.</p>
+  </div>
+
+  <div class="reveal" data-delay="0.3">
+    <canvas id="hrv-canvas"></canvas>
+  </div>
+
+  <div class="reveal" data-delay="0.4">
+    <div class="scroll-hint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+      Scroll to explore
     </div>
-
-    <h1><span class="gradient">Digital Twin:</span>  Hybrid Stress Detection from Apple Watch</h1>
-    <p class="lead">
-    A hybrid stress detection system that combines ML activity classification with validated physiological formulas and a Body Battery energy management interface. Built for Apple Watch via HealthKit.
-
-Team: Camille Tran, Dhyay Thakrar, Levy Sahoo, Essie Chang, Selina Zhang 
-Mentor: Tauhidur Rahman Course: DSC 180B Capstone, UC San Diego, Winter 2026
-    </p>
-
-    <div class="hero-grid">
-      <div class="panel">
-        <div class="panel-pad">
-          <div class="hero-actions">
-            <a class="btn primary" href="#project">Overview</a>
-            <a class="btn" href="#team">Meet the Team</a>
-            <button class="btn" id="copyLinkBtn" type="button">Copy Site Link</button>
-          </div>
-
-          <div class="stats">
-            <div class="stat">
-              <div class="k">93.6%</div>
-              <div class="s">Activity classifier accuracy</div>
-            </div>
-            <div class="stat">
-              <div class="k">N = 22</div>
-              <div class="s">Apple Watch subjects</div>
-            </div>
-            <div class="stat">
-              <div class="k">v1</div>
-              <div class="s">Hybrid pipeline prototype</div>
-            </div>
-          </div>
-
-          <div style="margin-top:16px; color:var(--muted); line-height:1.6;">
-            <b style="color:var(--text);">Pipeline summary:</b>
-            Stage 1 filters movement vs stillness (ML), Stage 2 adjusts sensitivity using sleep rules, and Stage 3 computes a personalized HRV-based stress score (0–100) that drives Body Battery drain and recovery guidance.
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-pad feature">
-          <h2 class="gradient">What this project delivers</h2>
-          <p>
-            A motion-aware, duration-aware stress system that turns HR/HRV signals into an intuitive “Body Battery” energy percentage, then recommends recovery actions and validates improvement through HealthKit measurements.
-          </p>
-          <div class="chiprow">
-            <span class="chip">3-stage hybrid pipeline</span>
-            <span class="chip">Activity filtering</span>
-            <span class="chip">HRV formulas</span>
-            <span class="chip">Personal baselines</span>
-          </div>
-          <div class="chiprow">
-            <span class="chip">Sleep-adjusted thresholds</span>
-            <span class="chip">Body Battery</span>
-            <span class="chip">Closed-loop validation</span>
-            <span class="chip">HealthKit</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <section>
-      <div class="section-title">
-        <h3>Project Highlights</h3>
-        <span>Innovation and Uniqueness</span>
-      </div>
-
-      <div class="cards">
-        <div class="card">
-          <div class="icon">🧠</div>
-          <h4>Problem</h4>
-          <p>
-             Stress signals are subtle, highly individual, and difficult to learn from small cohorts, so we pivoted to a hybrid system that stays accurate, interpretable, and user-personalized.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">📊</div>
-          <h4>Approach</h4>
-          <p>
-            We designed a 3-stage hybrid pipeline for Apple Watch data (HR, HRV, steps, sleep). Stage 1 uses ML to classify physical vs cognitive states (93.6% accuracy), preventing exercise from being mislabeled as stress. Stage 2 applies sleep-based rules to adjust daily sensitivity. Stage 3 computes an HRV-based stress score (0–100) using DC/AC metrics and personal baselines.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">✅</div>
-          <h4>Impact</h4>
-          <p>
-            Our core product is the Body Battery, a simple energy percentage that users instantly understand. It drains based on both stress intensity and duration (not just a snapshot), then recommends recovery actions (breathing, walk, meditation, stretch, hydrate). During recovery, the system measures HR/HRV changes via HealthKit to validate improvement and update personal baselines over time, closing the loop from Detect → Quantify → Intervene → Validate → Learn.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="team">
-      <div class="section-title">
-        <h3>About Us</h3>
-        <span>Team roles and contributions</span>
-      </div>
-
-      <div class="cards">
-        <div class="card">
-          <div class="icon">👤</div>
-          <h4>Camille Tran</h4>
-          <p>Role: Data / Modeling</p>
-          <p style="margin-top:10px;">
-            Contributed to data preprocessing, feature engineering, and model experimentation to evaluate stress modeling feasibility and support system integration.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">👤</div>
-          <h4>Dhyay Thakrar</h4>
-          <p>Role: App Design / Product</p>
-          <p style="margin-top:10px;">
-            Built the UI and Body Battery experience, including battery visualization, duration-aware drain logic, and recovery activity components for an actionable user workflow.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">👤</div>
-          <h4>Selina Zhang </h4>
-          <p>Role: Modeling / System Design</p>
-          <p style="margin-top:10px;">
-            Designed the hybrid architecture and stress-scoring pipeline by combining ML activity filtering with HRV formulas, sleep-based rules, and adaptive personal baselines.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">👤</div>
-          <h4>Essie Chang</h4>
-          <p>Role: Data / Modeling</p>
-          <p style="margin-top:10px;">
-            Supported dataset organization and validation workflows, helping align wearable signals with stress scoring logic and ensuring reliable feature extraction across subjects.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">👤</div>
-          <h4>Levy Sahoo </h4>
-          <p>Role: Data / Modeling</p>
-          <p style="margin-top:10px;">
-            Assisted with experimentation and analysis for wearable-based stress detection, contributing to evaluation, iteration, and documentation for the hybrid pivot.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="contact">
-      <div class="section-title">
-        <h3>Contact</h3>
-        <span>Links and project resources</span>
-      </div>
-
-      <div class="cards">
-        <div class="card">
-          <div class="icon">🔗</div>
-          <h4>Project Links</h4>
-          <p>
-            GitHub Repo: <a href="https://github.com/Ctt011/Capstone-Behavorial" target="_blank" style="text-decoration:underline;">https://github.com/Ctt011/Capstone-Behavorial</a><br/>
-            Project Page: <a href="https://ctt011.github.io/Capstone-Behavorial/" target="_blank" style="text-decoration:underline;">https://ctt011.github.io/Capstone-Behavorial/</a>
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">✉️</div>
-          <h4>Email</h4>
-          <p>
-            Contact: <a href="#" onclick="toast('Add a team email or point to the repo Issues page.'); return false;" style="text-decoration:underline;">(add team contact email)</a>
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="icon">🗓️</div>
-          <h4>Next Steps</h4>
-          <p>
-            Demo + user testing, refine stress scoring calibration, expand subject coverage, and polish the closed-loop recovery validation workflow for a final capstone presentation.
-          </p>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <section style="padding:60px 0 40px; text-align:center;">
-  <div class="container">
-    <h2 style="font-size:32px; margin-bottom:20px; letter-spacing:-.5px;">
-      Experience the Body Battery in Action
-    </h2>
-
-    <a href="https://ctt011.github.io/Capstone-Behavorial/" target="_blank"
-       class="demo-btn">
-       🚀 Go to Project Demo
-    </a>
-
-    <p style="margin-top:16px; color:var(--muted); font-size:14px;">
-      See how stress drains energy and recovery recharges it in a closed-loop digital twin workflow.
-    </p>
   </div>
 </section>
 
-
-  <footer class="container">
-    <div class="footergrid">
-      <div class="brand">
-        <span class="dot"></span>
-        <span class="small">Behavioral Capstone</span>
-      </div>
-      <div class="small">© <span id="year"></span> • Built for GitHub Pages</div>
+<!-- Stats -->
+<section class="stats-bar">
+  <div class="stats-grid">
+    <div class="stat reveal" data-delay="0">
+      <div class="stat-value" data-count="93.6" data-suffix="%">0%</div>
+      <div class="stat-label">LOSO Accuracy</div>
+      <div class="stat-sub">Activity Classifier</div>
     </div>
-  </footer>
+    <div class="stat reveal" data-delay="0.1">
+      <div class="stat-value" data-count="22" data-suffix="">0</div>
+      <div class="stat-label">Subjects</div>
+      <div class="stat-sub">WISE Dataset</div>
+    </div>
+    <div class="stat reveal" data-delay="0.1">
+      <div class="stat-value">3</div>
+      <div class="stat-label">Pipeline Stages</div>
+      <div class="stat-sub">Hybrid Architecture</div>
+    </div>
+    <div class="stat reveal" data-delay="0.2">
+      <div class="stat-value">0–100</div>
+      <div class="stat-label">Stress Score</div>
+      <div class="stat-sub">Personal Baseline</div>
+    </div>
+  </div>
+</section>
 
-  <div class="toast" id="toast">Copied!</div>
+<!-- Pipeline -->
+<section class="section" id="pipeline">
+  <div class="section-inner">
+    <div class="reveal">
+      <span class="section-tag" style="color:#00E5A0">Architecture</span>
+      <h2 class="section-title">Three stages.<br><span class="muted">Zero false positives from exercise.</span></h2>
+    </div>
 
-  <script>
-    // Update year
-    document.getElementById('year').textContent = new Date().getFullYear();
+    <div class="stage reveal" data-delay="0">
+      <div>
+        <span class="stage-num" style="color:#00E5A0">01</span>
+      </div>
+      <div>
+        <div class="stage-header">
+          <h3 class="stage-title">Activity Gate</h3>
+          <span class="stage-badge" style="color:#00E5A0; border:1px solid rgba(0,229,160,0.25)">Machine Learning</span>
+        </div>
+        <p class="stage-desc">Random Forest classifier detects physical movement. If you're exercising, we skip stress scoring — elevated HR during a run isn't stress.</p>
+        <span class="stage-detail">4 features · 93.6% LOSO accuracy · CoreML export</span>
+      </div>
+    </div>
 
-    // Toast helper
-    const toastEl = document.getElementById('toast');
-    let toastTimer = null;
-    function toast(msg){
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1700);
+    <div class="stage reveal" data-delay="0.15">
+      <div>
+        <span class="stage-num" style="color:#00B4FF">02</span>
+      </div>
+      <div>
+        <div class="stage-header">
+          <h3 class="stage-title">Sleep Modulation</h3>
+          <span class="stage-badge" style="color:#00B4FF; border:1px solid rgba(0,180,255,0.25)">Rule-Based</span>
+        </div>
+        <p class="stage-desc">Last night's sleep quality adjusts your stress sensitivity threshold. Poor sleep means your body is more vulnerable — we account for that.</p>
+        <span class="stage-detail">Duration + quality → threshold shift</span>
+      </div>
+    </div>
+
+    <div class="stage reveal" data-delay="0.3">
+      <div>
+        <span class="stage-num" style="color:#FF6B6B">03</span>
+      </div>
+      <div>
+        <div class="stage-header">
+          <h3 class="stage-title">Stress Scoring</h3>
+          <span class="stage-badge" style="color:#FF6B6B; border:1px solid rgba(255,107,107,0.25)">Signal Processing</span>
+        </div>
+        <p class="stage-desc">DC/AC from PRSA, SDNN, and RMSSD computed from RR intervals, compared against your personal baseline. Not a population average — yours.</p>
+        <span class="stage-detail">Bauer 2006 PRSA · 0–100 score · Body Battery</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Body Battery -->
+<section class="section-alt">
+  <div class="section-inner" style="max-width:700px">
+    <div class="reveal">
+      <span class="section-tag" style="color:#00B4FF">Output</span>
+      <h2 class="section-title-sm">Body Battery</h2>
+      <p class="body-text">Your stress score drains the battery throughout the day. Exercise drains it too — but isn't counted as stress. Recovery and calm periods stabilize it.</p>
+    </div>
+    <div class="reveal" data-delay="0.15">
+      <div class="battery-chart" id="battery-chart"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Science -->
+<section class="section" id="science">
+  <div class="section-inner">
+    <div class="reveal">
+      <span class="section-tag" style="color:#FF6B6B">Honest Science</span>
+      <h2 class="section-title" style="margin-bottom:20px">What we found — and what we didn't.</h2>
+      <p class="body-text" style="max-width:640px; line-height:1.8; margin-bottom:48px">
+        DC/AC values were not statistically significant on the WISE dataset for single-snapshot REST vs. STRESS classification (p > 0.05). This is consistent with published findings — Bahameish et al. achieved only F1=56% for Stress vs. Neutral. This is exactly why we use personal baselines and a hybrid approach instead of one-shot classification.
+      </p>
+    </div>
+
+    <div class="reveal" data-delay="0.1">
+      <div class="ref-card">
+        <h3>Key References</h3>
+        <div class="ref-row">
+          <span class="ref-key">Bauer 2006</span>
+          <span class="ref-desc">Phase-Rectified Signal Averaging (PRSA) method for DC/AC computation</span>
+        </div>
+        <div class="ref-row">
+          <span class="ref-key">Velmovitsky 2022</span>
+          <span class="ref-desc">DC/AC identified as #1 and #2 stress features on Apple Watch</span>
+        </div>
+        <div class="ref-row">
+          <span class="ref-key">Bonneval 2025</span>
+          <span class="ref-desc">93% HRV error during movement — validates activity gating</span>
+        </div>
+        <div class="ref-row">
+          <span class="ref-key">Hernando 2018</span>
+          <span class="ref-desc">SDNN robustness to Apple Watch data gaps</span>
+        </div>
+        <div class="ref-row">
+          <span class="ref-key">Bahameish et al.</span>
+          <span class="ref-desc">Stress vs Neutral F1=56% — confirms honest difficulty of single-snapshot classification</span>
+        </div>
+        <div class="ref-row">
+          <span class="ref-key">Apple 2024</span>
+          <span class="ref-desc">Sleep behavioral data improves physiological predictions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WISE Dataset -->
+<section class="section-alt">
+  <div class="section-inner">
+    <div class="reveal">
+      <span class="section-tag" style="color:#00B4FF">Training Data</span>
+      <h2 class="section-title-sm">WISE Dataset</h2>
+      <p class="body-text">22 subjects wearing Empatica E4 wristbands through lab protocols — Baseline (REST), Stroop/TMCT (STRESS), Treadmill (AEROBIC), and Sprints (ANAEROBIC). Signals include HR, accelerometer, EDA, temperature, and HRV from inter-beat intervals. Sourced from PhysioNet.</p>
+    </div>
+    <div class="reveal" data-delay="0.1">
+      <div class="data-cards">
+        <div class="data-card" style="background:rgba(0,229,160,0.04); border:1px solid rgba(0,229,160,0.08)">
+          <div class="data-card-value" style="color:#00E5A0">413 windows</div>
+          <div class="data-card-label">Cognitive</div>
+        </div>
+        <div class="data-card" style="background:rgba(0,180,255,0.04); border:1px solid rgba(0,180,255,0.08)">
+          <div class="data-card-value" style="color:#00B4FF">1,968 windows</div>
+          <div class="data-card-label">Aerobic</div>
+        </div>
+        <div class="data-card" style="background:rgba(255,107,107,0.04); border:1px solid rgba(255,107,107,0.08)">
+          <div class="data-card-value" style="color:#FF6B6B">68 windows</div>
+          <div class="data-card-label">Anaerobic</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Team -->
+<section class="section" id="team">
+  <div class="section-inner">
+    <div class="reveal">
+      <span class="section-tag" style="color:#00E5A0">Built By</span>
+      <h2 class="section-title">The Team</h2>
+    </div>
+
+    <div class="team-grid">
+      <div class="team-card reveal" data-delay="0">
+        <div class="team-avatar">CT</div>
+        <h3 class="team-name">Camille Tran</h3>
+        <p class="team-role">ML Pipeline & Data Engineering</p>
+      </div>
+      <div class="team-card reveal" data-delay="0.1">
+        <div class="team-avatar">D</div>
+        <h3 class="team-name">Dhyay</h3>
+        <p class="team-role">iOS & CoreML Integration</p>
+      </div>
+      <div class="team-card reveal" data-delay="0.2">
+        <div class="team-avatar">L</div>
+        <h3 class="team-name">Lev</h3>
+        <p class="team-role">HRV Imputation & Preprocessing</p>
+      </div>
+    </div>
+
+    <div class="reveal" data-delay="0.3">
+      <p class="team-caption">Capstone Project — Behavioral Stress Detection using Wearable Digital Twins</p>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <div class="footer-logo">P</div>
+    <span class="footer-text">Pulse — Hybrid Stress Detection Pipeline</span>
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com" target="_blank" rel="noreferrer" class="footer-link">GitHub</a>
+    <a href="https://physionet.org" target="_blank" rel="noreferrer" class="footer-link">PhysioNet (WISE)</a>
+  </div>
+</footer>
+
+<script>
+// ── Scroll reveal ──
+const revealEls = document.querySelectorAll('.reveal');
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const delay = entry.target.dataset.delay || 0;
+      setTimeout(() => entry.target.classList.add('visible'), delay * 1000);
     }
+  });
+}, { threshold: 0.15 });
+revealEls.forEach(el => revealObs.observe(el));
 
-    // Copy current site link
-    document.getElementById('copyLinkBtn').addEventListener('click', async () => {
-      try{
-        await navigator.clipboard.writeText(location.href);
-        toast('Copied site link!');
-      }catch(e){
-        toast('Could not copy link (browser permission).');
-      }
-    });
-  </script>
+// ── Nav scroll effect ──
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 50);
+}, { passive: true });
+
+// ── Animated counters ──
+const counterEls = document.querySelectorAll('[data-count]');
+const counterObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    const target = parseFloat(el.dataset.count);
+    const suffix = el.dataset.suffix || '';
+    const isFloat = !Number.isInteger(target);
+    const duration = 1200;
+    const steps = 40;
+    const inc = target / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += inc;
+      if (current >= target) { current = target; clearInterval(timer); }
+      el.textContent = (isFloat ? current.toFixed(1) : Math.round(current)) + suffix;
+    }, duration / steps);
+    counterObs.unobserve(el);
+  });
+}, { threshold: 0.5 });
+counterEls.forEach(el => counterObs.observe(el));
+
+// ── HRV Waveform ──
+const canvas = document.getElementById('hrv-canvas');
+if (canvas) {
+  const ctx = canvas.getContext('2d');
+  const W = 600, H = 120;
+  canvas.width = W * 2;
+  canvas.height = H * 2;
+  ctx.scale(2, 2);
+  let t = 0;
+
+  function drawWave() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Glow layer
+    ctx.beginPath();
+    for (let x = 0; x < W; x++) {
+      const y = H/2 + Math.sin((x+t)*0.02)*25 + Math.sin((x+t)*0.05)*12 + Math.sin((x+t)*0.01)*8;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(0,229,160,0.08)';
+    ctx.lineWidth = 12;
+    ctx.stroke();
+
+    // Main line
+    ctx.beginPath();
+    for (let x = 0; x < W; x++) {
+      const y = H/2 + Math.sin((x+t)*0.02)*25 + Math.sin((x+t)*0.05)*12 + Math.sin((x+t)*0.01)*8;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    const grad = ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0, 'rgba(0,229,160,0)');
+    grad.addColorStop(0.3, 'rgba(0,229,160,0.6)');
+    grad.addColorStop(0.7, 'rgba(0,180,255,0.6)');
+    grad.addColorStop(1, 'rgba(0,180,255,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    t += 0.8;
+    requestAnimationFrame(drawWave);
+  }
+  drawWave();
+}
+
+// ── Body Battery Chart ──
+const batteryData = [
+  { time: '6am', val: 92 }, { time: '8am', val: 85 }, { time: '10am', val: 78 },
+  { time: '12pm', val: 72 }, { time: '2pm', val: 55 }, { time: '4pm', val: 48 },
+  { time: '6pm', val: 60 }, { time: '8pm', val: 65 }, { time: '10pm', val: 58 },
+];
+
+const chartEl = document.getElementById('battery-chart');
+if (chartEl) {
+  batteryData.forEach(d => {
+    const color = d.val < 55 ? 'linear-gradient(to top, #FF6B6B, rgba(255,107,107,0.5))'
+      : d.val < 70 ? 'linear-gradient(to top, #FFB86B, rgba(255,184,107,0.5))'
+      : 'linear-gradient(to top, #00E5A0, rgba(0,229,160,0.5))';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'battery-bar-wrap';
+    wrap.innerHTML = `
+      <span class="battery-val">${d.val}%</span>
+      <div class="battery-bar" style="height:0;background:${color}"></div>
+      <span class="battery-time">${d.time}</span>
+    `;
+    chartEl.appendChild(wrap);
+
+    // Animate in after a beat
+    setTimeout(() => {
+      wrap.querySelector('.battery-bar').style.height = (d.val * 1.2) + 'px';
+    }, 300);
+  });
+}
+</script>
+
 </body>
 </html>
