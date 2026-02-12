@@ -314,7 +314,7 @@
     .stage { grid-template-columns: 1fr; gap: 12px; }
     .stage-num { font-size: 36px; }
     .data-cards { grid-template-columns: 1fr; }
-    .team-grid { grid-template-columns: 1fr; }
+    .team-grid { grid-template-columns: 1fr !important; }
     .ref-row { grid-template-columns: 1fr; gap: 4px; }
     .footer { flex-direction: column; gap: 16px; text-align: center; }
   }
@@ -332,7 +332,7 @@
     <a href="#pipeline" class="nav-link">Pipeline</a>
     <a href="#science" class="nav-link">Science</a>
     <a href="#team" class="nav-link">Team</a>
-    <a href="https://github.com" target="_blank" rel="noreferrer" class="nav-cta">View on GitHub</a>
+    <a href="https://github.com/Ctt011/Capstone-Behavorial.git" target="_blank" rel="noreferrer" class="nav-cta">View on GitHub</a>
   </div>
 </nav>
 
@@ -538,21 +538,31 @@
       <h2 class="section-title">The Team</h2>
     </div>
 
-    <div class="team-grid">
+    <div class="team-grid" style="grid-template-columns: repeat(5, 1fr);">
       <div class="team-card reveal" data-delay="0">
         <div class="team-avatar">CT</div>
         <h3 class="team-name">Camille Tran</h3>
-        <p class="team-role">ML Pipeline & Data Engineering</p>
+        <p class="team-role">Data & Modeling</p>
       </div>
       <div class="team-card reveal" data-delay="0.1">
         <div class="team-avatar">D</div>
-        <h3 class="team-name">Dhyay</h3>
-        <p class="team-role">iOS & CoreML Integration</p>
+        <h3 class="team-name">Dhyay Thakrar</h3>
+        <p class="team-role">App Design & Product</p>
+      </div>
+      <div class="team-card reveal" data-delay="0.15">
+        <div class="team-avatar">SZ</div>
+        <h3 class="team-name">Selina Zhang</h3>
+        <p class="team-role">Modeling & System Design</p>
       </div>
       <div class="team-card reveal" data-delay="0.2">
+        <div class="team-avatar">EC</div>
+        <h3 class="team-name">Essie Chang</h3>
+        <p class="team-role">Data & Modeling</p>
+      </div>
+      <div class="team-card reveal" data-delay="0.25">
         <div class="team-avatar">L</div>
-        <h3 class="team-name">Lev</h3>
-        <p class="team-role">HRV Imputation & Preprocessing</p>
+        <h3 class="team-name">Levy Sahoo</h3>
+        <p class="team-role">Data & Modeling</p>
       </div>
     </div>
 
@@ -569,7 +579,7 @@
     <span class="footer-text">Pulse — Hybrid Stress Detection Pipeline</span>
   </div>
   <div class="footer-links">
-    <a href="https://github.com" target="_blank" rel="noreferrer" class="footer-link">GitHub</a>
+    <a href="https://github.com/Ctt011/Capstone-Behavorial.git" target="_blank" rel="noreferrer" class="footer-link">GitHub</a>
     <a href="https://physionet.org" target="_blank" rel="noreferrer" class="footer-link">PhysioNet (WISE)</a>
   </div>
 </footer>
