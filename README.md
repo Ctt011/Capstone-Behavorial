@@ -7,6 +7,7 @@ A hybrid stress detection system that combines ML activity classification with v
 **Course:** DSC 180B Capstone, UC San Diego, Winter 2026
 
 Code: https://github.com/Ctt011/Capstone-Behavorial
+Website: [Pulse.com](https://ctt011.github.io/Capstone-Behavorial/)
 
 ---
 
