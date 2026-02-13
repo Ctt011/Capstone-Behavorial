@@ -249,8 +249,10 @@ class StressCalculator:
           - If baseline exists: compare DC and SDNN to personal baseline
           - If no baseline: use population-based thresholds
 
-        The score feeds into Dyhay's Body Battery:
-          battery_drain = stress_score * 0.2 * (duration_minutes / 10)
+        The score feeds into Dhyay's Body Battery (per 5-min interval):
+          base_drain = 0.5
+          drain = base_drain + (2.5 * (stress_score/100) * stress_type_multiplier)
+          where stress_type_multiplier: cognitive=1.2, physical=1.0, mixed=1.5, none=0.1
         """
         score = 50  # Start neutral
 
@@ -404,13 +406,16 @@ class StressCalculator:
             self.stress_threshold = int(base_threshold * 0.80)  # 48
         elif sleep_ratio < 0.90:
             # Poor sleep → more sensitive
-            self.stress_threshold = int(base_threshold * 0.90)  # 54
-        elif sleep_ratio > 1.10:
-            # Extra sleep → slightly less sensitive
-            self.stress_threshold = int(base_threshold * 1.05)  # 63
-        else:
+            self.stress_threshold = int(base_threshold * 0.85)  # 51
+        elif sleep_ratio <= 1.10:
             # Normal sleep
             self.stress_threshold = base_threshold
+        elif sleep_ratio <= 1.20:
+            # Good sleep → slightly less sensitive
+            self.stress_threshold = int(base_threshold * 1.05)  # 63
+        else:
+            # Excellent sleep → less sensitive
+            self.stress_threshold = int(base_threshold * 1.08)  # 65
 
     # ── Recovery Slope (Post-Activity) ───────────────────────────────────────
 

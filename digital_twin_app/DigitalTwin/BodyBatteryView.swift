@@ -295,8 +295,8 @@ class BodyBatteryManager: ObservableObject {
     private let minBatteryCap: Int = 60         // Minimum battery cap from sleep debt
     private let sleepDebtDecayRate: Double = 0.5 // How fast debt decays when oversleeping
     
-    // Stress threshold for classification
-    private let stressThreshold: Int = 40 // Above this = stressed
+    // Stress threshold for classification (matches pipeline base of 60, sleep-adjusted)
+    private let stressThreshold: Int = 60 // Above this = stressed
     
     // Published properties
     @Published var currentBattery: Int = 100
@@ -466,8 +466,8 @@ class BodyBatteryManager: ObservableObject {
         case .physical:
             stressType = .physical
         case .cognitive:
-            // For cognitive activity, determine type based on stress level
-            if result.stressScore < stressThreshold {
+            // For cognitive activity, use pipeline's sleep-adjusted threshold
+            if result.stressScore < result.adjustedThreshold {
                 stressType = .none
             } else {
                 stressType = .cognitive
