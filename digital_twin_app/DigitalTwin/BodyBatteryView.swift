@@ -280,7 +280,6 @@ class BodyBatteryManager: ObservableObject {
     private let batteryKey = "bodyBatteryLevel"
     private let historyKey = "batteryHistory_v2"
     private let recoveryKey = "recoveryActivities"
-    private let lastUpdateKey = "lastBatteryUpdate"
     private let sessionMetricsKey = "savedSessionMetrics"
     private let lastLoggedDayKey = "lastLoggedDay"
     private let stressPredictionsKey = "todayStressPredictions"
@@ -288,6 +287,7 @@ class BodyBatteryManager: ObservableObject {
     private let hrvBaselineKey = "hrvBaseline"
     private let rhrBaselineKey = "rhrBaseline"
     private let lastSleepScoreKey = "lastSleepRecoveryScore"
+    private let lastSleepRechargeDayKey = "lastSleepRechargeDay"
     
     // Sleep algorithm constants
     private let sleepTargetHours: Double = 7.5  // Target sleep hours
@@ -295,8 +295,8 @@ class BodyBatteryManager: ObservableObject {
     private let minBatteryCap: Int = 60         // Minimum battery cap from sleep debt
     private let sleepDebtDecayRate: Double = 0.5 // How fast debt decays when oversleeping
     
-    // Stress threshold for classification (matches pipeline base of 60, sleep-adjusted)
-    private let stressThreshold: Int = 60 // Above this = stressed
+    // Stress threshold for classification
+    private let stressThreshold: Int = 40 // Above this = stressed
     
     // Published properties
     @Published var currentBattery: Int = 100
@@ -316,15 +316,12 @@ class BodyBatteryManager: ObservableObject {
     
     // Session tracking
     @Published var activeSession: ActiveRecoverySession? = nil
-    @Published var activeBreathingSession: Bool = false
-    @Published var breathingTimeRemaining: Int = 0
-    
-    // Simulation
-    @Published var simulatedActivity: String? = nil
-    @Published var simulatedBatteryChange: Int = 0
     
     // Timer for 15-minute stress predictions
     private var stressPredictionTimer: Timer?
+    private var isStressTimerStarted = false
+    private var lastDrainAppliedAt: Date?
+    private let drainDeduplicationWindowSeconds: TimeInterval = 4 * 60
     
     let destressActivities: [DestressActivity] = [
         DestressActivity(
@@ -394,14 +391,15 @@ class BodyBatteryManager: ObservableObject {
     
     private init() {
         loadData()
-        checkForNewDay()
-        startStressPredictionTimer()
+        rolloverToTodayIfNeeded()
     }
     
     /// Configure with HealthKitManager to enable DC/AC stress pipeline
     func configure(with healthKitManager: HealthKitManager) {
         self.healthKitManager = healthKitManager
         self.stressPipeline = StressDetectionPipeline(healthKitManager: healthKitManager)
+        rolloverToTodayIfNeeded()
+        startStressPredictionTimerIfNeeded()
         print("✅ BodyBatteryManager configured with DC/AC stress pipeline")
     }
     
@@ -419,7 +417,11 @@ class BodyBatteryManager: ObservableObject {
     private let stressPredictionIntervalSeconds: TimeInterval = 5 * 60  // 5 minutes
     
     /// Starts the stress prediction timer
-    private func startStressPredictionTimer() {
+    private func startStressPredictionTimerIfNeeded() {
+        guard !isStressTimerStarted else { return }
+        guard healthKitManager != nil else { return }
+        isStressTimerStarted = true
+
         // Predict immediately on start
         Task {
             await predictCurrentStress()
@@ -436,11 +438,24 @@ class BodyBatteryManager: ObservableObject {
     /// Predicts current stress level using the full DC/AC stress pipeline
     /// Uses 3-stage pipeline: Activity Classification → Sleep Adjustment → DC/AC Stress Metrics
     func predictCurrentStress(hrv: Double? = nil, heartRate: Double? = nil, activeEnergy: Double? = nil) async {
+        rolloverToTodayIfNeeded()
+
+        guard let linkedHealthKitManager = healthKitManager else {
+            print("⌛ Skipping stress prediction — HealthKit not linked yet")
+            return
+        }
+
         // Skip stress prediction during active recovery sessions
         // These sessions have their own metrics collection and stress calculation would be inaccurate
         // because the workout session triggers high-frequency HR sampling that needs to sync from Watch
         if activeSession != nil {
             print("📊 Skipping stress prediction - active recovery session in progress")
+            return
+        }
+        
+        // Skip stress prediction if Apple Watch is not connected
+        if !linkedHealthKitManager.isAppleWatchConnected {
+            print("⌚ Skipping stress prediction — Apple Watch not detected")
             return
         }
         
@@ -466,8 +481,8 @@ class BodyBatteryManager: ObservableObject {
         case .physical:
             stressType = .physical
         case .cognitive:
-            // For cognitive activity, use pipeline's sleep-adjusted threshold
-            if result.stressScore < result.adjustedThreshold {
+            // For cognitive activity, determine type based on stress level
+            if result.stressScore < stressThreshold {
                 stressType = .none
             } else {
                 stressType = .cognitive
@@ -480,6 +495,21 @@ class BodyBatteryManager: ObservableObject {
         
         // Calculate battery drain for this interval
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
+
+        // Apply only when stress is truly elevated and avoid duplicate drains from overlapping sources
+        let shouldDrain = result.activityType == .cognitive && result.isStressed
+        let appliedDrain: Int
+        if shouldDrain && shouldApplyStressDrain(
+            at: result.timestamp,
+            stressLevel: stressLevel,
+            stressType: stressType,
+            source: "pipeline-timer"
+        ) {
+            applyStressDrain(drain, at: result.timestamp, source: "pipeline-timer")
+            appliedDrain = drain
+        } else {
+            appliedDrain = 0
+        }
         
         // Create prediction with full pipeline data
         let prediction = StressPrediction(
@@ -487,7 +517,7 @@ class BodyBatteryManager: ObservableObject {
             stressType: stressType,
             hrvValue: result.sdnn,  // Use real SDNN from pipeline
             heartRate: result.dc != nil ? 60000.0 / (result.dc! + 500) : nil, // Approximate HR if DC available
-            batteryDrain: drain
+            batteryDrain: appliedDrain
         )
         
         // Update state
@@ -495,11 +525,6 @@ class BodyBatteryManager: ObservableObject {
         currentStressType = stressType
         lastStressPrediction = prediction
         todayStressPredictions.append(prediction)
-        
-        // Apply drain (only for cognitive stress - physical activity has different drain mechanics)
-        if result.activityType == .cognitive {
-            applyStressDrain(drain)
-        }
         
         // Save
         saveData()
@@ -559,6 +584,21 @@ class BodyBatteryManager: ObservableObject {
         
         // Calculate battery drain
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
+
+        let fallbackTimestamp = Date()
+        let shouldDrain = stressLevel >= stressThreshold && (stressType == .cognitive || stressType == .mixed)
+        let appliedDrain: Int
+        if shouldDrain && shouldApplyStressDrain(
+            at: fallbackTimestamp,
+            stressLevel: stressLevel,
+            stressType: stressType,
+            source: "fallback"
+        ) {
+            applyStressDrain(drain, at: fallbackTimestamp, source: "fallback")
+            appliedDrain = drain
+        } else {
+            appliedDrain = 0
+        }
         
         // Create prediction
         let prediction = StressPrediction(
@@ -566,7 +606,7 @@ class BodyBatteryManager: ObservableObject {
             stressType: stressType,
             hrvValue: hrv,
             heartRate: heartRate,
-            batteryDrain: drain
+            batteryDrain: appliedDrain
         )
         
         // Update state
@@ -574,9 +614,6 @@ class BodyBatteryManager: ObservableObject {
         currentStressType = stressType
         lastStressPrediction = prediction
         todayStressPredictions.append(prediction)
-        
-        // Apply drain
-        applyStressDrain(drain)
         
         // Save
         saveData()
@@ -598,9 +635,29 @@ class BodyBatteryManager: ObservableObject {
     }
     
     /// Applies stress drain to current battery
-    private func applyStressDrain(_ drain: Int) {
+    private func applyStressDrain(_ drain: Int, at timestamp: Date, source: String) {
         currentBattery = max(5, currentBattery - drain)
+        lastDrainAppliedAt = timestamp
         updateTodayHistory(drain: drain)
+        print("🔋 Applied stress drain: -\(drain)% (source=\(source))")
+    }
+
+    private func shouldApplyStressDrain(at timestamp: Date, stressLevel: Int, stressType: StressType, source: String) -> Bool {
+        guard stressLevel >= stressThreshold else {
+            return false
+        }
+
+        guard stressType == .cognitive || stressType == .mixed else {
+            return false
+        }
+
+        if let lastApplied = lastDrainAppliedAt,
+           timestamp.timeIntervalSince(lastApplied) < drainDeduplicationWindowSeconds {
+            print("⏭️ Skipping duplicate drain (source=\(source), delta=\(Int(timestamp.timeIntervalSince(lastApplied)))s)")
+            return false
+        }
+
+        return true
     }
     
     // MARK: - Sleep & Recharge System
@@ -611,8 +668,19 @@ class BodyBatteryManager: ObservableObject {
         sleepHours: Double,
         sleepStages: [SleepStageData] = [],
         overnightHRV: Double? = nil,
-        overnightHR: Double? = nil
+        overnightHR: Double? = nil,
+        sleepDate: Date = Date()
     ) {
+        rolloverToTodayIfNeeded()
+
+        let sleepDay = Calendar.current.startOfDay(for: sleepDate)
+        if let lastSleepRechargeDay = UserDefaults.standard.data(forKey: lastSleepRechargeDayKey),
+           let lastDay = try? JSONDecoder().decode(Date.self, from: lastSleepRechargeDay),
+           Calendar.current.isDate(lastDay, inSameDayAs: sleepDay) {
+            print("😴 Sleep recharge already applied for \(sleepDay). Skipping duplicate recharge.")
+            return
+        }
+
         let totalSleepMinutes = sleepHours * 60.0
         
         // Extract stage durations from sleep data
@@ -680,6 +748,10 @@ class BodyBatteryManager: ObservableObject {
             sleepStages: sleepStages.map { $0.stage.rawValue }
         )
         recordRechargeEvent(rechargeEvent)
+
+        if let encodedSleepDay = try? JSONEncoder().encode(sleepDay) {
+            UserDefaults.standard.set(encodedSleepDay, forKey: lastSleepRechargeDayKey)
+        }
         
         // Save data
         saveData()
@@ -875,6 +947,8 @@ class BodyBatteryManager: ObservableObject {
     
     /// Processes a nap recharge
     func processNapRecharge(durationMinutes: Int) {
+        rolloverToTodayIfNeeded()
+
         // Naps: 2% per 5 minutes, capped at 30% for a 20-minute power nap
         let rechargePercent = min(30, (durationMinutes / 5) * 2)
         let recharge = min(rechargePercent, 100 - currentBattery)
@@ -892,6 +966,8 @@ class BodyBatteryManager: ObservableObject {
     
     /// Processes a mindfulness session recharge
     func processMindfulnessRecharge(durationMinutes: Int) {
+        rolloverToTodayIfNeeded()
+
         // Mindfulness: 1% per minute, capped at 15%
         let rechargePercent = min(15, durationMinutes)
         let recharge = min(rechargePercent, 100 - currentBattery)
@@ -909,6 +985,8 @@ class BodyBatteryManager: ObservableObject {
     
     /// Records a recharge event to today's history
     private func recordRechargeEvent(_ event: RechargeEvent) {
+        rolloverToTodayIfNeeded()
+
         let today = Calendar.current.startOfDay(for: Date())
         
         if let index = batteryHistory.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
@@ -924,61 +1002,91 @@ class BodyBatteryManager: ObservableObject {
     // MARK: - Day Management
     
     /// Checks for a new day and handles unlogged days
-    private func checkForNewDay() {
+    private func rolloverToTodayIfNeeded() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        
-        if let lastLoggedData = UserDefaults.standard.data(forKey: lastLoggedDayKey),
-           let lastLogged = try? JSONDecoder().decode(Date.self, from: lastLoggedData) {
-            
-            let daysBetween = calendar.dateComponents([.day], from: lastLogged, to: today).day ?? 0
-            
-            if daysBetween > 1 {
-                // There are unlogged days - reset to 100%
-                print("⚠️ Detected \(daysBetween - 1) unlogged days. Resetting battery to 100%")
-                currentBattery = 100
-                
-                // Mark those days as unlogged in history
-                for dayOffset in 1..<daysBetween {
-                    if let unloggedDate = calendar.date(byAdding: .day, value: dayOffset, to: lastLogged) {
-                        let unloggedEntry = BatteryHistoryEntry(
-                            date: unloggedDate,
-                            startingBattery: 100,
-                            isUnloggedDay: true
-                        )
-                        batteryHistory.insert(unloggedEntry, at: 0)
-                    }
-                }
-            } else if daysBetween == 1 {
-                // Normal new day - carry over battery from yesterday
-                // Sleep recharge will be processed separately from HealthKit data
-                print("🌅 New day started with battery at \(currentBattery)%")
+
+        guard let lastLoggedData = UserDefaults.standard.data(forKey: lastLoggedDayKey),
+              let lastLogged = try? JSONDecoder().decode(Date.self, from: lastLoggedData) else {
+            ensureTodayHistoryEntry(startingBattery: currentBattery)
+            if let encodedDate = try? JSONEncoder().encode(today) {
+                UserDefaults.standard.set(encodedDate, forKey: lastLoggedDayKey)
             }
+            todayStressPredictions = todayStressPredictions.filter {
+                calendar.isDate($0.timestamp, inSameDayAs: today)
+            }
+            lastStressPrediction = todayStressPredictions.last
+            saveData()
+            return
         }
         
-        // Ensure today has an entry
-        if !batteryHistory.contains(where: { calendar.isDate($0.date, inSameDayAs: today) }) {
-            let todayEntry = BatteryHistoryEntry(
-                date: today,
-                startingBattery: currentBattery
-            )
-            batteryHistory.insert(todayEntry, at: 0)
+        let lastLoggedDay = calendar.startOfDay(for: lastLogged)
+        let daysBetween = calendar.dateComponents([.day], from: lastLoggedDay, to: today).day ?? 0
+
+        if daysBetween > 1 {
+            print("⚠️ Detected \(daysBetween - 1) unlogged days. Resetting battery to 100%")
+            currentBattery = 100
+
+            for dayOffset in 1..<daysBetween {
+                guard let unloggedDate = calendar.date(byAdding: .day, value: dayOffset, to: lastLoggedDay) else { continue }
+                if !batteryHistory.contains(where: { calendar.isDate($0.date, inSameDayAs: unloggedDate) }) {
+                    let unloggedEntry = BatteryHistoryEntry(
+                        date: unloggedDate,
+                        startingBattery: 100,
+                        currentBattery: 100,
+                        minBattery: 100,
+                        maxBattery: 100,
+                        isUnloggedDay: true
+                    )
+                    batteryHistory.insert(unloggedEntry, at: 0)
+                }
+            }
+        } else if daysBetween == 1 {
+            print("🌅 New day started with battery at \(currentBattery)%")
         }
         
-        // Update last logged day
+        ensureTodayHistoryEntry(startingBattery: currentBattery)
+        
         if let encodedDate = try? JSONEncoder().encode(today) {
             UserDefaults.standard.set(encodedDate, forKey: lastLoggedDayKey)
         }
         
-        // Clear today's stress predictions
-        todayStressPredictions.removeAll()
+        if daysBetween > 0 {
+            todayStressPredictions.removeAll()
+            lastStressPrediction = nil
+        } else {
+            todayStressPredictions = todayStressPredictions.filter {
+                calendar.isDate($0.timestamp, inSameDayAs: today)
+            }
+            lastStressPrediction = todayStressPredictions.last
+        }
         
         saveData()
+    }
+
+    private func ensureTodayHistoryEntry(startingBattery: Int) {
+        let today = Calendar.current.startOfDay(for: Date())
+        guard !batteryHistory.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) else { return }
+
+        let todayEntry = BatteryHistoryEntry(
+            date: today,
+            startingBattery: startingBattery,
+            currentBattery: startingBattery,
+            minBattery: startingBattery,
+            maxBattery: startingBattery
+        )
+        batteryHistory.insert(todayEntry, at: 0)
     }
     
     /// Updates today's history entry
     private func updateTodayHistory(drain: Int = 0, recharge: Int = 0) {
+        rolloverToTodayIfNeeded()
+
         let today = Calendar.current.startOfDay(for: Date())
+
+        if !batteryHistory.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            ensureTodayHistoryEntry(startingBattery: currentBattery)
+        }
         
         if let index = batteryHistory.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
             batteryHistory[index].currentBattery = currentBattery
@@ -1075,6 +1183,8 @@ class BodyBatteryManager: ObservableObject {
     
     /// Apply stress to battery (legacy method)
     func applyStress(stressLevel: Int, durationMinutes: Int) {
+        rolloverToTodayIfNeeded()
+
         let drain = calculateBatteryDrain(stressLevel: stressLevel, durationMinutes: durationMinutes)
         currentBattery = max(5, currentBattery - drain)
         updateTodayHistory(drain: drain)
@@ -1083,6 +1193,8 @@ class BodyBatteryManager: ObservableObject {
     
     /// Complete a recovery activity (legacy method)
     func completeRecoveryActivity(_ activity: DestressActivity) {
+        rolloverToTodayIfNeeded()
+
         let gained = activity.batteryGain
         currentBattery = min(100, currentBattery + gained)
         
@@ -1094,17 +1206,6 @@ class BodyBatteryManager: ObservableObject {
         
         updateTodayHistory(recharge: gained)
         saveData()
-    }
-    
-    /// Simulate adding an activity to see impact
-    func simulateActivity(name: String, stressLevel: Int, durationMinutes: Int) {
-        simulatedActivity = name
-        simulatedBatteryChange = -calculateBatteryDrain(stressLevel: stressLevel, durationMinutes: durationMinutes)
-    }
-    
-    func clearSimulation() {
-        simulatedActivity = nil
-        simulatedBatteryChange = 0
     }
     
     /// Get history for a specific date
@@ -1267,7 +1368,18 @@ class BodyBatteryManager: ObservableObject {
     
     /// Update stress state directly from pipeline result (called by HealthKitManager background updates)
     /// This allows background pipeline runs to reflect in the UI without re-running the pipeline
-    func updateFromPipelineResult(stressScore: Int, activityType: String, dc: Double?, ac: Double?, sdnn: Double?) {
+    func updateFromPipelineResult(
+        stressScore: Int,
+        activityType: String,
+        dc: Double?,
+        ac: Double?,
+        sdnn: Double?,
+        adjustedThreshold: Int,
+        isStressed: Bool,
+        timestamp: Date
+    ) {
+        rolloverToTodayIfNeeded()
+
         // Map activity type to stress type
         let stressType: StressType
         if activityType == "PHYSICAL" {
@@ -1278,16 +1390,31 @@ class BodyBatteryManager: ObservableObject {
             stressType = .cognitive
         }
         
-        // Calculate drain
+        // Calculate potential drain
         let drain = calculateIntervalDrain(stressLevel: stressScore, stressType: stressType)
+        let effectiveThreshold = max(stressThreshold, adjustedThreshold)
+        let shouldDrain = activityType == "COGNITIVE" && isStressed && stressScore >= effectiveThreshold
+        let appliedDrain: Int
+        if shouldDrain && shouldApplyStressDrain(
+            at: timestamp,
+            stressLevel: stressScore,
+            stressType: stressType,
+            source: "pipeline-background"
+        ) {
+            applyStressDrain(drain, at: timestamp, source: "pipeline-background")
+            appliedDrain = drain
+        } else {
+            appliedDrain = 0
+        }
         
         // Create prediction
         let prediction = StressPrediction(
+            timestamp: timestamp,
             predictedStressLevel: stressScore,
             stressType: stressType,
             hrvValue: sdnn,
             heartRate: nil,
-            batteryDrain: drain
+            batteryDrain: appliedDrain
         )
         
         // Update state
@@ -1295,11 +1422,6 @@ class BodyBatteryManager: ObservableObject {
         currentStressType = stressType
         lastStressPrediction = prediction
         todayStressPredictions.append(prediction)
-        
-        // Apply drain only for cognitive stress
-        if activityType == "COGNITIVE" {
-            applyStressDrain(drain)
-        }
         
         saveData()
         
@@ -1456,10 +1578,8 @@ struct BodyBatteryView: View {
     @StateObject private var batteryManager = BodyBatteryManager.shared
     @ObservedObject private var activityManager = ActivityManager.shared
     @EnvironmentObject var healthKitManager: HealthKitManager
-    @Environment(\.dismiss) private var dismiss
-    
+
     @State private var selectedDate = Date()
-    @State private var showingActivitySimulator = false
     @State private var showingBreathingExercise = false
     @State private var showingCalendar = false
     
@@ -1490,26 +1610,52 @@ struct BodyBatteryView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Main Battery Display with Human Figure
+                    // Apple Watch Not Connected Banner
+                    if !healthKitManager.isAppleWatchConnected {
+                        HStack(spacing: 12) {
+                            Image(systemName: "applewatch.slash")
+                                .font(.title2)
+                                .foregroundColor(.orange)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Apple Watch Not Detected")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Text("Stress tracking and battery drain calculations require an Apple Watch.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.orange.opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                    }
+
+                    // 1. Human figure with battery level
                     BatteryHumanView(
                         batteryLevel: batteryManager.currentBattery,
-                        simulatedChange: batteryManager.simulatedBatteryChange,
                         batteryColor: batteryColor
                     )
                     .padding(.horizontal)
-                    
-                    // Current Stress Card
+
+                    // 2. Current stress level
                     CurrentStressCard(batteryManager: batteryManager)
                         .padding(.horizontal)
-                    
-                    // Insight Card
-                    InsightCard(
-                        insight: batteryManager.batteryInsight,
-                        batteryLevel: batteryManager.currentBattery
-                    )
-                    .padding(.horizontal)
-                    
-                    // Sleep Recovery Card (if we have sleep data)
+
+                    // 3. Cognitive vs Physical stress breakdown + detected times
+                    StressTypeBreakdownCard(batteryManager: batteryManager)
+                        .padding(.horizontal)
+
+                    // 4. Sleep recovery
                     if let sleepScore = batteryManager.lastSleepRecoveryScore {
                         SleepRecoveryCard(
                             sleepScore: sleepScore,
@@ -1518,37 +1664,43 @@ struct BodyBatteryView: View {
                         )
                         .padding(.horizontal)
                     }
-                    
-                    // Today's Stress Summary
+
+                    // 5. Today's summary (insight + stress summary)
+                    InsightCard(
+                        insight: batteryManager.batteryInsight,
+                        batteryLevel: batteryManager.currentBattery
+                    )
+                    .padding(.horizontal)
+
                     TodayStressSummaryCard(batteryManager: batteryManager)
                         .padding(.horizontal)
-                    
-                    // Activity Impact Simulator
-                    ActivityImpactCard(batteryManager: batteryManager)
-                        .padding(.horizontal)
-                    
-                    // Calendar / History Section
+
+                    // Today's activity impact
+                    TodayActivityImpactCard(
+                        activities: activityManager.todaysActivities,
+                        batteryManager: batteryManager
+                    )
+                    .padding(.horizontal)
+
+                    // 6. Battery history
                     BatteryCalendarCard(
                         batteryManager: batteryManager,
                         selectedDate: $selectedDate,
                         showingCalendar: $showingCalendar
                     )
                     .padding(.horizontal)
-                    
-                    // Recovery Activities Section
+
+                    // 7. Recharge your battery
                     RecoveryActivitiesSection(
                         batteryManager: batteryManager,
                         showingBreathingExercise: $showingBreathingExercise
                     )
                     .padding(.horizontal)
-                    
-                    // Today's Activity Impact
-                    TodayActivityImpactCard(
-                        activities: activityManager.todaysActivities,
-                        batteryManager: batteryManager
-                    )
-                    .padding(.horizontal)
-                    
+
+                    // 8. Health metrics (compact)
+                    CompactHealthMetricsSection(healthKitManager: healthKitManager)
+                        .padding(.horizontal)
+
                     Spacer(minLength: 40)
                 }
                 .padding(.top)
@@ -1556,36 +1708,28 @@ struct BodyBatteryView: View {
             .background(backgroundColor.ignoresSafeArea())
             .navigationTitle("Body Battery")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Dashboard")
-                        }
-                        .foregroundColor(.blue)
-                    }
-                }
-            }
-            .onAppear {
-                // Configure the stress pipeline with HealthKitManager (enables DC/AC calculation)
-                batteryManager.configure(with: healthKitManager)
-                
-                // Trigger immediate stress prediction using the full DC/AC pipeline
-                // This will run: Stage 1 (Activity Classification) → Stage 2 (Sleep Adjustment) → Stage 3 (DC/AC Metrics)
+            .refreshable {
+                await healthKitManager.refreshAllData()
                 batteryManager.updateStressPrediction(
                     hrv: healthKitManager.latestHRV,
                     heartRate: healthKitManager.latestHeartRate,
                     activeEnergy: healthKitManager.activeCalories
                 )
-                
-                // Process sleep data if available (with overnight HRV/HR for physio score)
+            }
+            .onAppear {
+                batteryManager.configure(with: healthKitManager)
+                batteryManager.updateStressPrediction(
+                    hrv: healthKitManager.latestHRV,
+                    heartRate: healthKitManager.latestHeartRate,
+                    activeEnergy: healthKitManager.activeCalories
+                )
                 if let sleepHours = healthKitManager.lastNightSleep {
                     batteryManager.processSleepRecharge(
                         sleepHours: sleepHours,
                         sleepStages: healthKitManager.sleepStages,
-                        overnightHRV: healthKitManager.latestHRV,
-                        overnightHR: healthKitManager.restingHeartRate
+                        overnightHRV: healthKitManager.overnightHRVMetric.value,
+                        overnightHR: healthKitManager.overnightRestingHeartRateMetric.value,
+                        sleepDate: healthKitManager.sleepMetric.lastUpdated ?? Date()
                     )
                 }
             }
@@ -1593,6 +1737,278 @@ struct BodyBatteryView: View {
         .sheet(isPresented: $showingBreathingExercise) {
             BreathingExerciseView(batteryManager: batteryManager)
         }
+    }
+}
+
+// MARK: - Stress Type Breakdown Card
+struct StressTypeBreakdownCard: View {
+    @ObservedObject var batteryManager: BodyBatteryManager
+
+    private var cognitiveEpisodes: [StressPrediction] {
+        batteryManager.todayStressPredictions.filter { $0.stressType == .cognitive && $0.predictedStressLevel >= 30 }
+    }
+
+    private var physicalEpisodes: [StressPrediction] {
+        batteryManager.todayStressPredictions.filter { $0.stressType == .physical && $0.predictedStressLevel >= 30 }
+    }
+
+    private var cognitiveAvg: Int {
+        guard !cognitiveEpisodes.isEmpty else { return 0 }
+        return cognitiveEpisodes.reduce(0) { $0 + $1.predictedStressLevel } / cognitiveEpisodes.count
+    }
+
+    private var physicalAvg: Int {
+        guard !physicalEpisodes.isEmpty else { return 0 }
+        return physicalEpisodes.reduce(0) { $0 + $1.predictedStressLevel } / physicalEpisodes.count
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return f.string(from: date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "chart.pie.fill")
+                    .font(.title2)
+                    .foregroundColor(.blue)
+                Text("Stress Breakdown")
+                    .font(.headline)
+                Spacer()
+                Text("Today")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 16) {
+                // Cognitive
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.subheadline)
+                            .foregroundColor(.purple)
+                        Text("Cognitive")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    Text("\(cognitiveEpisodes.count) episode\(cognitiveEpisodes.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if !cognitiveEpisodes.isEmpty {
+                        Text("Avg \(cognitiveAvg)")
+                            .font(.caption)
+                            .foregroundColor(.purple)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.purple.opacity(0.08))
+                .cornerRadius(12)
+
+                // Physical
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "figure.run")
+                            .font(.subheadline)
+                            .foregroundColor(.orange)
+                        Text("Physical")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    Text("\(physicalEpisodes.count) episode\(physicalEpisodes.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if !physicalEpisodes.isEmpty {
+                        Text("Avg \(physicalAvg)")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.orange.opacity(0.08))
+                .cornerRadius(12)
+            }
+
+            // Detected times
+            let allEpisodes = (cognitiveEpisodes + physicalEpisodes)
+                .sorted { $0.timestamp < $1.timestamp }
+
+            if !allEpisodes.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DETECTED EPISODES")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+
+                    ForEach(allEpisodes.suffix(6)) { episode in
+                        HStack(spacing: 10) {
+                            Image(systemName: episode.stressType.icon)
+                                .font(.caption)
+                                .foregroundColor(episode.stressType.color)
+                                .frame(width: 22, height: 22)
+                                .background(episode.stressType.color.opacity(0.12))
+                                .cornerRadius(6)
+
+                            Text(episode.stressType.rawValue)
+                                .font(.caption)
+                                .foregroundColor(episode.stressType.color)
+                                .fontWeight(.medium)
+
+                            Spacer()
+
+                            Text("Level \(episode.predictedStressLevel)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+
+                            Text(formatTime(episode.timestamp))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("No significant stress episodes detected today")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Compact Health Metrics Section
+struct CompactHealthMetricsSection: View {
+    @ObservedObject var healthKitManager: HealthKitManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.title2)
+                    .foregroundColor(.red)
+                Text("Health Metrics")
+                    .font(.headline)
+                Spacer()
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                CompactMetricTile(
+                    icon: "heart",
+                    iconColor: .pink,
+                    title: "Resting HR",
+                    value: healthKitManager.restingHeartRateMetric.value != nil
+                        ? String(format: "%.0f", healthKitManager.restingHeartRateMetric.value!)
+                        : "--",
+                    unit: "BPM",
+                    lastMeasured: healthKitManager.restingHeartRateMetric.formattedTimestamp
+                )
+
+                CompactMetricTile(
+                    icon: "heart.fill",
+                    iconColor: .red,
+                    title: "Heart Rate",
+                    value: healthKitManager.heartRateMetric.value != nil
+                        ? String(format: "%.0f", healthKitManager.heartRateMetric.value!)
+                        : "--",
+                    unit: "BPM",
+                    lastMeasured: healthKitManager.heartRateMetric.formattedTimestamp
+                )
+
+                CompactMetricTile(
+                    icon: "flame.fill",
+                    iconColor: .orange,
+                    title: "Active Energy",
+                    value: healthKitManager.activeEnergyMetric.value != nil
+                        ? String(format: "%.0f", healthKitManager.activeEnergyMetric.value!)
+                        : "--",
+                    unit: "kcal",
+                    lastMeasured: healthKitManager.activeEnergyMetric.formattedTimestamp
+                )
+
+                CompactMetricTile(
+                    icon: "waveform.path.ecg",
+                    iconColor: .purple,
+                    title: "HRV (SDNN)",
+                    value: healthKitManager.hrvMetric.value != nil
+                        ? String(format: "%.0f", healthKitManager.hrvMetric.value!)
+                        : "--",
+                    unit: "ms",
+                    lastMeasured: healthKitManager.hrvMetric.formattedTimestamp
+                )
+
+                CompactMetricTile(
+                    icon: "lungs.fill",
+                    iconColor: .cyan,
+                    title: "Resp. Rate",
+                    value: healthKitManager.respiratoryRateMetric.value != nil
+                        ? String(format: "%.1f", healthKitManager.respiratoryRateMetric.value!)
+                        : "--",
+                    unit: "br/min",
+                    lastMeasured: healthKitManager.respiratoryRateMetric.formattedTimestamp
+                )
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Compact Metric Tile
+struct CompactMetricTile: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let value: String
+    let unit: String
+    let lastMeasured: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundColor(iconColor)
+                Text(title)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 3) {
+                Image(systemName: "clock")
+                    .font(.system(size: 9))
+                Text(lastMeasured)
+                    .font(.system(size: 10))
+                    .lineLimit(1)
+            }
+            .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(14)
     }
 }
 
@@ -2036,22 +2452,13 @@ struct SleepScoreRow: View {
 
 struct BatteryHumanView: View {
     let batteryLevel: Int
-    let simulatedChange: Int
     let batteryColor: Color
     
     @State private var pulseAnimation = false
     @State private var fillAnimation: CGFloat = 0
     
-    var displayedBattery: Int {
-        max(0, min(100, batteryLevel + simulatedChange))
-    }
-    
-    var displayColor: Color {
-        if simulatedChange != 0 {
-            return simulatedChange > 0 ? .green : .red
-        }
-        return batteryColor
-    }
+    var displayedBattery: Int { batteryLevel }
+    var displayColor: Color { batteryColor }
     
     var body: some View {
         VStack(spacing: 16) {
@@ -2122,21 +2529,6 @@ struct BatteryHumanView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                if simulatedChange != 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: simulatedChange > 0 ? "arrow.up" : "arrow.down")
-                        Text("\(abs(simulatedChange))%")
-                    }
-                    .font(.caption)
-                    .foregroundColor(simulatedChange > 0 ? .green : .red)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(
-                        (simulatedChange > 0 ? Color.green : Color.red).opacity(0.15)
-                    )
-                    .cornerRadius(12)
-                }
-                
                 Text("Body Battery")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -2190,149 +2582,6 @@ struct InsightCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-    }
-}
-
-// MARK: - Activity Impact Card
-
-struct ActivityImpactCard: View {
-    @ObservedObject var batteryManager: BodyBatteryManager
-    
-    @State private var selectedActivityType: ActivityType = .aerobic
-    @State private var activityName = ""
-    @State private var stressLevel: Double = 5
-    @State private var duration: Double = 30
-    
-    var estimatedDrain: Int {
-        batteryManager.calculateBatteryDrain(stressLevel: Int(stressLevel), durationMinutes: Int(duration))
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "chart.line.downtrend.xyaxis")
-                    .foregroundColor(.purple)
-                Text("Activity Impact Simulator")
-                    .font(.headline)
-                Spacer()
-            }
-            
-            Text("See how activities would affect your battery")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            // Activity Type Picker
-            HStack(spacing: 8) {
-                ForEach(ActivityType.allCases) { type in
-                    Button(action: { selectedActivityType = type }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: type.icon)
-                                .font(.title3)
-                            Text(type.rawValue)
-                                .font(.caption2)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            selectedActivityType == type
-                                ? type.color.opacity(0.2)
-                                : Color(.systemGray6)
-                        )
-                        .foregroundColor(selectedActivityType == type ? type.color : .secondary)
-                        .cornerRadius(10)
-                    }
-                }
-            }
-            
-            // Duration Slider
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Duration")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("\(Int(duration)) min")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Slider(value: $duration, in: 15...120, step: 15)
-                    .tint(.purple)
-            }
-            
-            // Stress Level Slider
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Expected Stress Level")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("\(Int(stressLevel))/10")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Slider(value: $stressLevel, in: 1...10, step: 1)
-                    .tint(stressColor)
-            }
-            
-            // Impact Preview
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Estimated Impact")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.down")
-                            .foregroundColor(.red)
-                        Text("\(estimatedDrain)%")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                        Text("battery drain")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    batteryManager.simulateActivity(
-                        name: selectedActivityType.rawValue,
-                        stressLevel: Int(stressLevel),
-                        durationMinutes: Int(duration)
-                    )
-                }) {
-                    Text("Preview")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(Color.purple)
-                        .cornerRadius(10)
-                }
-            }
-            
-            if batteryManager.simulatedActivity != nil {
-                Button(action: { batteryManager.clearSimulation() }) {
-                    Text("Clear Preview")
-                        .font(.caption)
-                        .foregroundColor(.purple)
-                }
-            }
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-    }
-    
-    var stressColor: Color {
-        switch Int(stressLevel) {
-        case 1...3: return .green
-        case 4...6: return .yellow
-        default: return .red
-        }
     }
 }
 
@@ -2653,8 +2902,6 @@ struct CalendarDayCell: View {
 struct RecoveryActivitiesSection: View {
     @ObservedObject var batteryManager: BodyBatteryManager
     @Binding var showingBreathingExercise: Bool
-    @State private var selectedActivity: DestressActivity? = nil
-    @State private var showingActivitySession = false
     @State private var showingWalkSession = false
     @State private var showingMeditationSession = false
     @State private var showingStretchSession = false
@@ -2731,6 +2978,7 @@ struct RecoveryActivitiesSection: View {
                                 .foregroundColor(.green)
                         }
                     }
+
                 }
                 .padding(.top, 8)
             }
@@ -2760,7 +3008,7 @@ struct RecoveryActivitiesSection: View {
 struct RecoveryActivityCard: View {
     let activity: DestressActivity
     let onTap: () -> Void
-    
+
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 12) {
@@ -2770,19 +3018,19 @@ struct RecoveryActivityCard: View {
                     .frame(width: 50, height: 50)
                     .background(activity.color.opacity(0.15))
                     .cornerRadius(12)
-                
+
                 VStack(spacing: 4) {
                     Text(activity.name)
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
                         .lineLimit(1)
-                    
+
                     Text("\(activity.duration) min")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Text("+\(activity.batteryGain)%")
                     .font(.caption)
                     .fontWeight(.bold)
@@ -2806,7 +3054,7 @@ struct RecoveryActivityCard: View {
 struct TodayActivityImpactCard: View {
     let activities: [ActivityEntry]
     let batteryManager: BodyBatteryManager
-    
+
     var totalDrain: Int {
         activities.reduce(0) { total, activity in
             total + batteryManager.calculateBatteryDrain(
@@ -2815,7 +3063,7 @@ struct TodayActivityImpactCard: View {
             )
         }
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -2824,12 +3072,12 @@ struct TodayActivityImpactCard: View {
                 Text("Today's Stress Impact")
                     .font(.headline)
                 Spacer()
-                
+
                 Text("-\(totalDrain)%")
                     .font(.headline)
                     .foregroundColor(.red)
             }
-            
+
             if activities.isEmpty {
                 HStack {
                     Image(systemName: "checkmark.circle")
@@ -2844,7 +3092,7 @@ struct TodayActivityImpactCard: View {
                         Image(systemName: activity.activityType.icon)
                             .foregroundColor(activity.activityType.color)
                             .frame(width: 24)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(activity.activityName)
                                 .font(.subheadline)
@@ -2852,9 +3100,9 @@ struct TodayActivityImpactCard: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         let drain = batteryManager.calculateBatteryDrain(
                             stressLevel: activity.stressLevel,
                             durationMinutes: activity.durationMinutes
@@ -2876,1091 +3124,1092 @@ struct TodayActivityImpactCard: View {
 }
 
 // MARK: - Activity Session View
-
-/// A view that guides users through a timed recovery activity while recording physiological metrics
-struct ActivitySessionView: View {
-    let activity: DestressActivity
-    @ObservedObject var batteryManager: BodyBatteryManager
-    @EnvironmentObject var healthKitManager: HealthKitManager
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var sessionState: SessionState = .ready
-    @State private var secondsElapsed: Int = 0
-    @State private var timer: Timer?
-    @State private var startTime: Date?
-    @State private var sessionMetrics: ActivitySessionMetrics?
-    @State private var pulseAnimation = false
-    @State private var isLoadingMetrics = false
-    
-    enum SessionState {
-        case ready
-        case inProgress
-        case completing
-        case showingResults
-    }
-    
-    var targetDurationSeconds: Int {
-        activity.duration * 60
-    }
-    
-    var progress: Double {
-        min(1.0, Double(secondsElapsed) / Double(targetDurationSeconds))
-    }
-    
-    var formattedTime: String {
-        let minutes = secondsElapsed / 60
-        let seconds = secondsElapsed % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-    
-    var targetTime: String {
-        let minutes = targetDurationSeconds / 60
-        return "\(minutes):00"
-    }
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                // Dynamic background based on activity type
-                activityGradient
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 30) {
-                    Spacer()
                     
-                    // Activity progress visualization
-                    ZStack {
-                        // Outer pulse ring
-                        Circle()
-                            .fill(activity.color.opacity(0.1))
-                            .frame(width: 280, height: 280)
-                            .scaleEffect(pulseAnimation ? 1.1 : 1.0)
-                            .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulseAnimation)
+                    /// A view that guides users through a timed recovery activity while recording physiological metrics
+                    struct ActivitySessionView: View {
+                        let activity: DestressActivity
+                        @ObservedObject var batteryManager: BodyBatteryManager
+                        @EnvironmentObject var healthKitManager: HealthKitManager
+                        @Environment(\.dismiss) private var dismiss
                         
-                        // Progress ring background
-                        Circle()
-                            .stroke(activity.color.opacity(0.2), lineWidth: 12)
-                            .frame(width: 220, height: 220)
+                        @State private var sessionState: SessionState = .ready
+                        @State private var secondsElapsed: Int = 0
+                        @State private var timer: Timer?
+                        @State private var startTime: Date?
+                        @State private var sessionMetrics: ActivitySessionMetrics?
+                        @State private var pulseAnimation = false
+                        @State private var isLoadingMetrics = false
                         
-                        // Progress ring
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(activity.color, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                            .frame(width: 220, height: 220)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 1), value: progress)
+                        enum SessionState {
+                            case ready
+                            case inProgress
+                            case completing
+                            case showingResults
+                        }
                         
-                        // Center content
-                        VStack(spacing: 8) {
-                            Image(systemName: activity.icon)
-                                .font(.system(size: 50))
-                                .foregroundColor(activity.color)
+                        var targetDurationSeconds: Int {
+                            activity.duration * 60
+                        }
+                        
+                        var progress: Double {
+                            min(1.0, Double(secondsElapsed) / Double(targetDurationSeconds))
+                        }
+                        
+                        var formattedTime: String {
+                            let minutes = secondsElapsed / 60
+                            let seconds = secondsElapsed % 60
+                            return String(format: "%d:%02d", minutes, seconds)
+                        }
+                        
+                        var targetTime: String {
+                            let minutes = targetDurationSeconds / 60
+                            return "\(minutes):00"
+                        }
+                        
+                        var body: some View {
+                            NavigationView {
+                                ZStack {
+                                    // Dynamic background based on activity type
+                                    activityGradient
+                                        .ignoresSafeArea()
+                                    
+                                    VStack(spacing: 30) {
+                                        Spacer()
+                                        
+                                        // Activity progress visualization
+                                        ZStack {
+                                            // Outer pulse ring
+                                            Circle()
+                                                .fill(activity.color.opacity(0.1))
+                                                .frame(width: 280, height: 280)
+                                                .scaleEffect(pulseAnimation ? 1.1 : 1.0)
+                                                .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulseAnimation)
+                                            
+                                            // Progress ring background
+                                            Circle()
+                                                .stroke(activity.color.opacity(0.2), lineWidth: 12)
+                                                .frame(width: 220, height: 220)
+                                            
+                                            // Progress ring
+                                            Circle()
+                                                .trim(from: 0, to: progress)
+                                                .stroke(activity.color, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                                                .frame(width: 220, height: 220)
+                                                .rotationEffect(.degrees(-90))
+                                                .animation(.linear(duration: 1), value: progress)
+                                            
+                                            // Center content
+                                            VStack(spacing: 8) {
+                                                Image(systemName: activity.icon)
+                                                    .font(.system(size: 50))
+                                                    .foregroundColor(activity.color)
+                                                
+                                                if sessionState == .inProgress {
+                                                    Text(formattedTime)
+                                                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                                                        .foregroundColor(.primary)
+                                                    
+                                                    Text("/ \(targetTime)")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                } else if sessionState == .ready {
+                                                    Text(activity.name)
+                                                        .font(.title2)
+                                                        .fontWeight(.semibold)
+                                                } else if sessionState == .completing {
+                                                    ProgressView()
+                                                        .scaleEffect(1.5)
+                                                    Text("Analyzing...")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Recording indicator
+                                        if sessionState == .inProgress {
+                                            HStack(spacing: 8) {
+                                                Circle()
+                                                    .fill(Color.red)
+                                                    .frame(width: 10, height: 10)
+                                                    .opacity(pulseAnimation ? 1.0 : 0.5)
+                                                Text("Recording physiological data...")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 16)
+                                            .background(Color(.systemGray6))
+                                            .cornerRadius(20)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        // Instructions
+                                        VStack(spacing: 8) {
+                                            Text(instructionTitle)
+                                                .font(.headline)
+                                            Text(instructionText)
+                                                .font(.body)
+                                                .foregroundColor(.secondary)
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal, 40)
+                                        }
+                                        
+                                        // Control buttons
+                                        VStack(spacing: 16) {
+                                            Button(action: handlePrimaryAction) {
+                                                Text(primaryButtonText)
+                                                    .font(.headline)
+                                                    .foregroundColor(.white)
+                                                    .frame(maxWidth: .infinity)
+                                                    .padding(.vertical, 18)
+                                                    .background(activity.color)
+                                                    .cornerRadius(16)
+                                            }
+                                            .disabled(sessionState == .completing)
+                                            
+                                            if sessionState == .inProgress {
+                                                Button(action: { endSessionEarly() }) {
+                                                    Text("End Early")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, 24)
+                                        .padding(.bottom, 40)
+                                    }
+                                }
+                                .navigationTitle(activity.name)
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) {
+                                        Button("Cancel") {
+                                            cancelSession()
+                                        }
+                                    }
+                                }
+                                .sheet(isPresented: Binding(
+                                    get: { sessionState == .showingResults && sessionMetrics != nil },
+                                    set: { if !$0 { dismiss() } }
+                                )) {
+                                    if let metrics = sessionMetrics {
+                                        SessionMetricsSummaryView(
+                                            metrics: metrics,
+                                            activity: activity,
+                                            batteryManager: batteryManager
+                                        )
+                                    }
+                                }
+                            }
+                            .onAppear {
+                                pulseAnimation = true
+                            }
+                            .onDisappear {
+                                timer?.invalidate()
+                            }
+                        }
+                        
+                        var activityGradient: LinearGradient {
+                            LinearGradient(
+                                colors: [activity.color.opacity(0.2), activity.color.opacity(0.05), Color(.systemBackground)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        }
+                        
+                        var instructionTitle: String {
+                            switch sessionState {
+                            case .ready:
+                                return "Ready to begin?"
+                            case .inProgress:
+                                return activityGuideTitle
+                            case .completing:
+                                return "Great job!"
+                            case .showingResults:
+                                return "Session Complete"
+                            }
+                        }
+                        
+                        var instructionText: String {
+                            switch sessionState {
+                            case .ready:
+                                return activity.description
+                            case .inProgress:
+                                return activityGuideText
+                            case .completing:
+                                return "Analyzing your physiological response..."
+                            case .showingResults:
+                                return "View your session metrics"
+                            }
+                        }
+                        
+                        var activityGuideTitle: String {
+                            switch activity.activityType {
+                            case .walking:
+                                return "Keep walking"
+                            case .meditation:
+                                return "Stay focused"
+                            case .stretching:
+                                return "Breathe and stretch"
+                            default:
+                                return "Keep going"
+                            }
+                        }
+                        
+                        var activityGuideText: String {
+                            switch activity.activityType {
+                            case .walking:
+                                return "Maintain a comfortable pace. Focus on your breathing and surroundings."
+                            case .meditation:
+                                return "Clear your mind. Focus on your breath and let thoughts pass by."
+                            case .stretching:
+                                return "Move slowly through each stretch. Hold each position for 15-30 seconds."
+                            default:
+                                return activity.description
+                            }
+                        }
+                        
+                        var primaryButtonText: String {
+                            switch sessionState {
+                            case .ready:
+                                return "Start \(activity.name)"
+                            case .inProgress:
+                                return "Complete Activity"
+                            case .completing:
+                                return "Analyzing..."
+                            case .showingResults:
+                                return "View Results"
+                            }
+                        }
+                        
+                        func handlePrimaryAction() {
+                            switch sessionState {
+                            case .ready:
+                                startSession()
+                            case .inProgress:
+                                completeSession()
+                            case .showingResults:
+                                dismiss()
+                            default:
+                                break
+                            }
+                        }
+                        
+                        func startSession() {
+                            startTime = Date()
+                            sessionState = .inProgress
+                            batteryManager.startActivitySession(for: activity)
                             
-                            if sessionState == .inProgress {
-                                Text(formattedTime)
-                                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                                    .foregroundColor(.primary)
+                            // Start workout session for high-frequency HR monitoring
+                            Task {
+                                await healthKitManager.startWorkoutSession()
+                            }
+                            
+                            // Start the timer
+                            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                                secondsElapsed += 1
                                 
-                                Text("/ \(targetTime)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            } else if sessionState == .ready {
-                                Text(activity.name)
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                            } else if sessionState == .completing {
-                                ProgressView()
-                                    .scaleEffect(1.5)
-                                Text("Analyzing...")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                // Auto-complete when target duration is reached
+                                if secondsElapsed >= targetDurationSeconds {
+                                    completeSession()
+                                }
                             }
+                        }
+                        
+                        func completeSession() {
+                            timer?.invalidate()
+                            timer = nil
+                            sessionState = .completing
+                            
+                            guard let start = startTime else {
+                                dismiss()
+                                return
+                            }
+                            
+                            let endTime = Date()
+                            
+                            // End workout session and fetch metrics from HealthKit
+                            Task {
+                                // End workout session first
+                                await healthKitManager.endWorkoutSession()
+                                
+                                // Wait for Apple Watch data to sync to iPhone
+                                // HealthKit data from Watch commonly takes several seconds to appear
+                                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                                
+                                let metrics = await healthKitManager.fetchActivitySessionMetrics(
+                                    activityName: activity.name,
+                                    from: start,
+                                    to: endTime
+                                )
+                                
+                                await MainActor.run {
+                                    self.sessionMetrics = metrics
+                                    batteryManager.endActivitySession(with: metrics)
+                                    sessionState = .showingResults
+                                }
+                            }
+                        }
+                        
+                        func endSessionEarly() {
+                            // End the session even if not at target duration
+                            completeSession()
+                        }
+                        
+                        func cancelSession() {
+                            timer?.invalidate()
+                            timer = nil
+                            batteryManager.cancelActivitySession()
+                            
+                            // End workout session
+                            Task {
+                                await healthKitManager.endWorkoutSession()
+                            }
+                            
+                            dismiss()
                         }
                     }
                     
-                    // Recording indicator
-                    if sessionState == .inProgress {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 10, height: 10)
-                                .opacity(pulseAnimation ? 1.0 : 0.5)
-                            Text("Recording physiological data...")
+                    // MARK: - Session Metrics Summary View
+                    
+                    /// Displays the recorded physiological metrics after completing a recovery activity
+                    struct SessionMetricsSummaryView: View {
+                        let metrics: ActivitySessionMetrics
+                        let activity: DestressActivity
+                        @ObservedObject var batteryManager: BodyBatteryManager
+                        @Environment(\.dismiss) private var dismiss
+                        
+                        var body: some View {
+                            NavigationView {
+                                ScrollView {
+                                    VStack(spacing: 24) {
+                                        // Success header
+                                        VStack(spacing: 16) {
+                                            ZStack {
+                                                Circle()
+                                                    .fill(Color.green.opacity(0.2))
+                                                    .frame(width: 100, height: 100)
+                                                
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.system(size: 60))
+                                                    .foregroundColor(.green)
+                                            }
+                                            
+                                            Text("Session Complete!")
+                                                .font(.title)
+                                                .fontWeight(.bold)
+                                            
+                                            Text(activity.name)
+                                                .font(.headline)
+                                                .foregroundColor(activity.color)
+                                            
+                                            HStack(spacing: 20) {
+                                                VStack {
+                                                    Text(metrics.formattedDuration)
+                                                        .font(.title2)
+                                                        .fontWeight(.semibold)
+                                                    Text("Duration")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                
+                                                Divider()
+                                                    .frame(height: 40)
+                                                
+                                                VStack {
+                                                    Text("+\(activity.batteryGain)%")
+                                                        .font(.title2)
+                                                        .fontWeight(.semibold)
+                                                        .foregroundColor(.green)
+                                                    Text("Battery Gained")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                            .padding(.top, 8)
+                                        }
+                                        .padding(.top, 20)
+                                        
+                                        // Show appropriate content based on data availability
+                                        if metrics.hasAnyData {
+                                            // Relaxation Score Card (only show if we have HR data)
+                                            if metrics.hasHeartRateData {
+                                                relaxationScoreCard
+                                            }
+                                            
+                                            // Heart Rate Metrics Card
+                                            heartRateCard
+                                            
+                                            // HRV Metrics Card (only if we have data)
+                                            if metrics.rmssd != nil || metrics.avgHRV != nil {
+                                                hrvCard
+                                            }
+                                            
+                                            // Additional Metrics Card (if available)
+                                            if metrics.caloriesBurned != nil || metrics.respiratoryRate != nil {
+                                                additionalMetricsCard
+                                            }
+                                        } else {
+                                            // No data available - show helpful message
+                                            limitedDataCard
+                                        }
+                                        
+                                        // Done button
+                                        Button(action: { dismiss() }) {
+                                            Text("Done")
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 18)
+                                                .background(activity.color)
+                                                .cornerRadius(16)
+                                        }
+                                        .padding(.horizontal, 24)
+                                        .padding(.bottom, 40)
+                                    }
+                                }
+                                .background(Color(.systemGroupedBackground).ignoresSafeArea())
+                                .navigationTitle("Session Results")
+                                .navigationBarTitleDisplayMode(.inline)
+                            }
+                        }
+                        
+                        // MARK: - Limited Data Card
+                        
+                        private var limitedDataCard: some View {
+                            VStack(spacing: 16) {
+                                Image(systemName: "applewatch.side.right")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("Limited Data Available")
+                                    .font(.headline)
+                                
+                                Text("Your Apple Watch didn't record enough heart rate samples during this session.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                
+                                VStack(alignment: .leading, spacing: 12) {
+                                    tipRow(icon: "applewatch", text: "Make sure your Apple Watch is worn snugly")
+                                    tipRow(icon: "hand.raised", text: "Keep your wrist still during the exercise")
+                                    tipRow(icon: "clock", text: "Sessions of 2+ minutes provide more data")
+                                    tipRow(icon: "arrow.clockwise", text: "Try opening the Heart Rate app on your Watch before starting")
+                                }
                                 .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(20)
-                    }
-                    
-                    Spacer()
-                    
-                    // Instructions
-                    VStack(spacing: 8) {
-                        Text(instructionTitle)
-                            .font(.headline)
-                        Text(instructionText)
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    
-                    // Control buttons
-                    VStack(spacing: 16) {
-                        Button(action: handlePrimaryAction) {
-                            Text(primaryButtonText)
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 18)
-                                .background(activity.color)
-                                .cornerRadius(16)
-                        }
-                        .disabled(sessionState == .completing)
-                        
-                        if sessionState == .inProgress {
-                            Button(action: { endSessionEarly() }) {
-                                Text("End Early")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
                             }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-                }
-            }
-            .navigationTitle(activity.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        cancelSession()
-                    }
-                }
-            }
-            .sheet(isPresented: Binding(
-                get: { sessionState == .showingResults && sessionMetrics != nil },
-                set: { if !$0 { dismiss() } }
-            )) {
-                if let metrics = sessionMetrics {
-                    SessionMetricsSummaryView(
-                        metrics: metrics,
-                        activity: activity,
-                        batteryManager: batteryManager
-                    )
-                }
-            }
-        }
-        .onAppear {
-            pulseAnimation = true
-        }
-        .onDisappear {
-            timer?.invalidate()
-        }
-    }
-    
-    var activityGradient: LinearGradient {
-        LinearGradient(
-            colors: [activity.color.opacity(0.2), activity.color.opacity(0.05), Color(.systemBackground)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-    
-    var instructionTitle: String {
-        switch sessionState {
-        case .ready:
-            return "Ready to begin?"
-        case .inProgress:
-            return activityGuideTitle
-        case .completing:
-            return "Great job!"
-        case .showingResults:
-            return "Session Complete"
-        }
-    }
-    
-    var instructionText: String {
-        switch sessionState {
-        case .ready:
-            return activity.description
-        case .inProgress:
-            return activityGuideText
-        case .completing:
-            return "Analyzing your physiological response..."
-        case .showingResults:
-            return "View your session metrics"
-        }
-    }
-    
-    var activityGuideTitle: String {
-        switch activity.activityType {
-        case .walking:
-            return "Keep walking"
-        case .meditation:
-            return "Stay focused"
-        case .stretching:
-            return "Breathe and stretch"
-        default:
-            return "Keep going"
-        }
-    }
-    
-    var activityGuideText: String {
-        switch activity.activityType {
-        case .walking:
-            return "Maintain a comfortable pace. Focus on your breathing and surroundings."
-        case .meditation:
-            return "Clear your mind. Focus on your breath and let thoughts pass by."
-        case .stretching:
-            return "Move slowly through each stretch. Hold each position for 15-30 seconds."
-        default:
-            return activity.description
-        }
-    }
-    
-    var primaryButtonText: String {
-        switch sessionState {
-        case .ready:
-            return "Start \(activity.name)"
-        case .inProgress:
-            return "Complete Activity"
-        case .completing:
-            return "Analyzing..."
-        case .showingResults:
-            return "View Results"
-        }
-    }
-    
-    func handlePrimaryAction() {
-        switch sessionState {
-        case .ready:
-            startSession()
-        case .inProgress:
-            completeSession()
-        case .showingResults:
-            dismiss()
-        default:
-            break
-        }
-    }
-    
-    func startSession() {
-        startTime = Date()
-        sessionState = .inProgress
-        batteryManager.startActivitySession(for: activity)
-        
-        // Start workout session for high-frequency HR monitoring
-        Task {
-            await healthKitManager.startWorkoutSession()
-        }
-        
-        // Start the timer
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            secondsElapsed += 1
-            
-            // Auto-complete when target duration is reached
-            if secondsElapsed >= targetDurationSeconds {
-                completeSession()
-            }
-        }
-    }
-    
-    func completeSession() {
-        timer?.invalidate()
-        timer = nil
-        sessionState = .completing
-        
-        guard let start = startTime else {
-            dismiss()
-            return
-        }
-        
-        let endTime = Date()
-        
-        // End workout session and fetch metrics from HealthKit
-        Task {
-            // End workout session first
-            await healthKitManager.endWorkoutSession()
-            
-            // Wait for Apple Watch data to sync to iPhone
-            // HealthKit data from Watch can take 2-5 seconds to appear on iPhone
-            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-            
-            let metrics = await healthKitManager.fetchActivitySessionMetrics(
-                activityName: activity.name,
-                from: start,
-                to: endTime
-            )
-            
-            await MainActor.run {
-                self.sessionMetrics = metrics
-                batteryManager.endActivitySession(with: metrics)
-                sessionState = .showingResults
-            }
-        }
-    }
-    
-    func endSessionEarly() {
-        // End the session even if not at target duration
-        completeSession()
-    }
-    
-    func cancelSession() {
-        timer?.invalidate()
-        timer = nil
-        batteryManager.cancelActivitySession()
-        
-        // End workout session
-        Task {
-            await healthKitManager.endWorkoutSession()
-        }
-        
-        dismiss()
-    }
-}
-
-// MARK: - Session Metrics Summary View
-
-/// Displays the recorded physiological metrics after completing a recovery activity
-struct SessionMetricsSummaryView: View {
-    let metrics: ActivitySessionMetrics
-    let activity: DestressActivity
-    @ObservedObject var batteryManager: BodyBatteryManager
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Success header
-                    VStack(spacing: 16) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.green.opacity(0.2))
-                                .frame(width: 100, height: 100)
-                            
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 60))
-                                .foregroundColor(.green)
-                        }
-                        
-                        Text("Session Complete!")
-                            .font(.title)
-                            .fontWeight(.bold)
-                        
-                        Text(activity.name)
-                            .font(.headline)
-                            .foregroundColor(activity.color)
-                        
-                        HStack(spacing: 20) {
-                            VStack {
-                                Text(metrics.formattedDuration)
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                Text("Duration")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Divider()
-                                .frame(height: 40)
-                            
-                            VStack {
-                                Text("+\(activity.batteryGain)%")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.green)
-                                Text("Battery Gained")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.top, 8)
-                    }
-                    .padding(.top, 20)
-                    
-                    // Show appropriate content based on data availability
-                    if metrics.hasAnyData {
-                        // Relaxation Score Card (only show if we have HR data)
-                        if metrics.hasHeartRateData {
-                            relaxationScoreCard
-                        }
-                        
-                        // Heart Rate Metrics Card
-                        heartRateCard
-                        
-                        // HRV Metrics Card (only if we have data)
-                        if metrics.rmssd != nil || metrics.avgHRV != nil {
-                            hrvCard
-                        }
-                        
-                        // Additional Metrics Card (if available)
-                        if metrics.caloriesBurned != nil || metrics.respiratoryRate != nil {
-                            additionalMetricsCard
-                        }
-                    } else {
-                        // No data available - show helpful message
-                        limitedDataCard
-                    }
-                    
-                    // Done button
-                    Button(action: { dismiss() }) {
-                        Text("Done")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(activity.color)
+                            .padding(20)
+                            .background(Color(.systemBackground))
                             .cornerRadius(16)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-                }
-            }
-            .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Session Results")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-    
-    // MARK: - Limited Data Card
-    
-    private var limitedDataCard: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "applewatch.side.right")
-                .font(.system(size: 50))
-                .foregroundColor(.secondary)
-            
-            Text("Limited Data Available")
-                .font(.headline)
-            
-            Text("Your Apple Watch didn't record enough heart rate samples during this session.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                tipRow(icon: "applewatch", text: "Make sure your Apple Watch is worn snugly")
-                tipRow(icon: "hand.raised", text: "Keep your wrist still during the exercise")
-                tipRow(icon: "clock", text: "Sessions of 2+ minutes provide more data")
-                tipRow(icon: "arrow.clockwise", text: "Try opening the Heart Rate app on your Watch before starting")
-            }
-            .font(.caption)
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        .padding(.horizontal)
-    }
-    
-    private func tipRow(icon: String, text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.blue)
-                .frame(width: 24)
-            Text(text)
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    // MARK: - Relaxation Score Card
-    
-    private var relaxationScoreCard: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .foregroundColor(.purple)
-                Text("Relaxation Analysis")
-                    .font(.headline)
-                Spacer()
-            }
-            
-            ZStack {
-                Circle()
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 10)
-                    .frame(width: 120, height: 120)
-                
-                Circle()
-                    .trim(from: 0, to: Double(metrics.relaxationScore) / 100.0)
-                    .stroke(Color.purple, style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                    .frame(width: 120, height: 120)
-                    .rotationEffect(.degrees(-90))
-                
-                VStack(spacing: 2) {
-                    Text("\(metrics.relaxationScore)")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.purple)
-                    Text(metrics.relaxationLevel)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.vertical, 8)
-            
-            Text("Based on your heart rate patterns and HRV during the session")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Heart Rate Card
-    
-    private var heartRateCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "heart.fill")
-                    .foregroundColor(.red)
-                Text("Heart Rate Metrics")
-                    .font(.headline)
-                Spacer()
-            }
-            
-            if metrics.hasHeartRateData {
-                HStack(spacing: 16) {
-                    MetricBox(
-                        title: "Min",
-                        value: metrics.minHeartRate != nil ? "\(Int(metrics.minHeartRate!))" : "--",
-                        unit: "BPM",
-                        icon: "arrow.down",
-                        color: .green
-                    )
-                    
-                    MetricBox(
-                        title: "Avg",
-                        value: metrics.avgHeartRate != nil ? "\(Int(metrics.avgHeartRate!))" : "--",
-                        unit: "BPM",
-                        icon: "heart.fill",
-                        color: .red
-                    )
-                    
-                    MetricBox(
-                        title: "Max",
-                        value: metrics.maxHeartRate != nil ? "\(Int(metrics.maxHeartRate!))" : "--",
-                        unit: "BPM",
-                        icon: "arrow.up",
-                        color: .orange
-                    )
-                }
-                
-                Text("\(metrics.heartRateSamples.count) measurements recorded")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                HStack {
-                    Image(systemName: "waveform.slash")
-                        .foregroundColor(.secondary)
-                    Text("No heart rate data recorded")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.vertical, 20)
-            }
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        .padding(.horizontal)
-    }
-    
-    // MARK: - HRV Card
-    
-    private var hrvCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "waveform.path.ecg")
-                    .foregroundColor(.pink)
-                Text("Heart Rate Variability (HRV)")
-                    .font(.headline)
-                Spacer()
-            }
-            
-            HStack(spacing: 16) {
-                if metrics.rmssd != nil {
-                    VStack(spacing: 8) {
-                        Text("RMSSD")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(metrics.heartRateVariability)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.pink)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.pink.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                
-                if let avgHRV = metrics.avgHRV {
-                    VStack(spacing: 8) {
-                        Text("Avg SDNN")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(String(format: "%.1f ms", avgHRV))
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.purple)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.purple.opacity(0.1))
-                    .cornerRadius(12)
-                }
-            }
-            
-            // HRV interpretation
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What this means:")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text(metrics.hrvInterpretation)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Additional Metrics Card
-    
-    private var additionalMetricsCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "chart.bar.fill")
-                    .foregroundColor(.blue)
-                Text("Additional Metrics")
-                    .font(.headline)
-                Spacer()
-            }
-            
-            HStack(spacing: 16) {
-                if let calories = metrics.caloriesBurned {
-                    VStack(spacing: 8) {
-                        Image(systemName: "flame.fill")
-                            .foregroundColor(.orange)
-                        Text(String(format: "%.1f", calories))
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text("kcal burned")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                
-                if let respRate = metrics.respiratoryRate {
-                    VStack(spacing: 8) {
-                        Image(systemName: "lungs.fill")
-                            .foregroundColor(.cyan)
-                        Text(String(format: "%.0f", respRate))
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Text("breaths/min")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.cyan.opacity(0.1))
-                    .cornerRadius(12)
-                }
-            }
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - Metric Box Component
-
-struct MetricBox: View {
-    let title: String
-    let value: String
-    let unit: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-            Text(unit)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
-    }
-}
-
-// MARK: - Breathing Exercise View
-
-struct BreathingExerciseView: View {
-    @ObservedObject var batteryManager: BodyBatteryManager
-    @EnvironmentObject var healthKitManager: HealthKitManager
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var breathPhase: BreathPhase = .ready
-    @State private var circleScale: CGFloat = 1.0
-    @State private var secondsRemaining: Int = 300 // 5 minutes
-    @State private var currentCycle = 0
-    @State private var timer: Timer?
-    @State private var breathTimer: Timer?
-    @State private var startTime: Date?
-    @State private var sessionMetrics: ActivitySessionMetrics?
-    @State private var showingMetrics = false
-    
-    enum BreathPhase: String {
-        case ready = "Get Ready"
-        case inhale = "Breathe In"
-        case hold = "Hold"
-        case exhale = "Breathe Out"
-        case completing = "Analyzing..."
-        case complete = "Complete!"
-    }
-    
-    var breathingActivity: DestressActivity? {
-        batteryManager.destressActivities.first { $0.activityType == .breathing }
-    }
-    
-    var formattedTime: String {
-        let minutes = secondsRemaining / 60
-        let seconds = secondsRemaining % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [.cyan.opacity(0.3), .blue.opacity(0.2), .purple.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
-                VStack(spacing: 40) {
-                    Spacer()
-                    
-                    // Recording indicator with Watch tip
-                    if breathPhase == .ready {
-                        VStack(spacing: 8) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "applewatch")
+                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
+                        
+                        private func tipRow(icon: String, text: String) -> some View {
+                            HStack(spacing: 12) {
+                                Image(systemName: icon)
                                     .foregroundColor(.blue)
-                                Text("Tip: Start Breathe app on Watch for best HR tracking")
-                                    .font(.caption)
+                                    .frame(width: 24)
+                                Text(text)
                                     .foregroundColor(.secondary)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(12)
-                    } else if breathPhase != .complete && breathPhase != .completing {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                            Text("Recording heart data")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.8))
-                        .cornerRadius(20)
-                    }
-                    
-                    // Breathing circle
-                    ZStack {
-                        Circle()
-                            .fill(Color.cyan.opacity(0.2))
-                            .frame(width: 250, height: 250)
-                            .scaleEffect(circleScale)
                         
-                        Circle()
-                            .stroke(Color.cyan, lineWidth: 4)
-                            .frame(width: 200, height: 200)
-                            .scaleEffect(circleScale)
+                        // MARK: - Relaxation Score Card
                         
-                        VStack(spacing: 8) {
-                            if breathPhase == .completing {
-                                ProgressView()
-                                    .scaleEffect(1.5)
-                                    .padding(.bottom, 8)
+                        private var relaxationScoreCard: some View {
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Image(systemName: "brain.head.profile")
+                                        .foregroundColor(.purple)
+                                    Text("Relaxation Analysis")
+                                        .font(.headline)
+                                    Spacer()
+                                }
+                                
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.purple.opacity(0.2), lineWidth: 10)
+                                        .frame(width: 120, height: 120)
+                                    
+                                    Circle()
+                                        .trim(from: 0, to: Double(metrics.relaxationScore) / 100.0)
+                                        .stroke(Color.purple, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                                        .frame(width: 120, height: 120)
+                                        .rotationEffect(.degrees(-90))
+                                    
+                                    VStack(spacing: 2) {
+                                        Text("\(metrics.relaxationScore)")
+                                            .font(.system(size: 32, weight: .bold))
+                                            .foregroundColor(.purple)
+                                        Text(metrics.relaxationLevel)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                                
+                                Text("Based on your heart rate patterns and HRV during the session")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
                             }
-                            
-                            Text(breathPhase.rawValue)
-                                .font(.title)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                            
-                            if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
-                                Text(formattedTime)
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .foregroundColor(.cyan)
-                            }
-                        }
-                    }
-                    
-                    // Cycle counter
-                    if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
-                        Text("Cycle \(currentCycle + 1)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Instructions
-                    VStack(spacing: 8) {
-                        Text(instructionText)
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    
-                    // Control Button
-                    Button(action: handleButtonTap) {
-                        Text(buttonText)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(Color.cyan)
+                            .padding(20)
+                            .background(Color(.systemBackground))
                             .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
+                        
+                        // MARK: - Heart Rate Card
+                        
+                        private var heartRateCard: some View {
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Image(systemName: "heart.fill")
+                                        .foregroundColor(.red)
+                                    Text("Heart Rate Metrics")
+                                        .font(.headline)
+                                    Spacer()
+                                }
+                                
+                                if metrics.hasHeartRateData {
+                                    HStack(spacing: 16) {
+                                        MetricBox(
+                                            title: "Min",
+                                            value: metrics.minHeartRate != nil ? "\(Int(metrics.minHeartRate!))" : "--",
+                                            unit: "BPM",
+                                            icon: "arrow.down",
+                                            color: .green
+                                        )
+                                        
+                                        MetricBox(
+                                            title: "Avg",
+                                            value: metrics.avgHeartRate != nil ? "\(Int(metrics.avgHeartRate!))" : "--",
+                                            unit: "BPM",
+                                            icon: "heart.fill",
+                                            color: .red
+                                        )
+                                        
+                                        MetricBox(
+                                            title: "Max",
+                                            value: metrics.maxHeartRate != nil ? "\(Int(metrics.maxHeartRate!))" : "--",
+                                            unit: "BPM",
+                                            icon: "arrow.up",
+                                            color: .orange
+                                        )
+                                    }
+                                    
+                                    Text("\(metrics.heartRateSamples.count) measurements recorded")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    HStack {
+                                        Image(systemName: "waveform.slash")
+                                            .foregroundColor(.secondary)
+                                        Text("No heart rate data recorded")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.vertical, 20)
+                                }
+                            }
+                            .padding(20)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
+                        
+                        // MARK: - HRV Card
+                        
+                        private var hrvCard: some View {
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Image(systemName: "waveform.path.ecg")
+                                        .foregroundColor(.pink)
+                                    Text("Heart Rate Variability (HRV)")
+                                        .font(.headline)
+                                    Spacer()
+                                }
+                                
+                                HStack(spacing: 16) {
+                                    if metrics.rmssd != nil {
+                                        VStack(spacing: 8) {
+                                            Text("RMSSD")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                            Text(metrics.heartRateVariability)
+                                                .font(.title2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.pink)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.pink.opacity(0.1))
+                                        .cornerRadius(12)
+                                    }
+                                    
+                                    if let avgHRV = metrics.avgHRV {
+                                        VStack(spacing: 8) {
+                                            Text("Avg SDNN")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.1f ms", avgHRV))
+                                                .font(.title2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.purple)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.purple.opacity(0.1))
+                                        .cornerRadius(12)
+                                    }
+                                }
+                                
+                                // HRV interpretation
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("What this means:")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    Text(metrics.hrvInterpretation)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(10)
+                            }
+                            .padding(20)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
+                        
+                        // MARK: - Additional Metrics Card
+                        
+                        private var additionalMetricsCard: some View {
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Image(systemName: "chart.bar.fill")
+                                        .foregroundColor(.blue)
+                                    Text("Additional Metrics")
+                                        .font(.headline)
+                                    Spacer()
+                                }
+                                
+                                HStack(spacing: 16) {
+                                    if let calories = metrics.caloriesBurned {
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "flame.fill")
+                                                .foregroundColor(.orange)
+                                            Text(String(format: "%.1f", calories))
+                                                .font(.title3)
+                                                .fontWeight(.semibold)
+                                            Text("kcal burned")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.orange.opacity(0.1))
+                                        .cornerRadius(12)
+                                    }
+                                    
+                                    if let respRate = metrics.respiratoryRate {
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "lungs.fill")
+                                                .foregroundColor(.cyan)
+                                            Text(String(format: "%.0f", respRate))
+                                                .font(.title3)
+                                                .fontWeight(.semibold)
+                                            Text("breaths/min")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.cyan.opacity(0.1))
+                                        .cornerRadius(12)
+                                    }
+                                }
+                            }
+                            .padding(20)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal)
+                        }
                     }
-                    .disabled(breathPhase == .completing)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-                }
-            }
-            .navigationTitle("Deep Breathing")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        stopExercise()
-                        dismiss()
+                    
+                    // MARK: - Metric Box Component
+                    
+                    struct MetricBox: View {
+                        let title: String
+                        let value: String
+                        let unit: String
+                        let icon: String
+                        let color: Color
+                        
+                        var body: some View {
+                            VStack(spacing: 8) {
+                                Image(systemName: icon)
+                                    .foregroundColor(color)
+                                Text(value)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Text(unit)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(title)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(color.opacity(0.1))
+                            .cornerRadius(12)
+                        }
                     }
-                }
-            }
-            .sheet(isPresented: $showingMetrics) {
-                if let metrics = sessionMetrics, let activity = breathingActivity {
-                    SessionMetricsSummaryView(
-                        metrics: metrics,
-                        activity: activity,
-                        batteryManager: batteryManager
-                    )
-                }
-            }
-            .onChange(of: showingMetrics) { _, newValue in
-                if !newValue && breathPhase == .complete {
-                    dismiss()
-                }
-            }
-        }
-        .onDisappear {
-            stopExercise()
-        }
-    }
-    
-    var instructionText: String {
-        switch breathPhase {
-        case .ready:
-            return "Take a moment to find a comfortable position. When you're ready, tap Start."
-        case .inhale:
-            return "Slowly breathe in through your nose"
-        case .hold:
-            return "Gently hold your breath"
-        case .exhale:
-            return "Slowly release through your mouth"
-        case .completing:
-            return "Analyzing your physiological response..."
-        case .complete:
-            return "Great job! You've completed the breathing exercise."
-        }
-    }
-    
-    var buttonText: String {
-        switch breathPhase {
-        case .ready: return "Start Breathing"
-        case .completing: return "Analyzing..."
-        case .complete: return "View Results"
-        default: return "End & View Results"
-        }
-    }
-    
-    func handleButtonTap() {
-        switch breathPhase {
-        case .ready:
-            startExercise()
-        case .complete:
-            showingMetrics = true
-        case .completing:
-            break
-        default:
-            completeExercise()
-        }
-    }
-    
-    func startExercise() {
-        startTime = Date()
-        breathPhase = .inhale
-        currentCycle = 0
-        
-        // Start session tracking
-        if let activity = breathingActivity {
-            batteryManager.startActivitySession(for: activity)
-        }
-        
-        // Start workout session for high-frequency HR monitoring
-        Task {
-            await healthKitManager.startWorkoutSession()
-        }
-        
-        animateBreath()
-        
-        // Main countdown timer
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if secondsRemaining > 0 {
-                secondsRemaining -= 1
-            } else {
-                completeExercise()
-            }
-        }
-    }
-    
-    func animateBreath() {
-        // 4-7-8 breathing pattern
-        breathPhase = .inhale
-        withAnimation(.easeInOut(duration: 4)) {
-            circleScale = 1.5
-        }
-        
-        breathTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { _ in
-            breathPhase = .hold
-            
-            breathTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: false) { _ in
-                breathPhase = .exhale
-                withAnimation(.easeInOut(duration: 8)) {
-                    circleScale = 1.0
-                }
+                    
+                    // MARK: - Breathing Exercise View
+                    
+                    struct BreathingExerciseView: View {
+                        @ObservedObject var batteryManager: BodyBatteryManager
+                        @EnvironmentObject var healthKitManager: HealthKitManager
+                        @Environment(\.dismiss) private var dismiss
+                        
+                        @State private var breathPhase: BreathPhase = .ready
+                        @State private var circleScale: CGFloat = 1.0
+                        @State private var secondsRemaining: Int = 300 // 5 minutes
+                        @State private var currentCycle = 0
+                        @State private var timer: Timer?
+                        @State private var breathTimer: Timer?
+                        @State private var startTime: Date?
+                        @State private var sessionMetrics: ActivitySessionMetrics?
+                        @State private var showingMetrics = false
+                        
+                        enum BreathPhase: String {
+                            case ready = "Get Ready"
+                            case inhale = "Breathe In"
+                            case hold = "Hold"
+                            case exhale = "Breathe Out"
+                            case completing = "Analyzing..."
+                            case complete = "Complete!"
+                        }
+                        
+                        var breathingActivity: DestressActivity? {
+                            batteryManager.destressActivities.first { $0.activityType == .breathing }
+                        }
+                        
+                        var formattedTime: String {
+                            let minutes = secondsRemaining / 60
+                            let seconds = secondsRemaining % 60
+                            return String(format: "%d:%02d", minutes, seconds)
+                        }
+                        
+                        var body: some View {
+                            NavigationView {
+                                ZStack {
+                                    // Background gradient
+                                    LinearGradient(
+                                        colors: [.cyan.opacity(0.3), .blue.opacity(0.2), .purple.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .ignoresSafeArea()
+                                    
+                                    VStack(spacing: 40) {
+                                        Spacer()
+                                        
+                                        // Recording indicator with Watch tip
+                                        if breathPhase == .ready {
+                                            VStack(spacing: 8) {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "applewatch")
+                                                        .foregroundColor(.blue)
+                                                    Text("Tip: Start Breathe app on Watch for best HR tracking")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(Color.blue.opacity(0.1))
+                                            .cornerRadius(12)
+                                        } else if breathPhase != .complete && breathPhase != .completing {
+                                            HStack(spacing: 8) {
+                                                Circle()
+                                                    .fill(Color.red)
+                                                    .frame(width: 8, height: 8)
+                                                Text("Recording heart data")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(Color.white.opacity(0.8))
+                                            .cornerRadius(20)
+                                        }
+                                        
+                                        // Breathing circle
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.cyan.opacity(0.2))
+                                                .frame(width: 250, height: 250)
+                                                .scaleEffect(circleScale)
+                                            
+                                            Circle()
+                                                .stroke(Color.cyan, lineWidth: 4)
+                                                .frame(width: 200, height: 200)
+                                                .scaleEffect(circleScale)
+                                            
+                                            VStack(spacing: 8) {
+                                                if breathPhase == .completing {
+                                                    ProgressView()
+                                                        .scaleEffect(1.5)
+                                                        .padding(.bottom, 8)
+                                                }
+                                                
+                                                Text(breathPhase.rawValue)
+                                                    .font(.title)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.primary)
+                                                
+                                                if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
+                                                    Text(formattedTime)
+                                                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                                                        .foregroundColor(.cyan)
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Cycle counter
+                                        if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
+                                            Text("Cycle \(currentCycle + 1)")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        // Instructions
+                                        VStack(spacing: 8) {
+                                            Text(instructionText)
+                                                .font(.body)
+                                                .foregroundColor(.secondary)
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal, 40)
+                                        }
+                                        
+                                        // Control Button
+                                        Button(action: handleButtonTap) {
+                                            Text(buttonText)
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 18)
+                                                .background(Color.cyan)
+                                                .cornerRadius(16)
+                                        }
+                                        .disabled(breathPhase == .completing)
+                                        .padding(.horizontal, 24)
+                                        .padding(.bottom, 40)
+                                    }
+                                }
+                                .navigationTitle("Deep Breathing")
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) {
+                                        Button("Close") {
+                                            stopExercise()
+                                            dismiss()
+                                        }
+                                    }
+                                }
+                                .sheet(isPresented: $showingMetrics) {
+                                    if let metrics = sessionMetrics, let activity = breathingActivity {
+                                        SessionMetricsSummaryView(
+                                            metrics: metrics,
+                                            activity: activity,
+                                            batteryManager: batteryManager
+                                        )
+                                    }
+                                }
+                                .onChange(of: showingMetrics) { _, newValue in
+                                    if !newValue && breathPhase == .complete {
+                                        dismiss()
+                                    }
+                                }
+                            }
+                            .onDisappear {
+                                stopExercise()
+                            }
+                        }
+                        
+                        var instructionText: String {
+                            switch breathPhase {
+                            case .ready:
+                                return "Take a moment to find a comfortable position. When you're ready, tap Start."
+                            case .inhale:
+                                return "Slowly breathe in through your nose"
+                            case .hold:
+                                return "Gently hold your breath"
+                            case .exhale:
+                                return "Slowly release through your mouth"
+                            case .completing:
+                                return "Analyzing your physiological response..."
+                            case .complete:
+                                return "Great job! You've completed the breathing exercise."
+                            }
+                        }
+                        
+                        var buttonText: String {
+                            switch breathPhase {
+                            case .ready: return "Start Breathing"
+                            case .completing: return "Analyzing..."
+                            case .complete: return "View Results"
+                            default: return "End & View Results"
+                            }
+                        }
+                        
+                        func handleButtonTap() {
+                            switch breathPhase {
+                            case .ready:
+                                startExercise()
+                            case .complete:
+                                showingMetrics = true
+                            case .completing:
+                                break
+                            default:
+                                completeExercise()
+                            }
+                        }
+                        
+                        func startExercise() {
+                            startTime = Date()
+                            breathPhase = .inhale
+                            currentCycle = 0
+                            
+                            // Start session tracking
+                            if let activity = breathingActivity {
+                                batteryManager.startActivitySession(for: activity)
+                            }
+                            
+                            // Start workout session for high-frequency HR monitoring
+                            Task {
+                                await healthKitManager.startWorkoutSession()
+                            }
+                            
+                            animateBreath()
+                            
+                            // Main countdown timer
+                            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                                if secondsRemaining > 0 {
+                                    secondsRemaining -= 1
+                                } else {
+                                    completeExercise()
+                                }
+                            }
+                        }
+                        
+                        func animateBreath() {
+                            // 4-7-8 breathing pattern
+                            breathPhase = .inhale
+                            withAnimation(.easeInOut(duration: 4)) {
+                                circleScale = 1.5
+                            }
+                            
+                            breathTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { _ in
+                                breathPhase = .hold
+                                
+                                breathTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: false) { _ in
+                                    breathPhase = .exhale
+                                    withAnimation(.easeInOut(duration: 8)) {
+                                        circleScale = 1.0
+                                    }
+                                    
+                                    breathTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { _ in
+                                        currentCycle += 1
+                                        if secondsRemaining > 0 {
+                                            animateBreath()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        func stopExercise() {
+                            timer?.invalidate()
+                            timer = nil
+                            breathTimer?.invalidate()
+                            breathTimer = nil
+                            batteryManager.cancelActivitySession()
+                            
+                            // End workout session
+                            Task {
+                                await healthKitManager.endWorkoutSession()
+                            }
+                            
+                            breathPhase = .ready
+                            secondsRemaining = 300
+                            circleScale = 1.0
+                        }
+                        
+                        func completeExercise() {
+                            timer?.invalidate()
+                            timer = nil
+                            breathTimer?.invalidate()
+                            breathTimer = nil
+                            breathPhase = .completing
+                            
+                            guard let start = startTime else {
+                                breathPhase = .complete
+                                showingMetrics = true
+                                return
+                            }
+                            
+                            let endTime = Date()
+                            
+                            // End workout session and fetch metrics from HealthKit
+                            Task {
+                                // End workout session first
+                                await healthKitManager.endWorkoutSession()
+                                
+                                // Wait for Apple Watch data to sync to iPhone
+                                // HealthKit data from Watch commonly takes several seconds to appear
+                                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                                
+                                let metrics = await healthKitManager.fetchActivitySessionMetrics(
+                                    activityName: "Deep Breathing",
+                                    from: start,
+                                    to: endTime
+                                )
+                                
+                                await MainActor.run {
+                                    self.sessionMetrics = metrics
+                                    batteryManager.endActivitySession(with: metrics)
+                                    breathPhase = .complete
+                                    withAnimation(.spring()) {
+                                        circleScale = 1.2
+                                    }
+                                    showingMetrics = true
+                                }
+                            }
+                        }
+                    }
+                    
+                    // MARK: - Preview
+                    
+                    #Preview {
+                        BodyBatteryView()
+                            .environmentObject(HealthKitManager())
+                    }
                 
-                breathTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { _ in
-                    currentCycle += 1
-                    if secondsRemaining > 0 {
-                        animateBreath()
-                    }
-                }
-            }
-        }
-    }
-    
-    func stopExercise() {
-        timer?.invalidate()
-        timer = nil
-        breathTimer?.invalidate()
-        breathTimer = nil
-        batteryManager.cancelActivitySession()
-        
-        // End workout session
-        Task {
-            await healthKitManager.endWorkoutSession()
-        }
-        
-        breathPhase = .ready
-        secondsRemaining = 300
-        circleScale = 1.0
-    }
-    
-    func completeExercise() {
-        timer?.invalidate()
-        timer = nil
-        breathTimer?.invalidate()
-        breathTimer = nil
-        breathPhase = .completing
-        
-        guard let start = startTime else {
-            breathPhase = .complete
-            showingMetrics = true
-            return
-        }
-        
-        let endTime = Date()
-        
-        // End workout session and fetch metrics from HealthKit
-        Task {
-            // End workout session first
-            await healthKitManager.endWorkoutSession()
-            
-            // Wait for Apple Watch data to sync to iPhone
-            // HealthKit data from Watch can take 2-5 seconds to appear on iPhone
-            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-            
-            let metrics = await healthKitManager.fetchActivitySessionMetrics(
-                activityName: "Deep Breathing",
-                from: start,
-                to: endTime
-            )
-            
-            await MainActor.run {
-                self.sessionMetrics = metrics
-                batteryManager.endActivitySession(with: metrics)
-                breathPhase = .complete
-                withAnimation(.spring()) {
-                    circleScale = 1.2
-                }
-                showingMetrics = true
-            }
-        }
-    }
-}
-
-// MARK: - Preview
-
-#Preview {
-    BodyBatteryView()
-        .environmentObject(HealthKitManager())
-}

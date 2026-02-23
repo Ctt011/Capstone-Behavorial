@@ -729,6 +729,24 @@ class StressDetectionPipeline: ObservableObject {
     ///
     /// Returns PipelineResult for UI display and Body Battery integration.
     func runFullPipeline() async -> PipelineResult {
+        // Skip if Apple Watch is not connected
+        guard healthKitManager.isAppleWatchConnected else {
+            print("⌚ Pipeline skipped — Apple Watch not connected")
+            return PipelineResult(
+                timestamp: Date(),
+                activityType: .unknown,
+                activityConfidence: 0,
+                sleepHours: healthKitManager.lastNightSleep,
+                sleepQuality: .unknown,
+                adjustedThreshold: 60,
+                dc: nil, ac: nil, sdnn: nil, rmssd: nil,
+                stressScore: 0,
+                stressLevel: .insufficientData,
+                isStressed: false,
+                recoverySlope: nil
+            )
+        }
+        
         isRunning = true
         defer { isRunning = false }
 

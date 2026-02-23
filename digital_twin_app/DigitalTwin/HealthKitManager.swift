@@ -289,6 +289,10 @@ class HealthKitManager: ObservableObject {
     @Published var latestActivityType: String?  // "PHYSICAL" or "COGNITIVE"
     @Published var latestActivityConfidence: Double = 0
     
+    // Apple Watch connectivity
+    @Published var isAppleWatchConnected: Bool = false
+    @Published var appleWatchLastSeen: Date?
+    
     // Metrics with timestamps
     @Published var sleepMetric = HealthMetric<Double>()
     @Published var sleepStages: [SleepStageData] = []
@@ -301,6 +305,8 @@ class HealthKitManager: ObservableObject {
     @Published var distanceMetric = HealthMetric<Double>()
     @Published var workouts: [WorkoutSummary] = []
     @Published var mindfulSessions: [MindfulSession] = []
+    @Published var overnightHRVMetric = HealthMetric<Double>()
+    @Published var overnightRestingHeartRateMetric = HealthMetric<Double>()
     
     // Legacy properties for compatibility
     @Published var latestHeartRate: Double?
@@ -389,10 +395,98 @@ class HealthKitManager: ObservableObject {
         HKHealthStore.isHealthDataAvailable()
     }
     
+    // MARK: - Apple Watch Detection
+    
+    /// Checks if an Apple Watch is actively providing health data.
+    ///
+    /// Detection strategy:
+    /// - Scan recent heart-rate samples and identify Apple Watch-origin samples
+    ///   using sourceRevision.productType, source name, and device metadata.
+    /// - Consider watch "connected/worn" when the most recent watch-origin HR sample
+    ///   is fresh (within activeWatchWindow).
+    func checkAppleWatchStatus() async {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            isAppleWatchConnected = false
+            return
+        }
+        
+        let now = Date()
+        let activeWatchWindow: TimeInterval = 60 * 60   // treat as connected if seen within last hour
+        let lookbackWindow: TimeInterval = 2 * 60 * 60  // search enough history to find watch-origin samples
+        let lookbackStart = now.addingTimeInterval(-lookbackWindow)
+        let predicate = HKQuery.predicateForSamples(withStart: lookbackStart, end: now, options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        
+        let result: (connected: Bool, lastSeen: Date?) = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: heartRateType, predicate: predicate, limit: 200, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                guard let hrSamples = samples as? [HKQuantitySample], !hrSamples.isEmpty else {
+                    continuation.resume(returning: (false, nil))
+                    return
+                }
+                
+                func isAppleWatchSample(_ sample: HKQuantitySample) -> Bool {
+                    let sourceName = sample.sourceRevision.source.name.lowercased()
+                    let productType = sample.sourceRevision.productType?.lowercased() ?? ""
+                    let sourceBundle = sample.sourceRevision.source.bundleIdentifier.lowercased()
+                    let deviceModel = sample.device?.model?.lowercased() ?? ""
+                    let deviceName = sample.device?.name?.lowercased() ?? ""
+                    let deviceManufacturer = sample.device?.manufacturer?.lowercased() ?? ""
+                    
+                    // Strongest signal: watch hardware identifier, e.g. "Watch7,1"
+                    if productType.contains("watch") { return true }
+                    
+                    // Device metadata fallback
+                    if (deviceManufacturer.contains("apple") && deviceModel.contains("watch")) ||
+                        deviceName.contains("apple watch") {
+                        return true
+                    }
+                    
+                    // Source-name fallback (localized device names often include watch)
+                    if sourceName.contains("watch") { return true }
+                    
+                    // Additional fallback for Apple-provided watch measurements in some pipelines
+                    if sourceBundle.contains("apple") && (sourceName.contains("heart") || sourceName.contains("watch")) {
+                        return true
+                    }
+                    
+                    return false
+                }
+                
+                // Find the most recent Apple Watch-origin sample
+                let latestWatchSample = hrSamples.first(where: { isAppleWatchSample($0) })
+                let lastSeen = latestWatchSample?.startDate
+                let isConnected: Bool
+                if let lastSeen = lastSeen {
+                    isConnected = now.timeIntervalSince(lastSeen) <= activeWatchWindow
+                } else {
+                    isConnected = false
+                }
+                
+                continuation.resume(returning: (isConnected, lastSeen))
+            }
+            self.healthStore.execute(query)
+        }
+        
+        isAppleWatchConnected = result.connected
+        appleWatchLastSeen = result.lastSeen
+        
+        if result.connected {
+            print("⌚ Apple Watch detected (last data: \(result.lastSeen?.description ?? "unknown"))")
+        } else {
+            print("⌚ Apple Watch NOT detected — stress prediction disabled")
+        }
+    }
+    
     // MARK: - Activity Classification
     
     /// Runs the activity classification pipeline if enough time has passed
     func runActivityClassificationIfNeeded() async {
+        // Skip classification if Apple Watch is not connected
+        guard isAppleWatchConnected else {
+            print("⌚ Skipping activity classification — Apple Watch not detected")
+            return
+        }
+        
         let now = Date()
         
         // Only run if enough time has passed since last classification
@@ -430,7 +524,10 @@ class HealthKitManager: ObservableObject {
                 activityType: result.activityType.rawValue,
                 dc: result.dc,
                 ac: result.ac,
-                sdnn: result.sdnn
+                sdnn: result.sdnn,
+                adjustedThreshold: result.adjustedThreshold,
+                isStressed: result.isStressed,
+                timestamp: result.timestamp
             )
         }
         
@@ -686,8 +783,11 @@ class HealthKitManager: ObservableObject {
                 heartRateMetric = HealthMetric(value: value, lastUpdated: latestSample.startDate)
                 latestHeartRate = value
             }
-            // Trigger activity classification when new heart rate data arrives
-            Task { await runActivityClassificationIfNeeded() }
+            // Re-check Apple Watch status and trigger classification when new heart rate data arrives
+            Task {
+                await checkAppleWatchStatus()
+                await runActivityClassificationIfNeeded()
+            }
             
         case HKQuantityTypeIdentifier.heartRateVariabilitySDNN.rawValue:
             if let quantitySample = latestSample as? HKQuantitySample {
@@ -756,6 +856,50 @@ class HealthKitManager: ObservableObject {
         sleepMetric = HealthMetric(value: hours, lastUpdated: date)
         sleepStages = stages
         lastNightSleep = hours
+
+        await refreshOvernightRecoverySnapshot(stages: stages, sleepEndDate: date)
+    }
+
+    private func refreshOvernightRecoverySnapshot(stages: [SleepStageData], sleepEndDate: Date?) async {
+        guard let window = resolveOvernightWindow(stages: stages, fallbackEndDate: sleepEndDate) else {
+            overnightHRVMetric = HealthMetric(value: nil, lastUpdated: nil)
+            overnightRestingHeartRateMetric = HealthMetric(value: nil, lastUpdated: nil)
+            return
+        }
+
+        async let overnightHRV = fetchLatestHRVWithTimestamp(start: window.start, end: window.end)
+        async let overnightRHR = fetchLatestRestingHeartRateWithTimestamp(start: window.start, end: window.end)
+
+        if let (value, date) = await overnightHRV {
+            overnightHRVMetric = HealthMetric(value: value, lastUpdated: date)
+        } else {
+            overnightHRVMetric = HealthMetric(value: nil, lastUpdated: nil)
+        }
+
+        if let (value, date) = await overnightRHR {
+            overnightRestingHeartRateMetric = HealthMetric(value: value, lastUpdated: date)
+        } else {
+            overnightRestingHeartRateMetric = HealthMetric(value: nil, lastUpdated: nil)
+        }
+    }
+
+    private func resolveOvernightWindow(stages: [SleepStageData], fallbackEndDate: Date?) -> (start: Date, end: Date)? {
+        let sleepStagesOnly = stages.filter { $0.stage != .awake }
+        if let minStart = sleepStagesOnly.map({ $0.startDate }).min(),
+           let maxEnd = sleepStagesOnly.map({ $0.endDate }).max(),
+           minStart < maxEnd {
+            return (minStart, maxEnd)
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else { return nil }
+        guard let fallbackStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday) else { return nil }
+
+        let fallbackEnd = fallbackEndDate ?? calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+        guard fallbackStart < fallbackEnd else { return nil }
+
+        return (fallbackStart, fallbackEnd)
     }
     
     private func refreshWorkoutsData() async {
@@ -772,6 +916,9 @@ class HealthKitManager: ObservableObject {
     }
     
     func refreshAllData() async {
+        // Check Apple Watch status first
+        await checkAppleWatchStatus()
+        
         async let steps = fetchTodayStepsWithTimestamp()
         async let calories = fetchActiveCaloriesWithTimestamp()
         async let distance = fetchTodayDistanceWithTimestamp()
@@ -830,6 +977,7 @@ class HealthKitManager: ObservableObject {
         sleepMetric = HealthMetric(value: sleepHours, lastUpdated: sleepDate)
         sleepStages = stages
         lastNightSleep = sleepHours
+        await refreshOvernightRecoverySnapshot(stages: stages, sleepEndDate: sleepDate)
         
         // Weekly steps
         weeklySteps = await weekly
@@ -920,11 +1068,57 @@ class HealthKitManager: ObservableObject {
     }
     
     private func fetchRestingHeartRateWithTimestamp() async -> (Double, Date)? {
+        await fetchLatestRestingHeartRateWithTimestamp(start: nil, end: nil)
+    }
+    
+    private func fetchLatestHRVWithTimestamp() async -> (Double, Date)? {
+        // Look for HRV data from the last 7 days to ensure we get recent data
+        let now = Date()
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now)!
+
+        if let result = await fetchLatestHRVWithTimestamp(start: sevenDaysAgo, end: now) {
+            return result
+        }
+
+        print("⚠️ No HRV samples found in last 7 days. Fetching all-time latest...")
+        return await fetchLatestHRVWithTimestamp(start: nil, end: nil)
+    }
+
+    private func fetchLatestHRVWithTimestamp(start: Date?, end: Date?) async -> (Double, Date)? {
+        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let predicate = start != nil || end != nil
+            ? HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+            : nil
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: hrvType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, error in
+                if let error = error {
+                    print("⚠️ HRV fetch error: \(error.localizedDescription)")
+                }
+
+                if let sample = samples?.first as? HKQuantitySample {
+                    let value = sample.quantity.doubleValue(for: .secondUnit(with: .milli))
+                    let source = sample.sourceRevision.source.name
+                    print("✅ HRV sample found: \(value) ms from \(source) at \(sample.startDate)")
+                    continuation.resume(returning: (value, sample.startDate))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchLatestRestingHeartRateWithTimestamp(start: Date?, end: Date?) async -> (Double, Date)? {
         guard let restingHRType = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-        
+        let predicate = start != nil || end != nil
+            ? HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+            : nil
+
         return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: restingHRType, predicate: nil, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: restingHRType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, _ in
                 if let sample = samples?.first as? HKQuantitySample {
                     let value = sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
                     continuation.resume(returning: (value, sample.startDate))
@@ -934,51 +1128,6 @@ class HealthKitManager: ObservableObject {
             }
             healthStore.execute(query)
         }
-    }
-    
-    private func fetchLatestHRVWithTimestamp() async -> (Double, Date)? {
-        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
-        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-        
-        // Look for HRV data from the last 7 days to ensure we get recent data
-        let now = Date()
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now)!
-        let predicate = HKQuery.predicateForSamples(withStart: sevenDaysAgo, end: now, options: .strictStartDate)
-        
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: hrvType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, error in
-                if let error = error {
-                    print("⚠️ HRV fetch error: \(error.localizedDescription)")
-                }
-                
-                if let sample = samples?.first as? HKQuantitySample {
-                    let value = sample.quantity.doubleValue(for: .secondUnit(with: .milli))
-                    let source = sample.sourceRevision.source.name
-                    print("✅ HRV sample found: \(value) ms from \(source) at \(sample.startDate)")
-                    continuation.resume(returning: (value, sample.startDate))
-                } else {
-                    print("⚠️ No HRV samples found in last 7 days. Fetching all-time latest...")
-                    // Fall back to fetching without date predicate
-                    self.fetchAllTimeLatestHRV(hrvType: hrvType, sortDescriptor: sortDescriptor, continuation: continuation)
-                }
-            }
-            healthStore.execute(query)
-        }
-    }
-    
-    private func fetchAllTimeLatestHRV(hrvType: HKQuantityType, sortDescriptor: NSSortDescriptor, continuation: CheckedContinuation<(Double, Date)?, Never>) {
-        let query = HKSampleQuery(sampleType: hrvType, predicate: nil, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, _ in
-            if let sample = samples?.first as? HKQuantitySample {
-                let value = sample.quantity.doubleValue(for: .secondUnit(with: .milli))
-                let source = sample.sourceRevision.source.name
-                print("ℹ️ All-time latest HRV: \(value) ms from \(source) at \(sample.startDate)")
-                continuation.resume(returning: (value, sample.startDate))
-            } else {
-                print("⚠️ No HRV data found at all")
-                continuation.resume(returning: nil)
-            }
-        }
-        healthStore.execute(query)
     }
     
     private func fetchLatestRespiratoryRateWithTimestamp() async -> (Double, Date)? {
@@ -1557,6 +1706,8 @@ class HealthKitManager: ObservableObject {
     func fetchActivitySessionMetrics(activityName: String, from startDate: Date, to endDate: Date, retryCount: Int = 0) async -> ActivitySessionMetrics {
         let dateFormatter = DateFormatter()
         dateFormatter.timeStyle = .medium
+        let durationSeconds = Int(endDate.timeIntervalSince(startDate))
+        let isLikelyGuidedSession = durationSeconds >= 240 // 4+ min sessions should usually have more than 1 sample when Watch workout data syncs
         
         print("📱 Fetching session metrics for '\(activityName)'")
         print("   └─ Time range: \(dateFormatter.string(from: startDate)) - \(dateFormatter.string(from: endDate))")
@@ -1572,12 +1723,18 @@ class HealthKitManager: ObservableObject {
         
         print("   └─ Found \(hrSamples.count) HR samples, \(hrvData.count) HRV samples")
         
-        // If no heart rate data found and we haven't exhausted retries, wait and try again
-        // This handles the delay in Apple Watch data syncing to iPhone
-        // Apple Watch workout data can take 3-10 seconds to sync depending on connection quality
-        if hrSamples.isEmpty && retryCount < 5 {
-            let waitTime = retryCount < 2 ? 2.0 : 3.0  // Wait longer on later retries
-            print("⏳ No heart rate data found, retrying in \(waitTime)s... (attempt \(retryCount + 1)/5)")
+        // Retry when data is missing OR suspiciously sparse.
+        // Watch workout sync often arrives in chunks over several seconds.
+        let hasSparseSamples = isLikelyGuidedSession && hrSamples.count <= 1
+        if (hrSamples.isEmpty || hasSparseSamples) && retryCount < 8 {
+            let waitTime: Double
+            switch retryCount {
+            case 0...1: waitTime = 2.0
+            case 2...4: waitTime = 3.0
+            default: waitTime = 4.0
+            }
+            let reason = hrSamples.isEmpty ? "No heart rate data" : "Only \(hrSamples.count) heart rate sample"
+            print("⏳ \(reason), retrying in \(waitTime)s... (attempt \(retryCount + 1)/8)")
             try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
             return await fetchActivitySessionMetrics(activityName: activityName, from: startDate, to: endDate, retryCount: retryCount + 1)
         }
@@ -1606,7 +1763,7 @@ class HealthKitManager: ObservableObject {
         let rmssd = calculateRMSSD(from: hrSamples)
         let avgHRV = hrvData.isEmpty ? nil : hrvData.map { $0.sdnn }.reduce(0, +) / Double(hrvData.count)
         
-        let duration = Int(endDate.timeIntervalSince(startDate))
+        let duration = durationSeconds
         
         // Log final results
         if let avg = avgHR {
