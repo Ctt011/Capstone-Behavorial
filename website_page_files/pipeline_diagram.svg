@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 845" width="1540" height="845">
+<rect width="1540" height="845" fill="#F7FAFB"/>
+<defs><marker id="ah-dk" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1E2A35"/></marker><marker id="ah-gn" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3D8B6E"/></marker><marker id="ah-bl" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2980B9"/></marker><marker id="ah-gd" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#E0A040"/></marker><marker id="ah-tl" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#1B6F5E"/></marker></defs>
+<text x="770.0" y="42" text-anchor="middle" font-size="20" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">PhysioTwin — 3-Stage Stress Detection Pipeline</text>
+<text x="770.0" y="66" text-anchor="middle" font-size="12" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">Apple Watch  ·  HealthKit signals  ·  Real-time on-device inference</text>
+<line x1="212.5" y1="238" x2="257.0" y2="238" stroke="#1E2A35" stroke-width="2" marker-end="url(#ah-dk)"/>
+<line x1="504.0" y1="238" x2="559" y2="238" stroke="#1E2A35" stroke-width="2" marker-end="url(#ah-dk)"/>
+<line x1="632" y1="238" x2="712.0" y2="238" stroke="#3D8B6E" stroke-width="2" marker-end="url(#ah-gn)"/>
+<text x="676.5" y="224" text-anchor="middle" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">COGNITIVE</text>
+<line x1="600" y1="270" x2="600" y2="425.0" stroke="#E0A040" stroke-width="2" marker-end="url(#ah-gd)"/>
+<text x="614" y="352.0" text-anchor="start" font-size="10" fill="#E0A040" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">PHYSICAL</text>
+<line x1="959.0" y1="238" x2="987.0" y2="238" stroke="#3D8B6E" stroke-width="2" marker-end="url(#ah-gn)"/>
+<line x1="1115" y1="332.0" x2="1115" y2="425.0" stroke="#1B6F5E" stroke-width="2" marker-end="url(#ah-tl)"/>
+<path d="M 840 332.0 L 840 490 L 992.0 490" stroke="#A8D5C2" stroke-width="1.5" stroke-dasharray="6,4" fill="none" marker-end="url(#ah-tl)"/>
+<!-- ═══ INPUT ═══ -->
+<rect x="37.5" y="155.5" width="175" height="165" rx="14" fill="#EBF5FB" stroke="#2980B9" stroke-width="2.5"/>
+<!-- ICON PLACEHOLDER id="icon-input" Replace with icon from bioicons.com -->
+<circle id="icon-input" cx="125" cy="203" r="26" fill="#EFF3F6" stroke="#7A8FA0" stroke-width="1.5" stroke-dasharray="5,3"/>
+<text x="125" y="207" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-family="Arial,Helvetica,sans-serif">[watch]</text>
+<text x="125" y="250" text-anchor="middle" font-size="12.5" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Apple Watch</text>
+<text x="125" y="269" text-anchor="middle" font-size="10.5" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">HR · SDNN · Steps</text>
+<text x="125" y="287" text-anchor="middle" font-size="10.5" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">Sleep · Accelerometer</text>
+<text x="125" y="304" text-anchor="middle" font-size="10" fill="#2980B9" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">via HealthKit</text>
+<!-- ═══ STAGE 1 ═══ -->
+<rect x="266.0" y="144.0" width="238" height="188" rx="14" fill="#FEF9E7" stroke="#E67E22" stroke-width="3"/>
+<!-- ICON PLACEHOLDER id="icon-stage1" Replace with icon from bioicons.com -->
+<circle id="icon-stage1" cx="385" cy="189" r="26" fill="#EFF3F6" stroke="#7A8FA0" stroke-width="1.5" stroke-dasharray="5,3"/>
+<text x="385" y="193" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-family="Arial,Helvetica,sans-serif">[activity]</text>
+<text x="385" y="224" text-anchor="middle" font-size="10" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">STAGE 1</text>
+<text x="385" y="242" text-anchor="middle" font-size="12.5" fill="#E67E22" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Activity Classifier</text>
+<rect x="320.0" y="251.0" width="130.0" height="22" rx="11" fill="#FEF3E2" stroke="#E67E22" stroke-width="1.5"/>
+<text x="385" y="266" text-anchor="middle" font-size="11" fill="#E67E22" font-weight="bold" font-family="Arial,Helvetica,sans-serif">ML · Random Forest</text>
+<text x="385" y="288" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Input: ACC, HR, Steps proxy</text>
+<text x="385" y="305" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">93.6% LOSO · 22-fold LOSOCV</text>
+<text x="385" y="322" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Output: PHYSICAL or COGNITIVE</text>
+<!-- ═══ DECISION ═══ -->
+<circle cx="600" cy="238" r="32" fill="white" stroke="#1E2A35" stroke-width="2.5"/>
+<text x="600" y="244" text-anchor="middle" font-size="20" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">?</text>
+<!-- ═══ STAGE 2 ═══ -->
+<rect x="721.0" y="144.0" width="238" height="188" rx="14" fill="#EAF4EF" stroke="#3D8B6E" stroke-width="3"/>
+<!-- ICON PLACEHOLDER id="icon-stage2" Replace with icon from bioicons.com -->
+<circle id="icon-stage2" cx="840" cy="189" r="26" fill="#EFF3F6" stroke="#7A8FA0" stroke-width="1.5" stroke-dasharray="5,3"/>
+<text x="840" y="193" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-family="Arial,Helvetica,sans-serif">[sleep]</text>
+<text x="840" y="224" text-anchor="middle" font-size="10" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">STAGE 2</text>
+<text x="840" y="242" text-anchor="middle" font-size="12.5" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Sleep Quality Adjustment</text>
+<rect x="772.0" y="251.0" width="136.0" height="22" rx="11" fill="#EAF4EF" stroke="#3D8B6E" stroke-width="1.5"/>
+<text x="840" y="266" text-anchor="middle" font-size="11" fill="#3D8B6E" font-weight="bold" font-family="Arial,Helvetica,sans-serif">Rules-Based · No ML</text>
+<text x="840" y="288" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Input: Quantity · Continuity · Stages</text>
+<text x="840" y="305" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">Poor sleep → lower stress threshold</text>
+<text x="840" y="322" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Output: Adjusted detection threshold</text>
+<!-- ═══ STAGE 3 ═══ -->
+<rect x="996.0" y="144.0" width="238" height="188" rx="14" fill="#EBF5FB" stroke="#2980B9" stroke-width="3"/>
+<!-- ICON PLACEHOLDER id="icon-stage3" Replace with icon from bioicons.com -->
+<circle id="icon-stage3" cx="1115" cy="189" r="26" fill="#EFF3F6" stroke="#7A8FA0" stroke-width="1.5" stroke-dasharray="5,3"/>
+<text x="1115" y="193" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-family="Arial,Helvetica,sans-serif">[heart-wave]</text>
+<text x="1115" y="224" text-anchor="middle" font-size="10" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">STAGE 3</text>
+<text x="1115" y="242" text-anchor="middle" font-size="12.5" fill="#2980B9" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">DC/AC Stress Detection</text>
+<rect x="1044.0" y="251.0" width="142.0" height="22" rx="11" fill="#EBF5FB" stroke="#2980B9" stroke-width="1.5"/>
+<text x="1115" y="266" text-anchor="middle" font-size="11" fill="#2980B9" font-weight="bold" font-family="Arial,Helvetica,sans-serif">Formula-Based · PRSA</text>
+<text x="1115" y="288" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Input: HRV (IBI) · HR · Threshold</text>
+<text x="1115" y="305" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">Stress → parasympathetic drop → DC↓</text>
+<text x="1115" y="322" text-anchor="middle" font-size="10" fill="#3D4C59" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Output: REST or STRESS flag</text>
+<!-- ═══ BODY BATTERY ═══ -->
+<rect x="1001.0" y="434.0" width="228" height="112" rx="14" fill="#1B6F5E" stroke="#1E2A35" stroke-width="2.5"/>
+<text x="1115" y="466" text-anchor="middle" font-size="14" fill="white" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">BODY BATTERY</text>
+<text x="1115" y="486" text-anchor="middle" font-size="11" fill="#A8D5C2" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Score: 0 – 100%</text>
+<text x="1115" y="506" text-anchor="middle" font-size="10" fill="#A8D5C2" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">Drain on stress · Recovery tracking</text>
+<text x="1115" y="524" text-anchor="middle" font-size="10.5" fill="white" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">→ PhysioTwin iOS App</text>
+<!-- ═══ ACTIVE MODE ═══ -->
+<rect x="494.0" y="434.0" width="212" height="112" rx="14" fill="#FFF8F0" stroke="#E0A040" stroke-width="2.5"/>
+<text x="600" y="466" text-anchor="middle" font-size="13" fill="#E0A040" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Active Mode</text>
+<text x="600" y="486" text-anchor="middle" font-size="11" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Display: exercise metrics</text>
+<text x="600" y="506" text-anchor="middle" font-size="10" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">No stress score issued</text>
+<text x="600" y="524" text-anchor="middle" font-size="9.5" fill="#7A8FA0" font-weight="normal" font-style="italic" font-family="Arial,Helvetica,sans-serif">(exercise mimics stress signals)</text>
+<line x1="30" y1="574" x2="1510" y2="574" stroke="#DDE6EC" stroke-width="1.5" stroke-dasharray="8,4"/>
+<!-- ═══ KEY FINDINGS ═══ -->
+<rect x="22.5" y="614.0" width="345" height="152" rx="12" fill="white" stroke="#DDE6EC" stroke-width="1.5"/>
+<text x="195" y="636.0" text-anchor="middle" font-size="11" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">KEY FINDINGS</text>
+<text x="40.5" y="660.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">1.</text>
+<text x="62.5" y="660.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Movement (ACC) is the #1 differentiator, not HR</text>
+<text x="40.5" y="688.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">2.</text>
+<text x="62.5" y="688.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">HR alone cannot separate aerobic from anaerobic</text>
+<text x="40.5" y="716.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">3.</text>
+<text x="62.5" y="716.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Without Stage 1, exercise misclassified as stress</text>
+<text x="40.5" y="744.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">4.</text>
+<text x="62.5" y="744.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Sleep quality (Stage 2) shifts threshold — no retraining</text>
+<!-- ═══ FEATURE IMPORTANCE ═══ -->
+<rect x="434.0" y="614.0" width="392" height="152" rx="12" fill="#FEF9E7" stroke="#E67E22" stroke-width="1.5"/>
+<text x="630" y="636.0" text-anchor="middle" font-size="11" fill="#E67E22" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">STAGE 1: TOP FEATURES</text>
+<text x="452.0" y="667.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">ACC_mean</text>
+<rect x="542.0" y="654.0" width="178" height="16" rx="4" fill="#F5E6D3" stroke="none"/>
+<rect x="542.0" y="654.0" width="178.0" height="16" rx="4" fill="#E67E22" opacity="0.85" stroke="none"/>
+<text x="728.0" y="667.0" text-anchor="start" font-size="10" fill="#7A8FA0" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">26.8%</text>
+<text x="452.0" y="695.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">ACC_std</text>
+<rect x="542.0" y="682.0" width="178" height="16" rx="4" fill="#F5E6D3" stroke="none"/>
+<rect x="542.0" y="682.0" width="166.7" height="16" rx="4" fill="#E67E22" opacity="0.85" stroke="none"/>
+<text x="728.0" y="695.0" text-anchor="start" font-size="10" fill="#7A8FA0" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">25.1%</text>
+<text x="452.0" y="723.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">TEMP_std</text>
+<rect x="542.0" y="710.0" width="178" height="16" rx="4" fill="#F5E6D3" stroke="none"/>
+<rect x="542.0" y="710.0" width="96.3" height="16" rx="4" fill="#E67E22" opacity="0.85" stroke="none"/>
+<text x="728.0" y="723.0" text-anchor="start" font-size="10" fill="#7A8FA0" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">14.5%</text>
+<text x="452.0" y="751.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">HR_mean</text>
+<rect x="542.0" y="738.0" width="178" height="16" rx="4" fill="#F5E6D3" stroke="none"/>
+<rect x="542.0" y="738.0" width="67.7" height="16" rx="4" fill="#E67E22" opacity="0.85" stroke="none"/>
+<text x="728.0" y="751.0" text-anchor="start" font-size="10" fill="#7A8FA0" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">10.2%</text>
+<!-- ═══ VALIDATION ═══ -->
+<rect x="907.5" y="614.0" width="515" height="152" rx="12" fill="#EAF4EF" stroke="#3D8B6E" stroke-width="1.5"/>
+<text x="1165" y="636.0" text-anchor="middle" font-size="11" fill="#1E2A35" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">VALIDATION</text>
+<text x="925.5" y="660.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Stage 1:</text>
+<text x="999.5" y="660.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">93.6% LOSO  ·  F1-macro 0.91  ·  22 subjects (WISE)</text>
+<text x="925.5" y="688.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Stage 2:</text>
+<text x="999.5" y="688.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">Sleep score vs. Fitbit  r = 0.765  (PMData, N=3)</text>
+<text x="925.5" y="716.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Stage 3:</text>
+<text x="999.5" y="716.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">DC/AC on WISE IBI  p = 0.51  → threshold approach</text>
+<text x="925.5" y="744.0" text-anchor="start" font-size="10" fill="#3D8B6E" font-weight="bold" font-style="normal" font-family="Arial,Helvetica,sans-serif">Dataset:</text>
+<text x="999.5" y="744.0" text-anchor="start" font-size="10" fill="#3D4C59" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">WISE (Empatica E4): 196 segs · EDA, HR, HRV, ACC</text>
+<text x="770.0" y="830" text-anchor="middle" font-size="9" fill="#DDE6EC" font-weight="normal" font-style="normal" font-family="Arial,Helvetica,sans-serif">PhysioTwin  ·  UCSD DSC 180AB Capstone  ·  Feb 2026</text>
+</svg>
