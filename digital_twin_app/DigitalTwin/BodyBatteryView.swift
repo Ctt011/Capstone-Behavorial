@@ -3103,6 +3103,8 @@ struct RecoveryActivitiesSection: View {
     @State private var showingWalkSession = false
     @State private var showingMeditationSession = false
     @State private var showingStretchSession = false
+    @State private var showingNapSession = false
+    @State private var showingRestSession = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -3134,11 +3136,9 @@ struct RecoveryActivitiesSection: View {
                                 case .stretching:
                                     showingStretchSession = true
                                 case .nap:
-                                    // Nap session - use meditation view for now
-                                    showingMeditationSession = true
+                                    showingNapSession = true
                                 case .rest:
-                                    // Rest session - use meditation view for now
-                                    showingMeditationSession = true
+                                    showingRestSession = true
                                 case .hydration:
                                     // Hydrate is quick - just mark as complete
                                     batteryManager.completeRecoveryActivity(activity)
@@ -3197,6 +3197,16 @@ struct RecoveryActivitiesSection: View {
         }
         .sheet(isPresented: $showingStretchSession) {
             if let activity = batteryManager.destressActivities.first(where: { $0.activityType == .stretching }) {
+                ActivitySessionView(activity: activity, batteryManager: batteryManager)
+            }
+        }
+        .sheet(isPresented: $showingNapSession) {
+            if let activity = batteryManager.destressActivities.first(where: { $0.activityType == .nap }) {
+                ActivitySessionView(activity: activity, batteryManager: batteryManager)
+            }
+        }
+        .sheet(isPresented: $showingRestSession) {
+            if let activity = batteryManager.destressActivities.first(where: { $0.activityType == .rest }) {
                 ActivitySessionView(activity: activity, batteryManager: batteryManager)
             }
         }
