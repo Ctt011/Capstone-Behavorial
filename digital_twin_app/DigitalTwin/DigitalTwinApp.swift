@@ -62,7 +62,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     private func sendTerminationNotification() {
         let content = UNMutableNotificationContent()
         content.title = "Stay connected for better insights 🔋"
-        content.body = "Re-open Digital Twin to keep tracking your body battery and stress levels throughout the day."
+        content.body = "Re-open PhysioTwin to keep tracking your body battery and stress levels throughout the day."
         content.sound = .default
         
         // Trigger after 1 second - only once, not repeating

@@ -42,10 +42,10 @@ enum StressType: String, Codable {
     
     var color: Color {
         switch self {
-        case .cognitive: return .purple
-        case .physical: return .orange
-        case .mixed: return .red
-        case .none: return .green
+        case .cognitive: return .ptInfo
+        case .physical: return .ptWarning
+        case .mixed: return .ptError
+        case .none: return .ptSage
         }
     }
     
@@ -120,12 +120,12 @@ struct RechargeEvent: Identifiable, Codable {
         
         var color: Color {
             switch self {
-            case .nightSleep: return .indigo
-            case .nap: return .blue
-            case .rest: return .cyan
-            case .mindfulness: return .purple
-            case .breathing: return .mint
-            case .meditation: return .pink
+            case .nightSleep: return .ptTeal
+            case .nap: return .ptInfo
+            case .rest: return .ptSageLight
+            case .mindfulness: return .ptTeal
+            case .breathing: return .ptMint
+            case .meditation: return .ptSage
             }
         }
     }
@@ -296,7 +296,9 @@ class BodyBatteryManager: ObservableObject {
     private let sleepDebtDecayRate: Double = 0.5 // How fast debt decays when oversleeping
     
     // Stress threshold for classification
-    private let stressThreshold: Int = 40 // Above this = stressed
+    // NOTE: Pipeline has it at 60
+    // NOTE: Dhyay had this at 40 — change back if 40 is better for real-world sensitivity
+    private let stressThreshold: Int = 60 // Above this = stressed (matches pipeline base)
     
     // Published properties
     @Published var currentBattery: Int = 100
@@ -330,7 +332,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 5,
             batteryGain: 8,
             description: "5 minutes of guided breathing to calm your mind",
-            color: .cyan,
+            color: .ptMint,
             activityType: .breathing
         ),
         DestressActivity(
@@ -339,7 +341,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 15,
             batteryGain: 12,
             description: "A short walk to refresh and recharge",
-            color: .green,
+            color: .ptSage,
             activityType: .walking
         ),
         DestressActivity(
@@ -348,7 +350,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 10,
             batteryGain: 10,
             description: "Clear your mind with a brief meditation",
-            color: .purple,
+            color: .ptInfo,
             activityType: .meditation
         ),
         DestressActivity(
@@ -357,7 +359,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 5,
             batteryGain: 6,
             description: "Release tension with gentle stretches",
-            color: .orange,
+            color: .ptWarning,
             activityType: .stretching
         ),
         DestressActivity(
@@ -366,7 +368,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 20,
             batteryGain: 25,
             description: "A quick nap to restore energy",
-            color: .indigo,
+            color: .ptTeal,
             activityType: .nap
         ),
         DestressActivity(
@@ -375,7 +377,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 10,
             batteryGain: 8,
             description: "Simply rest and let your body recover",
-            color: .blue,
+            color: .ptSageLight,
             activityType: .rest
         ),
         DestressActivity(
@@ -384,7 +386,7 @@ class BodyBatteryManager: ObservableObject {
             duration: 1,
             batteryGain: 3,
             description: "Drink a glass of water",
-            color: .blue,
+            color: .ptTeal,
             activityType: .hydration
         )
     ]
@@ -1255,11 +1257,15 @@ class BodyBatteryManager: ObservableObject {
     
     var recommendedActivity: DestressActivity {
         if currentBattery < 30 {
-            return destressActivities.first { $0.activityType == .breathing }!
+            return destressActivities.first { $0.activityType == .breathing }
+                ?? destressActivities[0]
         } else if currentBattery < 50 {
-            return destressActivities.first { $0.activityType == .nap } ?? destressActivities.first { $0.activityType == .walking }!
+            return destressActivities.first { $0.activityType == .nap }
+                ?? destressActivities.first { $0.activityType == .walking }
+                ?? destressActivities[0]
         } else {
-            return destressActivities.first { $0.activityType == .hydration }!
+            return destressActivities.first { $0.activityType == .hydration }
+                ?? destressActivities[0]
         }
     }
     
@@ -1582,40 +1588,43 @@ struct BodyBatteryView: View {
     @State private var selectedDate = Date()
     @State private var showingBreathingExercise = false
     @State private var showingCalendar = false
-    
+    @State private var activeSection: String = "Stress"
+
+    private let sections = ["Stress", "Sleep", "Activity", "Insights", "Health"]
+
     var batteryColor: Color {
         switch batteryManager.currentBattery {
-        case 70...100: return .green
-        case 40..<70: return .yellow
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
         case 20..<40: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
-    
+
     var backgroundColor: LinearGradient {
         let battery = batteryManager.currentBattery
         switch battery {
         case 70...100:
-            return LinearGradient(colors: [Color.green.opacity(0.1), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
+            return LinearGradient(colors: [Color.ptSage.opacity(0.08), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
         case 40..<70:
-            return LinearGradient(colors: [Color.yellow.opacity(0.1), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
+            return LinearGradient(colors: [Color.ptWarning.opacity(0.08), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
         case 20..<40:
-            return LinearGradient(colors: [Color.orange.opacity(0.1), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
+            return LinearGradient(colors: [Color.orange.opacity(0.08), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
         default:
-            return LinearGradient(colors: [Color.red.opacity(0.15), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
+            return LinearGradient(colors: [Color.ptError.opacity(0.1), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
         }
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     // Apple Watch Not Connected Banner
                     if !healthKitManager.isAppleWatchConnected {
                         HStack(spacing: 12) {
                             Image(systemName: "applewatch.slash")
                                 .font(.title2)
-                                .foregroundColor(.orange)
+                                .foregroundColor(.ptWarning)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Apple Watch Not Detected")
@@ -1623,7 +1632,7 @@ struct BodyBatteryView: View {
                                     .fontWeight(.semibold)
                                 Text("Stress tracking and battery drain calculations require an Apple Watch.")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.ptMuted)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer()
@@ -1631,75 +1640,134 @@ struct BodyBatteryView: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.orange.opacity(0.12))
+                                .fill(Color.ptWarning.opacity(0.12))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.ptWarning.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.horizontal)
                     }
 
-                    // 1. Human figure with battery level
+                    // ── HERO: Battery Figure ──
                     BatteryHumanView(
                         batteryLevel: batteryManager.currentBattery,
                         batteryColor: batteryColor
                     )
                     .padding(.horizontal)
 
-                    // 2. Current stress level
-                    CurrentStressCard(batteryManager: batteryManager)
-                        .padding(.horizontal)
-
-                    // 3. Cognitive vs Physical stress breakdown + detected times
-                    StressTypeBreakdownCard(batteryManager: batteryManager)
-                        .padding(.horizontal)
-
-                    // 4. Sleep recovery
-                    if let sleepScore = batteryManager.lastSleepRecoveryScore {
-                        SleepRecoveryCard(
-                            sleepScore: sleepScore,
-                            sleepDebt: batteryManager.sleepDebtHours,
-                            batteryCap: batteryManager.currentBatteryCap
-                        )
+                    // ── PILL NAVIGATION ──
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(sections, id: \.self) { section in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        activeSection = section
+                                    }
+                                } label: {
+                                    Text(section)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule()
+                                                .fill(activeSection == section ? Color.ptTeal : Color(.systemGray5))
+                                        )
+                                        .foregroundColor(activeSection == section ? .white : .secondary)
+                                }
+                            }
+                        }
                         .padding(.horizontal)
                     }
+                    .padding(.vertical, 4)
 
-                    // 5. Today's summary (insight + stress summary)
-                    InsightCard(
-                        insight: batteryManager.batteryInsight,
-                        batteryLevel: batteryManager.currentBattery
-                    )
-                    .padding(.horizontal)
+                    // ── SECTION CONTENT (switches based on active pill) ──
+                    Group {
+                        switch activeSection {
+                        case "Stress":
+                            VStack(spacing: 16) {
+                                CurrentStressCard(batteryManager: batteryManager)
+                                    .padding(.horizontal)
 
-                    TodayStressSummaryCard(batteryManager: batteryManager)
-                        .padding(.horizontal)
+                                StressTypeBreakdownCard(batteryManager: batteryManager)
+                                    .padding(.horizontal)
+                            }
 
-                    // Today's activity impact
-                    TodayActivityImpactCard(
-                        activities: activityManager.todaysActivities,
-                        batteryManager: batteryManager
-                    )
-                    .padding(.horizontal)
+                        case "Sleep":
+                            VStack(spacing: 16) {
+                                if let sleepScore = batteryManager.lastSleepRecoveryScore {
+                                    SleepRecoveryCard(
+                                        sleepScore: sleepScore,
+                                        sleepDebt: batteryManager.sleepDebtHours,
+                                        batteryCap: batteryManager.currentBatteryCap
+                                    )
+                                    .padding(.horizontal)
+                                } else {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "moon.zzz.fill")
+                                            .font(.system(size: 40))
+                                            .foregroundColor(.ptMuted)
+                                        Text("No sleep data yet")
+                                            .font(.subheadline)
+                                            .foregroundColor(.ptMuted)
+                                        Text("Sleep recovery will appear after your first tracked night")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(40)
+                                }
+                            }
 
-                    // 6. Battery history
-                    BatteryCalendarCard(
-                        batteryManager: batteryManager,
-                        selectedDate: $selectedDate,
-                        showingCalendar: $showingCalendar
-                    )
-                    .padding(.horizontal)
+                        case "Activity":
+                            VStack(spacing: 16) {
+                                TodayActivityImpactCard(
+                                    activities: activityManager.todaysActivities,
+                                    batteryManager: batteryManager
+                                )
+                                .padding(.horizontal)
 
-                    // 7. Recharge your battery
-                    RecoveryActivitiesSection(
-                        batteryManager: batteryManager,
-                        showingBreathingExercise: $showingBreathingExercise
-                    )
-                    .padding(.horizontal)
+                                RecoveryActivitiesSection(
+                                    batteryManager: batteryManager,
+                                    showingBreathingExercise: $showingBreathingExercise
+                                )
+                                .padding(.horizontal)
+                            }
 
-                    // 8. Health metrics (compact)
-                    CompactHealthMetricsSection(healthKitManager: healthKitManager)
-                        .padding(.horizontal)
+                        case "Insights":
+                            VStack(spacing: 16) {
+                                InsightCard(
+                                    insight: batteryManager.batteryInsight,
+                                    batteryLevel: batteryManager.currentBattery
+                                )
+                                .padding(.horizontal)
+
+                                WeeklyTrendsCard(batteryManager: batteryManager)
+                                    .padding(.horizontal)
+
+                                TodayStressSummaryCard(batteryManager: batteryManager)
+                                    .padding(.horizontal)
+
+                                BatteryCalendarCard(
+                                    batteryManager: batteryManager,
+                                    selectedDate: $selectedDate,
+                                    showingCalendar: $showingCalendar
+                                )
+                                .padding(.horizontal)
+                            }
+
+                        case "Health":
+                            VStack(spacing: 16) {
+                                CompactHealthMetricsSection(healthKitManager: healthKitManager)
+                                    .padding(.horizontal)
+                            }
+
+                        default:
+                            EmptyView()
+                        }
+                    }
+                    .transition(.opacity)
 
                     Spacer(minLength: 40)
                 }
@@ -1773,7 +1841,7 @@ struct StressTypeBreakdownCard: View {
             HStack {
                 Image(systemName: "chart.pie.fill")
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.ptTeal)
                 Text("Stress Breakdown")
                     .font(.headline)
                 Spacer()
@@ -1788,23 +1856,23 @@ struct StressTypeBreakdownCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "brain.head.profile")
                             .font(.subheadline)
-                            .foregroundColor(.purple)
+                            .foregroundColor(.ptInfo)
                         Text("Cognitive")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                     }
                     Text("\(cognitiveEpisodes.count) episode\(cognitiveEpisodes.count == 1 ? "" : "s")")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.ptMuted)
                     if !cognitiveEpisodes.isEmpty {
                         Text("Avg \(cognitiveAvg)")
                             .font(.caption)
-                            .foregroundColor(.purple)
+                            .foregroundColor(.ptInfo)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Color.purple.opacity(0.08))
+                .background(Color.ptInfo.opacity(0.08))
                 .cornerRadius(12)
 
                 // Physical
@@ -1812,23 +1880,23 @@ struct StressTypeBreakdownCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "figure.run")
                             .font(.subheadline)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.ptWarning)
                         Text("Physical")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                     }
                     Text("\(physicalEpisodes.count) episode\(physicalEpisodes.count == 1 ? "" : "s")")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.ptMuted)
                     if !physicalEpisodes.isEmpty {
                         Text("Avg \(physicalAvg)")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.ptWarning)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Color.orange.opacity(0.08))
+                .background(Color.ptWarning.opacity(0.08))
                 .cornerRadius(12)
             }
 
@@ -1873,7 +1941,7 @@ struct StressTypeBreakdownCard: View {
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(.ptSage)
                     Text("No significant stress episodes detected today")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -1896,7 +1964,7 @@ struct CompactHealthMetricsSection: View {
             HStack {
                 Image(systemName: "heart.text.square.fill")
                     .font(.title2)
-                    .foregroundColor(.red)
+                    .foregroundColor(.ptTeal)
                 Text("Health Metrics")
                     .font(.headline)
                 Spacer()
@@ -1905,7 +1973,7 @@ struct CompactHealthMetricsSection: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 CompactMetricTile(
                     icon: "heart",
-                    iconColor: .pink,
+                    iconColor: .ptError,
                     title: "Resting HR",
                     value: healthKitManager.restingHeartRateMetric.value != nil
                         ? String(format: "%.0f", healthKitManager.restingHeartRateMetric.value!)
@@ -1916,7 +1984,7 @@ struct CompactHealthMetricsSection: View {
 
                 CompactMetricTile(
                     icon: "heart.fill",
-                    iconColor: .red,
+                    iconColor: .ptError,
                     title: "Heart Rate",
                     value: healthKitManager.heartRateMetric.value != nil
                         ? String(format: "%.0f", healthKitManager.heartRateMetric.value!)
@@ -1927,7 +1995,7 @@ struct CompactHealthMetricsSection: View {
 
                 CompactMetricTile(
                     icon: "flame.fill",
-                    iconColor: .orange,
+                    iconColor: .ptWarning,
                     title: "Active Energy",
                     value: healthKitManager.activeEnergyMetric.value != nil
                         ? String(format: "%.0f", healthKitManager.activeEnergyMetric.value!)
@@ -1938,7 +2006,7 @@ struct CompactHealthMetricsSection: View {
 
                 CompactMetricTile(
                     icon: "waveform.path.ecg",
-                    iconColor: .purple,
+                    iconColor: .ptInfo,
                     title: "HRV (SDNN)",
                     value: healthKitManager.hrvMetric.value != nil
                         ? String(format: "%.0f", healthKitManager.hrvMetric.value!)
@@ -1949,7 +2017,7 @@ struct CompactHealthMetricsSection: View {
 
                 CompactMetricTile(
                     icon: "lungs.fill",
-                    iconColor: .cyan,
+                    iconColor: .ptTeal,
                     title: "Resp. Rate",
                     value: healthKitManager.respiratoryRateMetric.value != nil
                         ? String(format: "%.1f", healthKitManager.respiratoryRateMetric.value!)
@@ -2008,7 +2076,7 @@ struct CompactMetricTile: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
-        .cornerRadius(14)
+        .cornerRadius(12)
     }
 }
 
@@ -2016,14 +2084,12 @@ struct CompactMetricTile: View {
 struct CurrentStressCard: View {
     @ObservedObject var batteryManager: BodyBatteryManager
     
-    // Color thresholds aligned with DC/AC pipeline:
-    // 0-29 = Low (green), 30-49 = Moderate (blue), 50-69 = High (orange), 70+ = Very High (red)
     var stressColor: Color {
         switch batteryManager.currentStressLevel {
-        case 0..<30: return .green
-        case 30..<50: return .blue
-        case 50..<70: return .orange
-        default: return .red
+        case 0..<30: return .ptSage
+        case 30..<50: return .ptInfo
+        case 50..<70: return .ptWarning
+        default: return .ptError
         }
     }
     
@@ -2097,14 +2163,12 @@ struct CurrentStressCard: View {
 struct StressGauge: View {
     let level: Int
     
-    // Color thresholds aligned with DC/AC pipeline:
-    // 0-29 = Low, 30-49 = Moderate, 50-69 = High, 70+ = Very High
     var color: Color {
         switch level {
-        case 0..<30: return .green
-        case 30..<50: return .blue
-        case 50..<70: return .orange
-        default: return .red
+        case 0..<30: return .ptSage
+        case 30..<50: return .ptInfo
+        case 50..<70: return .ptWarning
+        default: return .ptError
         }
     }
     
@@ -2140,7 +2204,7 @@ struct TodayStressSummaryCard: View {
             HStack {
                 Image(systemName: "chart.bar.fill")
                     .font(.title2)
-                    .foregroundColor(.purple)
+                    .foregroundColor(.ptTeal)
                 
                 Text("Today's Summary")
                     .font(.headline)
@@ -2185,12 +2249,12 @@ struct TodayStressSummaryCard: View {
                     Text("-\(summary.totalDrain)%")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.red)
+                        .foregroundColor(.ptError)
                 }
-                
+
                 Spacer()
             }
-            
+
             // Stress timeline (simplified)
             if !batteryManager.todayStressPredictions.isEmpty {
                 StressTimelineView(predictions: batteryManager.todayStressPredictions)
@@ -2241,11 +2305,11 @@ struct StressTimelineView: View {
     
     private func colorForStress(_ level: Int) -> Color {
         switch level {
-        case 0..<20: return .green
-        case 20..<40: return .blue
-        case 40..<60: return .yellow
+        case 0..<20: return .ptSage
+        case 20..<40: return .ptInfo
+        case 40..<60: return .ptWarning
         case 60..<80: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
     
@@ -2262,11 +2326,11 @@ struct SleepRecoveryCard: View {
     
     var scoreColor: Color {
         switch sleepScore.totalScore {
-        case 0.8...1.0: return .green
-        case 0.6..<0.8: return .blue
-        case 0.4..<0.6: return .yellow
+        case 0.8...1.0: return .ptSage
+        case 0.6..<0.8: return .ptInfo
+        case 0.4..<0.6: return .ptWarning
         case 0.2..<0.4: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
     
@@ -2276,7 +2340,7 @@ struct SleepRecoveryCard: View {
             HStack {
                 Image(systemName: "moon.zzz.fill")
                     .font(.title2)
-                    .foregroundColor(.indigo)
+                    .foregroundColor(.ptTeal)
                 
                 Text("Sleep Recovery")
                     .font(.headline)
@@ -2311,7 +2375,7 @@ struct SleepRecoveryCard: View {
                     Text("+\(sleepScore.rechargePoints)%")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(.ptSage)
                     Text("recharged")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -2325,31 +2389,31 @@ struct SleepRecoveryCard: View {
                     title: "Duration",
                     score: sleepScore.quantityScore,
                     detail: String(format: "%.1fh sleep", sleepScore.totalSleepHours),
-                    color: .blue
+                    color: .ptInfo
                 )
-                
+
                 SleepScoreRow(
                     icon: "waveform.path",
                     title: "Continuity",
                     score: sleepScore.continuityScore,
                     detail: String(format: "%.0fmin awake", sleepScore.awakeMinutes),
-                    color: .cyan
+                    color: .ptTeal
                 )
-                
+
                 SleepScoreRow(
                     icon: "brain.head.profile",
                     title: "Sleep Stages",
                     score: sleepScore.stageScore,
                     detail: "Deep: \(Int(sleepScore.deepSleepMinutes))m, REM: \(Int(sleepScore.remSleepMinutes))m",
-                    color: .purple
+                    color: .ptSage
                 )
-                
+
                 SleepScoreRow(
                     icon: "heart.fill",
                     title: "Physio Recovery",
                     score: sleepScore.physioScore,
                     detail: sleepScore.overnightHRV != nil ? "HRV: \(Int(sleepScore.overnightHRV!))ms" : "No HRV data",
-                    color: .pink
+                    color: .ptError
                 )
             }
             
@@ -2364,7 +2428,7 @@ struct SleepRecoveryCard: View {
                     Text(String(format: "%.1fh", sleepDebt))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(sleepDebt > 5 ? .orange : .primary)
+                        .foregroundColor(sleepDebt > 5 ? .ptWarning : .primary)
                 }
                 
                 Spacer()
@@ -2376,7 +2440,7 @@ struct SleepRecoveryCard: View {
                     Text("\(batteryCap)%")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(batteryCap < 80 ? .orange : .primary)
+                        .foregroundColor(batteryCap < 80 ? .ptWarning : .primary)
                 }
             }
             
@@ -2384,7 +2448,7 @@ struct SleepRecoveryCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundColor(.orange)
+                        .foregroundColor(.ptWarning)
                     Text("Sleep debt is limiting your max battery capacity")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -2555,10 +2619,10 @@ struct InsightCard: View {
     
     var iconColor: Color {
         switch batteryLevel {
-        case 70...100: return .green
-        case 40..<70: return .yellow
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
         case 20..<40: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
     
@@ -2578,10 +2642,144 @@ struct InsightCard: View {
             
             Spacer()
         }
-        .padding(16)
+        .padding(20)
         .background(Color(.systemBackground))
-        .cornerRadius(16)
+        .cornerRadius(20)
         .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+// MARK: - Weekly Trends Card
+
+struct WeeklyTrendsCard: View {
+    @ObservedObject var batteryManager: BodyBatteryManager
+
+    private let calendar = Calendar.current
+
+    private var weekData: [(day: String, battery: Int?, stressCount: Int)] {
+        let today = Date()
+        return (0..<7).reversed().map { offset in
+            let date = calendar.date(byAdding: .day, value: -offset, to: today)!
+            let dayName = offset == 0 ? "Today" : {
+                let fmt = DateFormatter()
+                fmt.dateFormat = "EEE"
+                return fmt.string(from: date)
+            }()
+            let entry = batteryManager.historyForDate(date)
+            return (day: dayName, battery: entry?.currentBattery, stressCount: entry?.stressPredictions.count ?? 0)
+        }
+    }
+
+    private var avgBattery: Int {
+        let levels = weekData.compactMap(\.battery)
+        guard !levels.isEmpty else { return 0 }
+        return levels.reduce(0, +) / levels.count
+    }
+
+    private var totalStress: Int {
+        weekData.reduce(0) { $0 + $1.stressCount }
+    }
+
+    private var trendText: String {
+        let levels = weekData.compactMap(\.battery)
+        guard levels.count >= 2 else { return "Not enough data yet" }
+        let recent = levels.suffix(3).reduce(0, +) / min(3, levels.count)
+        let earlier = levels.prefix(3).reduce(0, +) / min(3, levels.count)
+        let diff = recent - earlier
+        if diff > 5 { return "Your energy is trending up this week" }
+        if diff < -5 { return "Your energy has been declining — prioritize recovery" }
+        return "Your energy levels have been stable"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.title2)
+                    .foregroundColor(.ptTeal)
+                Text("Weekly Trends")
+                    .font(.headline)
+                Spacer()
+            }
+
+            // Mini bar chart
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(Array(weekData.enumerated()), id: \.offset) { _, item in
+                    VStack(spacing: 4) {
+                        if let level = item.battery {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(barColor(for: level))
+                                .frame(width: 28, height: max(8, CGFloat(level) / 100.0 * 60))
+                        } else {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.ptBorder)
+                                .frame(width: 28, height: 8)
+                        }
+                        Text(item.day)
+                            .font(.system(size: 9))
+                            .foregroundColor(.ptMuted)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 80, alignment: .bottom)
+
+            // Trend insight
+            HStack(spacing: 10) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.ptWarning)
+                    .font(.caption)
+                Text(trendText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.ptSurface)
+            .cornerRadius(10)
+
+            // Stats row
+            HStack(spacing: 0) {
+                VStack(spacing: 2) {
+                    Text("\(avgBattery)%")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.ptTeal)
+                    Text("Avg Battery")
+                        .font(.caption2)
+                        .foregroundColor(.ptMuted)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider()
+                    .frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text("\(totalStress)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.ptWarning)
+                    Text("Stress Events")
+                        .font(.caption2)
+                        .foregroundColor(.ptMuted)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+
+    private func barColor(for level: Int) -> Color {
+        switch level {
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
+        case 20..<40: return .orange
+        default: return .ptError
+        }
     }
 }
 
@@ -2605,15 +2803,15 @@ struct BatteryCalendarCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "calendar")
-                    .foregroundColor(.blue)
+                    .foregroundColor(.ptTeal)
                 Text("Battery History")
                     .font(.headline)
                 Spacer()
-                
+
                 Button(action: { showingCalendar.toggle() }) {
                     Text(showingCalendar ? "Week" : "Month")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ptTeal)
                 }
             }
             
@@ -2650,8 +2848,8 @@ struct BatteryCalendarCard: View {
                     
                     HStack(spacing: 20) {
                         StatItem(title: "Battery", value: "\(entry.currentBattery)%", icon: "battery.75", color: batteryColor(for: entry.currentBattery))
-                        StatItem(title: "Stress", value: "\(entry.stressPredictions.count)", icon: "exclamationmark.triangle", color: .orange)
-                        StatItem(title: "Recovery", value: "\(entry.rechargeEvents.count)", icon: "heart.fill", color: .green)
+                        StatItem(title: "Stress", value: "\(entry.stressPredictions.count)", icon: "exclamationmark.triangle", color: .ptWarning)
+                        StatItem(title: "Recovery", value: "\(entry.rechargeEvents.count)", icon: "heart.fill", color: .ptSage)
                     }
                     
                     if entry.minBattery != entry.maxBattery {
@@ -2680,10 +2878,10 @@ struct BatteryCalendarCard: View {
     
     func batteryColor(for level: Int) -> Color {
         switch level {
-        case 70...100: return .green
-        case 40..<70: return .yellow
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
         case 20..<40: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
 }
@@ -2702,13 +2900,13 @@ struct DayBatteryView: View {
     var batteryColor: Color {
         guard let level = entry?.currentBattery else { return .gray }
         switch level {
-        case 70...100: return .green
-        case 40..<70: return .yellow
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
         case 20..<40: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 6) {
             Text(dayAbbrev)
@@ -2797,20 +2995,20 @@ struct CalendarGridView: View {
             HStack {
                 Button(action: { moveMonth(-1) }) {
                     Image(systemName: "chevron.left")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ptTeal)
                 }
-                
+
                 Spacer()
-                
+
                 Text(monthYearString)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                
+
                 Spacer()
-                
+
                 Button(action: { moveMonth(1) }) {
                     Image(systemName: "chevron.right")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ptTeal)
                 }
             }
             
@@ -2869,18 +3067,18 @@ struct CalendarDayCell: View {
     var batteryColor: Color {
         guard let level = entry?.currentBattery else { return .clear }
         switch level {
-        case 70...100: return .green
-        case 40..<70: return .yellow
+        case 70...100: return .ptSage
+        case 40..<70: return .ptWarning
         case 20..<40: return .orange
-        default: return .red
+        default: return .ptError
         }
     }
-    
+
     var body: some View {
         ZStack {
             if isSelected {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(Color.ptTeal.opacity(0.2))
             }
             
             if entry != nil {
@@ -2910,7 +3108,7 @@ struct RecoveryActivitiesSection: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "sparkles")
-                    .foregroundColor(.green)
+                    .foregroundColor(.ptSage)
                 Text("Recharge Your Battery")
                     .font(.headline)
                 Spacer()
@@ -2962,20 +3160,20 @@ struct RecoveryActivitiesSection: View {
                     ForEach(batteryManager.completedRecoveryActivities.prefix(3)) { activity in
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(.ptSage)
                             Text(activity.activityName)
                                 .font(.caption)
                             Spacer()
-                            
+
                             if activity.sessionMetricsId != nil {
                                 Image(systemName: "heart.text.square")
-                                    .foregroundColor(.pink)
+                                    .foregroundColor(.ptError)
                                     .font(.caption)
                             }
-                            
+
                             Text("+\(activity.batteryGained)%")
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundColor(.ptSage)
                         }
                     }
 
@@ -3034,10 +3232,10 @@ struct RecoveryActivityCard: View {
                 Text("+\(activity.batteryGain)%")
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(.green)
+                    .foregroundColor(.ptSage)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.15))
+                    .background(Color.ptSage.opacity(0.15))
                     .cornerRadius(8)
             }
             .frame(width: 100)
@@ -3068,20 +3266,20 @@ struct TodayActivityImpactCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "list.bullet.rectangle")
-                    .foregroundColor(.orange)
+                    .foregroundColor(.ptWarning)
                 Text("Today's Stress Impact")
                     .font(.headline)
                 Spacer()
 
                 Text("-\(totalDrain)%")
                     .font(.headline)
-                    .foregroundColor(.red)
+                    .foregroundColor(.ptError)
             }
 
             if activities.isEmpty {
                 HStack {
                     Image(systemName: "checkmark.circle")
-                        .foregroundColor(.green)
+                        .foregroundColor(.ptSage)
                     Text("No stressful activities logged today")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -3110,7 +3308,7 @@ struct TodayActivityImpactCard: View {
                         Text("-\(drain)%")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(.red)
+                            .foregroundColor(.ptError)
                     }
                     .padding(.vertical, 4)
                 }
@@ -3489,12 +3687,12 @@ struct TodayActivityImpactCard: View {
                                         VStack(spacing: 16) {
                                             ZStack {
                                                 Circle()
-                                                    .fill(Color.green.opacity(0.2))
+                                                    .fill(Color.ptSage.opacity(0.2))
                                                     .frame(width: 100, height: 100)
-                                                
+
                                                 Image(systemName: "checkmark.circle.fill")
                                                     .font(.system(size: 60))
-                                                    .foregroundColor(.green)
+                                                    .foregroundColor(.ptSage)
                                             }
                                             
                                             Text("Session Complete!")
@@ -3522,7 +3720,7 @@ struct TodayActivityImpactCard: View {
                                                     Text("+\(activity.batteryGain)%")
                                                         .font(.title2)
                                                         .fontWeight(.semibold)
-                                                        .foregroundColor(.green)
+                                                        .foregroundColor(.ptSage)
                                                     Text("Battery Gained")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
@@ -3613,7 +3811,7 @@ struct TodayActivityImpactCard: View {
                         private func tipRow(icon: String, text: String) -> some View {
                             HStack(spacing: 12) {
                                 Image(systemName: icon)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.ptTeal)
                                     .frame(width: 24)
                                 Text(text)
                                     .foregroundColor(.secondary)
@@ -3626,27 +3824,27 @@ struct TodayActivityImpactCard: View {
                             VStack(spacing: 12) {
                                 HStack {
                                     Image(systemName: "brain.head.profile")
-                                        .foregroundColor(.purple)
+                                        .foregroundColor(.ptInfo)
                                     Text("Relaxation Analysis")
                                         .font(.headline)
                                     Spacer()
                                 }
-                                
+
                                 ZStack {
                                     Circle()
-                                        .stroke(Color.purple.opacity(0.2), lineWidth: 10)
+                                        .stroke(Color.ptInfo.opacity(0.2), lineWidth: 10)
                                         .frame(width: 120, height: 120)
-                                    
+
                                     Circle()
                                         .trim(from: 0, to: Double(metrics.relaxationScore) / 100.0)
-                                        .stroke(Color.purple, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                                        .stroke(Color.ptInfo, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                                         .frame(width: 120, height: 120)
                                         .rotationEffect(.degrees(-90))
-                                    
+
                                     VStack(spacing: 2) {
                                         Text("\(metrics.relaxationScore)")
                                             .font(.system(size: 32, weight: .bold))
-                                            .foregroundColor(.purple)
+                                            .foregroundColor(.ptInfo)
                                         Text(metrics.relaxationLevel)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
@@ -3672,7 +3870,7 @@ struct TodayActivityImpactCard: View {
                             VStack(spacing: 16) {
                                 HStack {
                                     Image(systemName: "heart.fill")
-                                        .foregroundColor(.red)
+                                        .foregroundColor(.ptError)
                                     Text("Heart Rate Metrics")
                                         .font(.headline)
                                     Spacer()
@@ -3685,23 +3883,23 @@ struct TodayActivityImpactCard: View {
                                             value: metrics.minHeartRate != nil ? "\(Int(metrics.minHeartRate!))" : "--",
                                             unit: "BPM",
                                             icon: "arrow.down",
-                                            color: .green
+                                            color: .ptSage
                                         )
-                                        
+
                                         MetricBox(
                                             title: "Avg",
                                             value: metrics.avgHeartRate != nil ? "\(Int(metrics.avgHeartRate!))" : "--",
                                             unit: "BPM",
                                             icon: "heart.fill",
-                                            color: .red
+                                            color: .ptError
                                         )
-                                        
+
                                         MetricBox(
                                             title: "Max",
                                             value: metrics.maxHeartRate != nil ? "\(Int(metrics.maxHeartRate!))" : "--",
                                             unit: "BPM",
                                             icon: "arrow.up",
-                                            color: .orange
+                                            color: .ptWarning
                                         )
                                     }
                                     
@@ -3732,12 +3930,12 @@ struct TodayActivityImpactCard: View {
                             VStack(spacing: 16) {
                                 HStack {
                                     Image(systemName: "waveform.path.ecg")
-                                        .foregroundColor(.pink)
+                                        .foregroundColor(.ptError)
                                     Text("Heart Rate Variability (HRV)")
                                         .font(.headline)
                                     Spacer()
                                 }
-                                
+
                                 HStack(spacing: 16) {
                                     if metrics.rmssd != nil {
                                         VStack(spacing: 8) {
@@ -3747,14 +3945,14 @@ struct TodayActivityImpactCard: View {
                                             Text(metrics.heartRateVariability)
                                                 .font(.title2)
                                                 .fontWeight(.bold)
-                                                .foregroundColor(.pink)
+                                                .foregroundColor(.ptError)
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 16)
-                                        .background(Color.pink.opacity(0.1))
+                                        .background(Color.ptError.opacity(0.1))
                                         .cornerRadius(12)
                                     }
-                                    
+
                                     if let avgHRV = metrics.avgHRV {
                                         VStack(spacing: 8) {
                                             Text("Avg SDNN")
@@ -3763,11 +3961,11 @@ struct TodayActivityImpactCard: View {
                                             Text(String(format: "%.1f ms", avgHRV))
                                                 .font(.title2)
                                                 .fontWeight(.bold)
-                                                .foregroundColor(.purple)
+                                                .foregroundColor(.ptInfo)
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 16)
-                                        .background(Color.purple.opacity(0.1))
+                                        .background(Color.ptInfo.opacity(0.1))
                                         .cornerRadius(12)
                                     }
                                 }
@@ -3799,17 +3997,17 @@ struct TodayActivityImpactCard: View {
                             VStack(spacing: 16) {
                                 HStack {
                                     Image(systemName: "chart.bar.fill")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.ptTeal)
                                     Text("Additional Metrics")
                                         .font(.headline)
                                     Spacer()
                                 }
-                                
+
                                 HStack(spacing: 16) {
                                     if let calories = metrics.caloriesBurned {
                                         VStack(spacing: 8) {
                                             Image(systemName: "flame.fill")
-                                                .foregroundColor(.orange)
+                                                .foregroundColor(.ptWarning)
                                             Text(String(format: "%.1f", calories))
                                                 .font(.title3)
                                                 .fontWeight(.semibold)
@@ -3819,14 +4017,14 @@ struct TodayActivityImpactCard: View {
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(Color.orange.opacity(0.1))
+                                        .background(Color.ptWarning.opacity(0.1))
                                         .cornerRadius(12)
                                     }
-                                    
+
                                     if let respRate = metrics.respiratoryRate {
                                         VStack(spacing: 8) {
                                             Image(systemName: "lungs.fill")
-                                                .foregroundColor(.cyan)
+                                                .foregroundColor(.ptMint)
                                             Text(String(format: "%.0f", respRate))
                                                 .font(.title3)
                                                 .fontWeight(.semibold)
@@ -3836,7 +4034,7 @@ struct TodayActivityImpactCard: View {
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(Color.cyan.opacity(0.1))
+                                        .background(Color.ptMint.opacity(0.1))
                                         .cornerRadius(12)
                                     }
                                 }
@@ -3920,7 +4118,7 @@ struct TodayActivityImpactCard: View {
                                 ZStack {
                                     // Background gradient
                                     LinearGradient(
-                                        colors: [.cyan.opacity(0.3), .blue.opacity(0.2), .purple.opacity(0.1)],
+                                        colors: [.ptMint.opacity(0.3), .ptTeal.opacity(0.2), .ptInfo.opacity(0.1)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -3934,7 +4132,7 @@ struct TodayActivityImpactCard: View {
                                             VStack(spacing: 8) {
                                                 HStack(spacing: 6) {
                                                     Image(systemName: "applewatch")
-                                                        .foregroundColor(.blue)
+                                                        .foregroundColor(.ptTeal)
                                                     Text("Tip: Start Breathe app on Watch for best HR tracking")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
@@ -3942,7 +4140,7 @@ struct TodayActivityImpactCard: View {
                                             }
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
-                                            .background(Color.blue.opacity(0.1))
+                                            .background(Color.ptTeal.opacity(0.1))
                                             .cornerRadius(12)
                                         } else if breathPhase != .complete && breathPhase != .completing {
                                             HStack(spacing: 8) {
@@ -3962,12 +4160,12 @@ struct TodayActivityImpactCard: View {
                                         // Breathing circle
                                         ZStack {
                                             Circle()
-                                                .fill(Color.cyan.opacity(0.2))
+                                                .fill(Color.ptMint.opacity(0.2))
                                                 .frame(width: 250, height: 250)
                                                 .scaleEffect(circleScale)
-                                            
+
                                             Circle()
-                                                .stroke(Color.cyan, lineWidth: 4)
+                                                .stroke(Color.ptMint, lineWidth: 4)
                                                 .frame(width: 200, height: 200)
                                                 .scaleEffect(circleScale)
                                             
@@ -3986,11 +4184,11 @@ struct TodayActivityImpactCard: View {
                                                 if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
                                                     Text(formattedTime)
                                                         .font(.system(size: 48, weight: .bold, design: .rounded))
-                                                        .foregroundColor(.cyan)
+                                                        .foregroundColor(.ptMint)
                                                 }
                                             }
                                         }
-                                        
+
                                         // Cycle counter
                                         if breathPhase != .ready && breathPhase != .complete && breathPhase != .completing {
                                             Text("Cycle \(currentCycle + 1)")
@@ -4016,7 +4214,7 @@ struct TodayActivityImpactCard: View {
                                                 .foregroundColor(.white)
                                                 .frame(maxWidth: .infinity)
                                                 .padding(.vertical, 18)
-                                                .background(Color.cyan)
+                                                .background(Color.ptMint)
                                                 .cornerRadius(16)
                                         }
                                         .disabled(breathPhase == .completing)

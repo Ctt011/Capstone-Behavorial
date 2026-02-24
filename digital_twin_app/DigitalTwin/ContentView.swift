@@ -36,31 +36,27 @@ struct OnboardingView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(.systemBackground), Color(.systemGray6)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
             VStack(spacing: 40) {
                 Spacer()
-                
+
                 ZStack {
                     Circle()
-                        .fill(Color.red.opacity(0.1))
+                        .fill(Color.ptTeal.opacity(0.1))
                         .frame(width: 180, height: 180)
                         .scaleEffect(heartScale)
                         .opacity(heartOpacity)
-                    
+
                     Circle()
-                        .fill(Color.red.opacity(0.15))
+                        .fill(Color.ptTeal.opacity(0.15))
                         .frame(width: 140, height: 140)
                         .scaleEffect(heartScale * 0.9)
-                    
+
                     Image(systemName: "heart.fill")
                         .font(.system(size: 70))
-                        .foregroundColor(.red)
+                        .foregroundColor(.ptTeal)
                         .scaleEffect(heartScale)
                 }
                 .onAppear {
@@ -69,15 +65,15 @@ struct OnboardingView: View {
                         heartOpacity = 0.4
                     }
                 }
-                
+
                 VStack(spacing: 16) {
-                    Text("Digital Twin")
+                    Text("PhysioTwin")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                    
-                    Text("Your personal health companion")
+
+                    Text("Your physiological digital twin")
                         .font(.title3)
-                        .foregroundColor(.secondary)
-                    
+                        .foregroundColor(.ptTeal)
+
                     Text("Connect your health data to get personalized insights, track trends, and understand your daily wellness patterns.")
                         .font(.body)
                         .foregroundColor(.secondary)
@@ -85,9 +81,9 @@ struct OnboardingView: View {
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
                 }
-                
+
                 Spacer()
-                
+
                 Button(action: {
                     healthKitManager.requestAuthorization()
                 }) {
@@ -102,7 +98,7 @@ struct OnboardingView: View {
                     .padding(.vertical, 18)
                     .background(
                         LinearGradient(
-                            colors: [.red, .red.opacity(0.8)],
+                            colors: [.ptTeal, .ptTealLight],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -111,7 +107,7 @@ struct OnboardingView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
-                
+
                 Text("Works with any wearable synced to Apple Health")
                     .font(.caption)
                     .foregroundColor(.secondary)

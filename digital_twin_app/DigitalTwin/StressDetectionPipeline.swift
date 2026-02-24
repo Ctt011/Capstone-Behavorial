@@ -765,9 +765,8 @@ class StressDetectionPipeline: ObservableObject {
         dateFormatter.timeStyle = .medium
         print("🔍 Pipeline HR fetch: window \(Int(windowMinutes))min (\(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now)))")
         print("   └─ Found \(hrSamples.count) HR samples (need \(Self.minHRSamplesForReliable)+ for reliable, \(Self.minHRSamplesForBasic)+ for basic)")
-        if !hrSamples.isEmpty {
-            let oldestSample = hrSamples.first!
-            let newestSample = hrSamples.last!
+        if let oldestSample = hrSamples.first,
+           let newestSample = hrSamples.last {
             print("   └─ Sample range: \(dateFormatter.string(from: oldestSample.timestamp)) - \(dateFormatter.string(from: newestSample.timestamp))")
             print("   └─ HR range: \(Int(hrSamples.map { $0.bpm }.min() ?? 0)) - \(Int(hrSamples.map { $0.bpm }.max() ?? 0)) BPM")
         }
