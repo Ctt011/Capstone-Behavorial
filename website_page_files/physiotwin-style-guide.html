@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhysioTwin — Unified Design System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ══════════════════════════════
+         PHYSIOTWIN — UNIFIED PALETTE
+         ══════════════════════════════ */
+
+      /* Primary — Sage Green family */
+      --sage:        #3D8B6E;   /* Primary accent — buttons, links, highlights */
+      --sage-light:  #5AAD8A;   /* Hover / active states */
+      --sage-dark:   #2A6650;   /* Pressed / deep accent */
+      --sage-pale:   #EAF4EF;   /* Background tints, chip fills */
+      --mint:        #A8D5C2;   /* Secondary accent — decorative, badges */
+      --teal:        #1B6F5E;   /* Deep action color, dark text on light bg */
+
+      /* Neutrals */
+      --slate:       #1E2A35;   /* Hero headings, darkest text */
+      --body:        #3D4C59;   /* Body text */
+      --muted:       #7A8FA0;   /* Captions, labels, meta */
+      --border:      #DDE6EC;   /* Dividers, card outlines */
+      --surface:     #F7FAFB;   /* Page / screen background */
+      --white:       #FFFFFF;
+
+      /* Semantic */
+      --error:       #D64550;
+      --warning:     #D4870A;
+      --success:     #3D8B6E;   /* Same as sage */
+      --info:        #2E7EBD;
+
+      /* ══════════════════════════════
+         TYPOGRAPHY
+         ══════════════════════════════ */
+      --font-head:  'Syne', sans-serif;        /* Display, H1–H3 */
+      --font-body:  'Inter', sans-serif;       /* Body, UI text */
+      --font-mono:  'JetBrains Mono', monospace; /* Code, labels, tags */
+
+      /* ══════════════════════════════
+         SHAPE & SHADOW
+         ══════════════════════════════ */
+      --r-sm:  6px;
+      --r-md:  12px;
+      --r-lg:  20px;
+      --r-xl:  28px;
+
+      --shadow-sm: 0 1px 3px rgba(30,42,53,.07), 0 1px 2px rgba(30,42,53,.04);
+      --shadow-md: 0 4px 16px rgba(30,42,53,.10);
+      --shadow-lg: 0 12px 40px rgba(30,42,53,.14);
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--surface);
+      color: var(--body);
+      line-height: 1.65;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 980px; margin: 0 auto; padding: 48px 28px 120px; }
+
+    /* ── COVER ── */
+    .cover {
+      background: var(--slate);
+      border-radius: var(--r-xl);
+      padding: 60px 56px;
+      margin-bottom: 72px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: -100px; right: -100px;
+      width: 440px; height: 440px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(90,173,138,.22) 0%, transparent 65%);
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: 50px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(168,213,194,.10) 0%, transparent 65%);
+    }
+    .cover-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--mint);
+      border: 1px solid rgba(168,213,194,.30);
+      padding: 5px 14px; border-radius: 999px;
+      margin-bottom: 24px; position: relative; z-index: 1;
+    }
+    .cover-tag-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--mint); display: inline-block;
+    }
+    .cover h1 {
+      font-family: var(--font-head);
+      font-size: 52px; font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.05;
+      color: var(--white);
+      margin-bottom: 14px;
+      position: relative; z-index: 1;
+    }
+    .cover h1 span { color: var(--mint); }
+    .cover p {
+      color: rgba(255,255,255,.55);
+      font-size: 16px; max-width: 520px; line-height: 1.7;
+      position: relative; z-index: 1;
+    }
+    .cover-meta {
+      display: flex; gap: 36px;
+      margin-top: 40px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      position: relative; z-index: 1;
+      flex-wrap: wrap;
+    }
+    .cover-meta-item .label { font-size: 10px; letter-spacing: .10em; text-transform: uppercase; color: rgba(255,255,255,.35); margin-bottom: 4px; font-family: var(--font-mono); }
+    .cover-meta-item .val { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: var(--white); }
+
+    /* ── SECTION ── */
+    .section { margin-bottom: 80px; }
+    .section-label {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--sage); margin-bottom: 10px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .section-title {
+      font-family: var(--font-head); font-size: 28px;
+      font-weight: 700; color: var(--slate);
+      letter-spacing: -0.02em; margin-bottom: 28px;
+    }
+    .section-desc {
+      font-size: 15px; color: var(--muted);
+      max-width: 620px; line-height: 1.75;
+      margin-bottom: 32px; margin-top: -12px;
+    }
+
+    /* ── COLOR SWATCHES ── */
+    .palette-strip {
+      display: flex; border-radius: var(--r-md);
+      overflow: hidden; height: 64px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+    }
+    .palette-strip div { flex: 1; }
+
+    .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .swatch {
+      border-radius: var(--r-md); overflow: hidden;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+    }
+    .swatch-color { height: 72px; }
+    .swatch-info { padding: 12px 14px; background: var(--white); }
+    .swatch-name { font-family: var(--font-head); font-size: 13px; font-weight: 600; color: var(--slate); }
+    .swatch-hex { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .swatch-use { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+    /* ── TYPOGRAPHY ── */
+    .type-stack { display: flex; flex-direction: column; gap: 16px; }
+    .type-row {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 24px 28px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .type-sample-text { line-height: 1.2; }
+    .type-meta { font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: right; line-height: 1.6; }
+    .t-display { font-family: var(--font-head); font-size: 44px; font-weight: 800; color: var(--slate); letter-spacing: -0.03em; }
+    .t-h1 { font-family: var(--font-head); font-size: 30px; font-weight: 700; color: var(--slate); letter-spacing: -0.02em; }
+    .t-h2 { font-family: var(--font-head); font-size: 22px; font-weight: 600; color: var(--slate); }
+    .t-h3 { font-family: var(--font-head); font-size: 17px; font-weight: 600; color: var(--slate); }
+    .t-body { font-family: var(--font-body); font-size: 15px; color: var(--body); }
+    .t-small { font-family: var(--font-body); font-size: 13px; color: var(--muted); }
+    .t-mono { font-family: var(--font-mono); font-size: 13px; color: var(--teal); background: var(--sage-pale); padding: 3px 9px; border-radius: 4px; display: inline-block; }
+
+    /* ── COMPONENTS ── */
+    .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .comp-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 28px;
+    }
+    .comp-card h4 {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .10em;
+      margin-bottom: 20px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn {
+      display: inline-block; font-family: var(--font-head);
+      font-size: 14px; font-weight: 600;
+      padding: 10px 22px; border-radius: var(--r-sm);
+      cursor: pointer; border: none; letter-spacing: -0.01em;
+    }
+    .btn-primary { background: var(--sage); color: var(--white); }
+    .btn-secondary { background: var(--sage-pale); color: var(--sage); }
+    .btn-outline { background: transparent; color: var(--sage); border: 1.5px solid var(--sage); }
+    .btn-ghost { background: transparent; color: var(--body); border: 1px solid var(--border); }
+    .btn-danger { background: #FEF0F0; color: var(--error); border: 1px solid #F9C9CB; }
+    .btn-pill { border-radius: 999px; }
+
+    /* Tags / Badges */
+    .tags-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag {
+      display: inline-block; font-family: var(--font-mono); font-size: 11px;
+      padding: 4px 12px; border-radius: 999px; letter-spacing: 0.04em;
+    }
+    .tag-green { background: var(--sage-pale); color: var(--teal); }
+    .tag-blue { background: #EBF4FD; color: var(--info); }
+    .tag-orange { background: #FEF4E6; color: var(--warning); }
+    .tag-red { background: #FEF0F0; color: var(--error); }
+    .tag-mint { background: rgba(168,213,194,.2); color: var(--teal); border: 1px solid rgba(168,213,194,.4); }
+
+    /* Card */
+    .demo-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 20px; box-shadow: var(--shadow-sm);
+    }
+    .demo-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .demo-card-icon {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      background: var(--sage-pale); display: flex; align-items: center; justify-content: center;
+    }
+    .demo-card-icon svg { width: 18px; height: 18px; stroke: var(--sage); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .demo-card-title { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: var(--slate); }
+    .demo-card-sub { font-size: 12px; color: var(--muted); }
+    .stat-row { display: flex; gap: 10px; margin-top: 12px; }
+    .mini-stat { flex: 1; background: var(--surface); border-radius: var(--r-sm); padding: 10px 12px; }
+    .mini-stat-val { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--slate); }
+    .mini-stat-label { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .mini-stat-delta { font-size: 11px; color: var(--sage); font-weight: 500; }
+
+    /* Alert */
+    .alert { border-radius: var(--r-sm); padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; font-size: 13px; }
+    .alert-success { background: var(--sage-pale); border-left: 3px solid var(--sage); color: var(--teal); }
+    .alert-info { background: #EBF4FD; border-left: 3px solid var(--info); color: #1D5A8B; }
+    .alert-warn { background: #FEF4E6; border-left: 3px solid var(--warning); color: #9A5E06; }
+
+    /* Inputs */
+    .input-label { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 5px; display: block; font-family: var(--font-body); }
+    .input-demo {
+      width: 100%; font-family: var(--font-body); font-size: 14px;
+      padding: 10px 14px; border-radius: var(--r-sm);
+      border: 1.5px solid var(--border); color: var(--slate);
+      background: var(--white); margin-bottom: 10px; outline: none;
+    }
+    .input-focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(61,139,110,.12); }
+
+    /* ── PLATFORM SPECS ── */
+    .platform-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .platform-card {
+      border-radius: var(--r-md); overflow: hidden;
+      border: 1px solid var(--border); background: var(--white);
+      box-shadow: var(--shadow-sm);
+    }
+    .platform-header {
+      padding: 16px 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .platform-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--sage-pale);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      color: var(--sage);
+    }
+    .platform-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--slate); }
+    .platform-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .platform-body { padding: 0 20px 20px; }
+    .spec-row { padding: 10px 0; border-top: 1px solid var(--border); }
+    .spec-key { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .06em; }
+    .spec-val { font-size: 13px; color: var(--slate); font-weight: 500; }
+    .spec-val code { font-family: var(--font-mono); font-size: 12px; color: var(--teal); background: var(--sage-pale); padding: 1px 6px; border-radius: 3px; }
+
+    /* ── CODE BLOCKS ── */
+    .code-block {
+      background: var(--slate); border-radius: var(--r-md);
+      padding: 20px 24px; overflow-x: auto; margin-top: 12px;
+    }
+    .code-block pre { font-family: var(--font-mono); font-size: 12px; line-height: 1.75; color: #C9D6E0; }
+    .code-block pre .k { color: var(--mint); }    /* keyword */
+    .code-block pre .s { color: #F4B860; }          /* string */
+    .code-block pre .c { color: #60778A; }          /* comment */
+    .code-block pre .v { color: #7EC8A4; }          /* variable */
+    .code-block pre .n { color: #A8D5C2; }          /* name */
+
+    .code-label {
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: 6px; display: block;
+    }
+
+    /* ── DO / DON'T ── */
+    .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+    .do-card, .dont-card { border-radius: var(--r-md); padding: 20px; }
+    .do-card { background: var(--sage-pale); border: 1px solid #BFE0D3; }
+    .dont-card { background: #FEF0F0; border: 1px solid #F9C9CB; }
+    .rule-head { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .10em; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 10px; }
+    .do-card .rule-head { color: var(--teal); border-bottom: 1px solid rgba(61,139,110,.2); }
+    .dont-card .rule-head { color: var(--error); border-bottom: 1px solid rgba(214,69,80,.2); }
+    .rule-item { font-size: 13px; color: var(--body); margin-bottom: 6px; padding-left: 16px; position: relative; line-height: 1.5; }
+    .rule-item::before { content: ''; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; }
+    .do-card .rule-item::before { background: var(--sage); }
+    .dont-card .rule-item::before { background: var(--error); }
+
+    /* ── PIPELINE REFERENCE ── */
+    .pipeline {
+      display: flex; align-items: stretch; gap: 0;
+      border-radius: var(--r-md); overflow: hidden;
+      border: 1px solid var(--border); margin-top: 4px;
+    }
+    .pipe-stage {
+      flex: 1; padding: 20px 18px;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .pipe-stage:last-child { border-right: none; }
+    .pipe-stage-num {
+      font-family: var(--font-mono); font-size: 10px;
+      text-transform: uppercase; letter-spacing: .10em;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .pipe-stage-title {
+      font-family: var(--font-head); font-size: 15px; font-weight: 700;
+      color: var(--slate); margin-bottom: 4px;
+    }
+    .pipe-stage-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .pipe-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 10px;
+      padding: 2px 8px; border-radius: 999px; margin-top: 8px;
+    }
+    .pipe-ml { background: var(--sage-pale); color: var(--teal); }
+    .pipe-rules { background: #EBF4FD; color: var(--info); }
+    .pipe-formula { background: #FEF4E6; color: var(--warning); }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 100px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .footer-text { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); display: inline-block; margin: 0 8px; vertical-align: middle; }
+
+    @media (max-width: 700px) {
+      .comp-grid, .platform-grid, .do-dont { grid-template-columns: 1fr; }
+      .cover h1 { font-size: 36px; }
+      .cover { padding: 36px 28px; }
+      .cover-meta { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="cover-tag"><span class="cover-tag-dot"></span> Design System v1.0</div>
+    <h1>PhysioTwin<br/><span>Style Guide</span></h1>
+    <p>A unified visual identity for the research poster, project website, and iOS application — grounded in biomedical clarity and modern minimalism.</p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <div class="label">Project</div>
+        <div class="val">PhysioTwin</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Accent Family</div>
+        <div class="val">Sage Green</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Heading Font</div>
+        <div class="val">Syne</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Body Font</div>
+        <div class="val">Inter</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Mode</div>
+        <div class="val">Light — Clean & Minimal</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: COLOR -->
+  <div class="section">
+    <div class="section-label">01 — Color</div>
+    <div class="section-title">Palette</div>
+    <p class="section-desc">Sage green is the hero color across all three deliverables. It reads as biomedical, trustworthy, and modern without being clinical or aggressive. Use it for primary actions, key data highlights, and interactive elements.</p>
+
+    <div class="palette-strip">
+      <div style="background:#1E2A35"></div>
+      <div style="background:#2A6650"></div>
+      <div style="background:#3D8B6E"></div>
+      <div style="background:#5AAD8A"></div>
+      <div style="background:#A8D5C2"></div>
+      <div style="background:#EAF4EF"></div>
+      <div style="background:#F7FAFB"></div>
+      <div style="background:#FFFFFF; border-right: 1px solid #DDE6EC;"></div>
+    </div>
+
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#3D8B6E"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Sage</div>
+          <div class="swatch-hex">#3D8B6E</div>
+          <div class="swatch-use">Primary accent — buttons, links, key data</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#5AAD8A"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Sage Light</div>
+          <div class="swatch-hex">#5AAD8A</div>
+          <div class="swatch-use">Hover, active, selected states</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#2A6650"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Sage Dark</div>
+          <div class="swatch-hex">#2A6650</div>
+          <div class="swatch-use">Pressed states, footer accents</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#A8D5C2"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Mint</div>
+          <div class="swatch-hex">#A8D5C2</div>
+          <div class="swatch-use">Secondary accent, decorative, badges</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#EAF4EF"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Sage Pale</div>
+          <div class="swatch-hex">#EAF4EF</div>
+          <div class="swatch-use">Tag backgrounds, icon fills, chip surfaces</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#1B6F5E"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Teal</div>
+          <div class="swatch-hex">#1B6F5E</div>
+          <div class="swatch-use">Deep action color, text on pale bg</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#1E2A35"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Slate</div>
+          <div class="swatch-hex">#1E2A35</div>
+          <div class="swatch-use">Hero backgrounds, headings, darkest text</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#3D4C59"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Body</div>
+          <div class="swatch-hex">#3D4C59</div>
+          <div class="swatch-use">All body/paragraph text</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#7A8FA0"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Muted</div>
+          <div class="swatch-hex">#7A8FA0</div>
+          <div class="swatch-use">Captions, labels, meta text</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#DDE6EC"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Border</div>
+          <div class="swatch-hex">#DDE6EC</div>
+          <div class="swatch-use">Card borders, dividers, separators</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F7FAFB"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Surface</div>
+          <div class="swatch-hex">#F7FAFB</div>
+          <div class="swatch-use">Page background, screen background</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FFFFFF; border: 1px solid #DDE6EC;"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">White</div>
+          <div class="swatch-hex">#FFFFFF</div>
+          <div class="swatch-use">Card surfaces, input fields, overlays</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic colors -->
+    <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+      <div class="swatch" style="min-width:140px; flex:1;">
+        <div class="swatch-color" style="background:#D64550"></div>
+        <div class="swatch-info"><div class="swatch-name">Error</div><div class="swatch-hex">#D64550</div></div>
+      </div>
+      <div class="swatch" style="min-width:140px; flex:1;">
+        <div class="swatch-color" style="background:#D4870A"></div>
+        <div class="swatch-info"><div class="swatch-name">Warning</div><div class="swatch-hex">#D4870A</div></div>
+      </div>
+      <div class="swatch" style="min-width:140px; flex:1;">
+        <div class="swatch-color" style="background:#3D8B6E"></div>
+        <div class="swatch-info"><div class="swatch-name">Success</div><div class="swatch-hex">#3D8B6E</div></div>
+      </div>
+      <div class="swatch" style="min-width:140px; flex:1;">
+        <div class="swatch-color" style="background:#2E7EBD"></div>
+        <div class="swatch-info"><div class="swatch-name">Info</div><div class="swatch-hex">#2E7EBD</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: TYPOGRAPHY -->
+  <div class="section">
+    <div class="section-label">02 — Typography</div>
+    <div class="section-title">Type Scale</div>
+    <p class="section-desc">Three typefaces, each with a clear role. Never mix heading fonts — Syne owns all display and headline text. Inter is for reading. JetBrains Mono is for labels, tags, and any technical/data content.</p>
+
+    <div class="type-stack">
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-display">PhysioTwin</span></div>
+        <div class="type-meta">Syne 800<br/>44px / −0.03em<br/>Display / Hero headlines</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-h1">Stress Detection Pipeline</span></div>
+        <div class="type-meta">Syne 700<br/>30px / −0.02em<br/>Page title / Section heading</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-h2">Stage 1: Activity Classifier</span></div>
+        <div class="type-meta">Syne 600<br/>22px<br/>Subsection / Card title</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-h3">LOSO Validation Results</span></div>
+        <div class="type-meta">Syne 600<br/>17px<br/>H3 / Label heading</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-body">A 3-stage hybrid pipeline that separates exercise from cognitive stress, adjusts for sleep quality, and scores stress against your personal baseline using wearable biosignals.</span></div>
+        <div class="type-meta">Inter 400<br/>15px / 1.65<br/>Body paragraph</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-small">Trained on WISE dataset · 22 subjects · 91.3% LOSO accuracy</span></div>
+        <div class="type-meta">Inter 400<br/>13px<br/>Caption / Meta text</div>
+      </div>
+      <div class="type-row">
+        <div class="type-sample-text"><span class="t-mono">ACC_mean · SDNN · HR_mean</span></div>
+        <div class="type-meta">JetBrains Mono 500<br/>13px<br/>Code / Labels / Tags / Data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: COMPONENTS -->
+  <div class="section">
+    <div class="section-label">03 — Components</div>
+    <div class="section-title">UI Components</div>
+
+    <div class="comp-grid">
+      <!-- Buttons -->
+      <div class="comp-card">
+        <h4>Buttons</h4>
+        <div class="btn-row">
+          <button class="btn btn-primary">Primary</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-outline">Outline</button>
+        </div>
+        <div class="btn-row" style="margin-top: 10px;">
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-primary btn-pill">Pill style</button>
+          <button class="btn btn-danger">Danger</button>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="comp-card">
+        <h4>Tags &amp; Badges</h4>
+        <div class="tags-row">
+          <span class="tag tag-green">ML · 93.6%</span>
+          <span class="tag tag-mint">Stage 1</span>
+          <span class="tag tag-blue">HealthKit</span>
+          <span class="tag tag-orange">Beta</span>
+          <span class="tag tag-red">Alert</span>
+        </div>
+        <div class="tags-row" style="margin-top: 10px;">
+          <span class="tag tag-green">COGNITIVE</span>
+          <span class="tag tag-green">PHYSICAL</span>
+          <span class="tag tag-blue">REST</span>
+          <span class="tag tag-orange">STRESS</span>
+        </div>
+      </div>
+
+      <!-- Data Card -->
+      <div class="comp-card">
+        <h4>Data Card</h4>
+        <div class="demo-card">
+          <div class="demo-card-header">
+            <div class="demo-card-icon">
+              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+              <div class="demo-card-title">Body Battery</div>
+              <div class="demo-card-sub">Live · Updated 2m ago</div>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="mini-stat">
+              <div class="mini-stat-val">73%</div>
+              <div class="mini-stat-label">Current</div>
+              <div class="mini-stat-delta">−4 this hr</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-val">42</div>
+              <div class="mini-stat-label">SDNN (ms)</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-val">68</div>
+              <div class="mini-stat-label">HR (bpm)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="comp-card">
+        <h4>Alerts &amp; Feedback</h4>
+        <div class="alert alert-success">✓ Activity classified: COGNITIVE — stress detection active</div>
+        <div class="alert alert-info">ℹ Sleep quality: 7.2 hrs — threshold adjusted to 0.55</div>
+        <div class="alert alert-warn">⚠ High stress signal detected — DC/AC ratio elevated</div>
+      </div>
+
+      <!-- Input -->
+      <div class="comp-card">
+        <h4>Inputs</h4>
+        <label class="input-label">Baseline window (days)</label>
+        <input class="input-demo" type="text" value="30" />
+        <label class="input-label">Stress threshold</label>
+        <input class="input-demo input-focus" type="text" value="0.60" style="border-color: var(--sage); box-shadow: 0 0 0 3px rgba(61,139,110,.12);"/>
+      </div>
+
+      <!-- Pipeline mini-map -->
+      <div class="comp-card">
+        <h4>Pipeline Reference</h4>
+        <div class="pipeline">
+          <div class="pipe-stage">
+            <div class="pipe-stage-num">Stage 1</div>
+            <div class="pipe-stage-title">Activity</div>
+            <div class="pipe-stage-desc">PHYSICAL vs COGNITIVE</div>
+            <span class="pipe-badge pipe-ml">ML · 93.6%</span>
+          </div>
+          <div class="pipe-stage">
+            <div class="pipe-stage-num">Stage 2</div>
+            <div class="pipe-stage-title">Sleep</div>
+            <div class="pipe-stage-desc">Threshold adjust</div>
+            <span class="pipe-badge pipe-rules">Rules</span>
+          </div>
+          <div class="pipe-stage">
+            <div class="pipe-stage-num">Stage 3</div>
+            <div class="pipe-stage-title">Stress</div>
+            <div class="pipe-stage-desc">DC/AC scoring</div>
+            <span class="pipe-badge pipe-formula">Formula</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: PLATFORM SPECS -->
+  <div class="section">
+    <div class="section-label">04 — Platform Specs</div>
+    <div class="section-title">Per-Platform Implementation</div>
+    <p class="section-desc">The same tokens applied across three different surfaces. The palette, fonts, and component patterns are identical — only the implementation syntax changes.</p>
+
+    <div class="platform-grid">
+
+      <!-- Website -->
+      <div class="platform-card">
+        <div class="platform-header">
+          <div class="platform-icon">WEB</div>
+          <div>
+            <div class="platform-name">Website</div>
+            <div class="platform-sub">HTML / CSS — Selina</div>
+          </div>
+        </div>
+        <div class="platform-body">
+          <div class="spec-row">
+            <div class="spec-key">Primary font</div>
+            <div class="spec-val"><code>Syne</code> via Google Fonts</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Body font</div>
+            <div class="spec-val"><code>Inter</code> via Google Fonts</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Accent</div>
+            <div class="spec-val"><code>#3D8B6E</code> (--sage)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Background</div>
+            <div class="spec-val"><code>#F7FAFB</code> (--surface)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Name shown</div>
+            <div class="spec-val">PhysioTwin</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Action needed</div>
+            <div class="spec-val">Replace #00C98A → #3D8B6E throughout Levy's index.html. Swap Syne font weight (already used). Update site title from "Pulse" → "PhysioTwin".</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Poster -->
+      <div class="platform-card">
+        <div class="platform-header">
+          <div class="platform-icon">PDF</div>
+          <div>
+            <div class="platform-name">Academic Poster</div>
+            <div class="platform-sub">LaTeX / Beamer — Essie</div>
+          </div>
+        </div>
+        <div class="platform-body">
+          <div class="spec-row">
+            <div class="spec-key">Primary color</div>
+            <div class="spec-val">RGB <code>61, 139, 110</code></div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Secondary</div>
+            <div class="spec-val">RGB <code>168, 213, 194</code> (mint)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Dark bg</div>
+            <div class="spec-val">RGB <code>30, 42, 53</code> (slate)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Current blocker</div>
+            <div class="spec-val">Poster uses <code>ucsdblue</code> — needs new color defs</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Font note</div>
+            <div class="spec-val">Use <code>\usepackage{fontspec}</code> + Syne if compiling with XeLaTeX; otherwise match visually with Helvetica/Fira Sans</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Action needed</div>
+            <div class="spec-val">Redefine <code>\definecolor{ptgreen}</code> and replace ucsdblue refs. See code block below.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- iOS App -->
+      <div class="platform-card">
+        <div class="platform-header">
+          <div class="platform-icon">iOS</div>
+          <div>
+            <div class="platform-name">iOS App</div>
+            <div class="platform-sub">SwiftUI / HealthKit — Dhyay</div>
+          </div>
+        </div>
+        <div class="platform-body">
+          <div class="spec-row">
+            <div class="spec-key">Primary</div>
+            <div class="spec-val">Color(red: 0.239, green: 0.545, blue: 0.431)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Sage Pale</div>
+            <div class="spec-val">Color(red: 0.918, green: 0.957, blue: 0.937)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Slate</div>
+            <div class="spec-val">Color(red: 0.118, green: 0.165, blue: 0.208)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Heading font</div>
+            <div class="spec-val"><code>.font(.custom("Syne-Bold", size: 28))</code></div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Body font</div>
+            <div class="spec-val">SF Pro (system default is fine)</div>
+          </div>
+          <div class="spec-row">
+            <div class="spec-key">Action needed</div>
+            <div class="spec-val">Add Syne .ttf to Xcode bundle. Define Color extension with named tokens. See code block below.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Poster LaTeX code -->
+    <div style="margin-top: 28px;">
+      <span class="code-label">Poster — LaTeX color definitions (replace ucsdblue)</span>
+      <div class="code-block"><pre><span class="c">% ── PhysioTwin color tokens ──────────────────────────</span>
+<span class="k">\definecolor</span>{ptgreen}{RGB}{<span class="s">61, 139, 110</span>}    <span class="c">% primary sage</span>
+<span class="k">\definecolor</span>{ptgreenlight}{RGB}{<span class="s">90, 173, 138</span>} <span class="c">% hover / accent</span>
+<span class="k">\definecolor</span>{ptmint}{RGB}{<span class="s">168, 213, 194</span>}    <span class="c">% secondary mint</span>
+<span class="k">\definecolor</span>{ptslate}{RGB}{<span class="s">30, 42, 53</span>}      <span class="c">% header dark bg</span>
+<span class="k">\definecolor</span>{ptbody}{RGB}{<span class="s">61, 76, 89</span>}       <span class="c">% body text</span>
+<span class="k">\definecolor</span>{ptmuted}{RGB}{<span class="s">122, 143, 160</span>}    <span class="c">% captions</span>
+<span class="k">\definecolor</span>{ptpale}{RGB}{<span class="s">234, 244, 239</span>}    <span class="c">% tinted backgrounds</span>
+
+<span class="c">% ── Then in sectionbox style, replace colframe=ucsdblue with: ──</span>
+<span class="k">\tcbset</span>{
+  sectionbox/.style={
+    colbacktitle=ptgreen,
+    colframe=ptgreen,
+    <span class="c">% ... rest unchanged</span>
+  }
+}
+
+<span class="c">% ── Header box: dark slate bg instead of blue ──</span>
+<span class="k">\begin</span>{tcolorbox}[colback=ptslate, colframe=ptslate, ...]</pre></div>
+    </div>
+
+    <!-- iOS SwiftUI code -->
+    <div style="margin-top: 20px;">
+      <span class="code-label">iOS — SwiftUI Color extension</span>
+      <div class="code-block"><pre><span class="c">// Add to a new file: Color+PhysioTwin.swift</span>
+<span class="k">import</span> SwiftUI
+
+<span class="k">extension</span> <span class="n">Color</span> {
+    <span class="k">static let</span> ptSage      = Color(red: <span class="s">0.239</span>, green: <span class="s">0.545</span>, blue: <span class="s">0.431</span>)
+    <span class="k">static let</span> ptSageLight = Color(red: <span class="s">0.353</span>, green: <span class="s">0.678</span>, blue: <span class="s">0.541</span>)
+    <span class="k">static let</span> ptSagePale  = Color(red: <span class="s">0.918</span>, green: <span class="s">0.957</span>, blue: <span class="s">0.937</span>)
+    <span class="k">static let</span> ptMint      = Color(red: <span class="s">0.659</span>, green: <span class="s">0.835</span>, blue: <span class="s">0.761</span>)
+    <span class="k">static let</span> ptTeal      = Color(red: <span class="s">0.106</span>, green: <span class="s">0.435</span>, blue: <span class="s">0.369</span>)
+    <span class="k">static let</span> ptSlate     = Color(red: <span class="s">0.118</span>, green: <span class="s">0.165</span>, blue: <span class="s">0.208</span>)
+    <span class="k">static let</span> ptBody      = Color(red: <span class="s">0.239</span>, green: <span class="s">0.298</span>, blue: <span class="s">0.349</span>)
+    <span class="k">static let</span> ptMuted     = Color(red: <span class="s">0.478</span>, green: <span class="s">0.561</span>, blue: <span class="s">0.627</span>)
+    <span class="k">static let</span> ptSurface   = Color(red: <span class="s">0.969</span>, green: <span class="s">0.980</span>, blue: <span class="s">0.984</span>)
+}
+
+<span class="c">// Usage example in BodyBatteryView:</span>
+<span class="n">Text</span>(<span class="s">"Body Battery"</span>)
+    .foregroundColor(.ptSlate)
+<span class="n">RoundedRectangle</span>(cornerRadius: <span class="s">12</span>)
+    .fill(Color.ptSagePale)
+<span class="n">Button</span>(<span class="s">"Measure Now"</span>) { }
+    .background(Color.ptSage)
+    .foregroundColor(.white)</pre></div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: DO / DON'T -->
+  <div class="section">
+    <div class="section-label">05 — Usage Rules</div>
+    <div class="section-title">Do &amp; Don't</div>
+
+    <div class="do-dont">
+      <div class="do-card">
+        <div class="rule-head">✓ Do</div>
+        <div class="rule-item">Use Syne for all headings across all deliverables</div>
+        <div class="rule-item">Use <code style="font-family: var(--font-mono); font-size: 12px; background: rgba(61,139,110,.15); padding: 1px 5px; border-radius: 3px;">#3D8B6E</code> as the primary accent everywhere</div>
+        <div class="rule-item">Use JetBrains Mono for tags, labels, and data readouts</div>
+        <div class="rule-item">Keep backgrounds light (#F7FAFB) — let the green do the work</div>
+        <div class="rule-item">Label pipeline stages consistently: Stage 1 / 2 / 3 with ML / Rules / Formula badges</div>
+        <div class="rule-item">Use "PhysioTwin" as the project name everywhere</div>
+      </div>
+      <div class="dont-card">
+        <div class="rule-head">✗ Don't</div>
+        <div class="rule-item">Don't use neon greens (#00E5A0) — they're too electric for print/academic contexts</div>
+        <div class="rule-item">Don't use UCSD blue as the primary color on the poster — it disconnects from the app/web</div>
+        <div class="rule-item">Don't use "Pulse" or "Digital Twin" — the project is now "PhysioTwin"</div>
+        <div class="rule-item">Don't mix Inter and DM Sans in the same deliverable</div>
+        <div class="rule-item">Don't use dark mode for the poster — print needs light backgrounds</div>
+        <div class="rule-item">Don't use color as the only differentiator for pipeline stages — use labels too</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-text">
+      PhysioTwin <span class="footer-dot"></span> DSC 180AB Capstone <span class="footer-dot"></span> UCSD HDSI <span class="footer-dot"></span> Style Guide v1.0
+    </div>
+    <div class="footer-text">
+      Camille · Dhyay · Levy · Essie · Selina · Mentor: T. Rahman
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
