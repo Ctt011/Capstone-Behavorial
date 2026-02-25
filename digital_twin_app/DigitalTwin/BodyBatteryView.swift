@@ -319,11 +319,15 @@ class BodyBatteryManager: ObservableObject {
     // Session tracking
     @Published var activeSession: ActiveRecoverySession? = nil
     
-    // Timer for 15-minute stress predictions
+    // Timer for 5-minute stress predictions
     private var stressPredictionTimer: Timer?
     private var isStressTimerStarted = false
     private var lastDrainAppliedAt: Date?
     private let drainDeduplicationWindowSeconds: TimeInterval = 4 * 60
+    
+    // Fractional drain accumulator: tracks sub-integer drain between ticks
+    // so that small per-interval drains (e.g. 0.37) aren't lost to rounding.
+    private var fractionalDrainAccumulator: Double = 0.0
     
     let destressActivities: [DestressActivity] = [
         DestressActivity(
@@ -412,11 +416,9 @@ class BodyBatteryManager: ObservableObject {
     // MARK: - Stress Prediction System
     
     /// Prediction interval in seconds
-    /// Research-backed: 5 minutes is optimal for HRV responsiveness (Firstbeat/Garmin standard)
-    /// - HRV responds to stressors within 2-3 minutes
-    /// - 5 minutes provides enough samples for statistical validity
-    /// - Balances battery life vs. granularity
-    private let stressPredictionIntervalSeconds: TimeInterval = 5 * 60  // 5 minutes
+    /// 15 minutes balances HRV responsiveness with battery life and keeps data compact.
+    /// The UI aggregates predictions into hourly averages for display.
+    private let stressPredictionIntervalSeconds: TimeInterval = 15 * 60  // 15 minutes
     
     /// Starts the stress prediction timer
     private func startStressPredictionTimerIfNeeded() {
@@ -429,11 +431,64 @@ class BodyBatteryManager: ObservableObject {
             await predictCurrentStress()
         }
         
-        // Then predict at research-backed interval (5 minutes)
+        // Then predict at configured interval
         stressPredictionTimer = Timer.scheduledTimer(withTimeInterval: stressPredictionIntervalSeconds, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.predictCurrentStress()
             }
+        }
+    }
+    
+    // MARK: - Hourly Stress Averages
+    
+    /// Represents one hour's aggregated stress data for compact UI display.
+    struct HourlyStressAverage: Identifiable {
+        let id = UUID()
+        let hour: Int              // 0-23
+        let hourLabel: String      // e.g. "9 AM"
+        let avgStressLevel: Int
+        let dominantType: StressType
+        let sampleCount: Int
+        let totalDrain: Int
+    }
+    
+    /// Aggregates `todayStressPredictions` into hourly averages for the UI.
+    var hourlyStressAverages: [HourlyStressAverage] {
+        let calendar = Calendar.current
+        // Group predictions by hour-of-day
+        let grouped = Dictionary(grouping: todayStressPredictions) { prediction in
+            calendar.component(.hour, from: prediction.timestamp)
+        }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h a" // e.g. "9 AM"
+        
+        return grouped.keys.sorted().map { hour in
+            let preds = grouped[hour]!
+            let avgLevel = preds.reduce(0) { $0 + $1.predictedStressLevel } / preds.count
+            let drain = preds.reduce(0) { $0 + $1.batteryDrain }
+            
+            // Dominant type for the hour
+            var typeCounts: [StressType: Int] = [:]
+            for p in preds {
+                typeCounts[p.stressType, default: 0] += 1
+            }
+            let dominant = typeCounts.max(by: { $0.value < $1.value })?.key ?? .none
+            
+            // Build hour label
+            var comps = DateComponents()
+            comps.hour = hour
+            let refDate = calendar.date(from: comps) ?? Date()
+            let label = formatter.string(from: refDate)
+            
+            return HourlyStressAverage(
+                hour: hour,
+                hourLabel: label,
+                avgStressLevel: avgLevel,
+                dominantType: dominant,
+                sampleCount: preds.count,
+                totalDrain: drain
+            )
         }
     }
     
@@ -455,9 +510,9 @@ class BodyBatteryManager: ObservableObject {
             return
         }
         
-        // Skip stress prediction if Apple Watch is not connected
-        if !linkedHealthKitManager.isAppleWatchConnected {
-            print("⌚ Skipping stress prediction — Apple Watch not detected")
+        // Skip stress prediction if Apple Watch data is stale or unavailable
+        if !linkedHealthKitManager.hasFreshAppleWatchData() {
+            print("⌚ Skipping stress prediction — Apple Watch data is stale or unavailable")
             return
         }
         
@@ -498,13 +553,12 @@ class BodyBatteryManager: ObservableObject {
         // Calculate battery drain for this interval
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
 
-        // Apply only when stress is truly elevated and avoid duplicate drains from overlapping sources
-        let shouldDrain = result.activityType == .cognitive && result.isStressed
+        // Drain applies proportionally for all cognitive/sedentary time.
+        // Physical activity is excluded (has its own drain via workouts).
+        let shouldDrain = result.activityType == .cognitive
         let appliedDrain: Int
-        if shouldDrain && shouldApplyStressDrain(
+        if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: result.timestamp,
-            stressLevel: stressLevel,
-            stressType: stressType,
             source: "pipeline-timer"
         ) {
             applyStressDrain(drain, at: result.timestamp, source: "pipeline-timer")
@@ -588,12 +642,10 @@ class BodyBatteryManager: ObservableObject {
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
 
         let fallbackTimestamp = Date()
-        let shouldDrain = stressLevel >= stressThreshold && (stressType == .cognitive || stressType == .mixed)
+        let shouldDrain = stressType != .physical  // Drain for all non-physical states
         let appliedDrain: Int
-        if shouldDrain && shouldApplyStressDrain(
+        if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: fallbackTimestamp,
-            stressLevel: stressLevel,
-            stressType: stressType,
             source: "fallback"
         ) {
             applyStressDrain(drain, at: fallbackTimestamp, source: "fallback")
@@ -623,17 +675,36 @@ class BodyBatteryManager: ObservableObject {
         print("📊 Fallback Stress: Level=\(stressLevel), Type=\(stressType.rawValue), Drain=\(drain)% (pipeline not configured)")
     }
     
-    /// Calculates battery drain for a 15-minute interval
+    /// Calculates battery drain for one timer interval using a gradual quadratic curve.
+    ///
+    /// Hourly drain targets (cognitive, multiplier 1.2):
+    ///   Stress   0 → ~1.0 %/hr  (basal metabolic drain)
+    ///   Stress  40 → ~2.5 %/hr
+    ///   Stress  60 → ~4.5 %/hr  (~72 % over a full 16-hr day → end ≈ 28 %)
+    ///   Stress  80 → ~7.1 %/hr
+    ///   Stress 100 → ~10.6 %/hr
+    ///
+    /// Timer fires every 15 min (1/4 hr), so per-tick values are hourly ÷ 4.
+    /// Uses a fractional accumulator so sub-1 % ticks aren't lost to rounding.
     private func calculateIntervalDrain(stressLevel: Int, stressType: StressType) -> Int {
-        // Base drain: 0.5% per 15 minutes at rest
-        // High stress: up to 3% per 15 minutes
-        
-        let baseDrain = 0.5
-        let stressFactor = Double(stressLevel) / 100.0
+        let stressFraction = Double(stressLevel) / 100.0
         let typeMul = stressType.drainMultiplier
         
-        let drain = baseDrain + (2.5 * stressFactor * typeMul)
-        return Int(ceil(drain))
+        // Quadratic curve: low stress barely drains, high stress ramps up
+        let baseDrainPerHour = 1.0   // Basal drain even at zero stress
+        let stressScale = 8.0        // Controls steepness of the curve
+        let hourlyDrain = baseDrainPerHour + stressScale * pow(stressFraction, 2.0) * typeMul
+        
+        // Convert hourly rate to the actual timer interval (5 min = 1/12 hr)
+        let intervalHours = stressPredictionIntervalSeconds / 3600.0
+        let intervalDrain = hourlyDrain * intervalHours
+        
+        // Accumulate fractional drain; only return whole points
+        fractionalDrainAccumulator += intervalDrain
+        let wholeDrain = Int(fractionalDrainAccumulator)
+        fractionalDrainAccumulator -= Double(wholeDrain)
+        
+        return wholeDrain
     }
     
     /// Applies stress drain to current battery
@@ -644,15 +715,9 @@ class BodyBatteryManager: ObservableObject {
         print("🔋 Applied stress drain: -\(drain)% (source=\(source))")
     }
 
-    private func shouldApplyStressDrain(at timestamp: Date, stressLevel: Int, stressType: StressType, source: String) -> Bool {
-        guard stressLevel >= stressThreshold else {
-            return false
-        }
-
-        guard stressType == .cognitive || stressType == .mixed else {
-            return false
-        }
-
+    private func shouldApplyStressDrain(at timestamp: Date, source: String) -> Bool {
+        // Only deduplication guard — threshold/type gating removed so drain is always
+        // proportional to stress level via the quadratic formula.
         if let lastApplied = lastDrainAppliedAt,
            timestamp.timeIntervalSince(lastApplied) < drainDeduplicationWindowSeconds {
             print("⏭️ Skipping duplicate drain (source=\(source), delta=\(Int(timestamp.timeIntervalSince(lastApplied)))s)")
@@ -1386,6 +1451,12 @@ class BodyBatteryManager: ObservableObject {
     ) {
         rolloverToTodayIfNeeded()
 
+        guard let linkedHealthKitManager = healthKitManager,
+              linkedHealthKitManager.hasFreshAppleWatchData() else {
+            print("⌚ Skipping background pipeline battery update — stale Apple Watch data")
+            return
+        }
+
         // Map activity type to stress type
         let stressType: StressType
         if activityType == "PHYSICAL" {
@@ -1396,15 +1467,12 @@ class BodyBatteryManager: ObservableObject {
             stressType = .cognitive
         }
         
-        // Calculate potential drain
+        // Calculate potential drain (proportional via quadratic formula)
         let drain = calculateIntervalDrain(stressLevel: stressScore, stressType: stressType)
-        let effectiveThreshold = max(stressThreshold, adjustedThreshold)
-        let shouldDrain = activityType == "COGNITIVE" && isStressed && stressScore >= effectiveThreshold
+        let shouldDrain = activityType == "COGNITIVE"  // Always drain during cognitive time
         let appliedDrain: Int
-        if shouldDrain && shouldApplyStressDrain(
+        if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: timestamp,
-            stressLevel: stressScore,
-            stressType: stressType,
             source: "pipeline-background"
         ) {
             applyStressDrain(drain, at: timestamp, source: "pipeline-background")
@@ -1900,38 +1968,55 @@ struct StressTypeBreakdownCard: View {
                 .cornerRadius(12)
             }
 
-            // Detected times
+            // Hourly detected episodes (aggregated)
             let allEpisodes = (cognitiveEpisodes + physicalEpisodes)
                 .sorted { $0.timestamp < $1.timestamp }
 
             if !allEpisodes.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("DETECTED EPISODES")
+                    Text("HOURLY BREAKDOWN")
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundColor(.secondary)
 
-                    ForEach(allEpisodes.suffix(6)) { episode in
+                    let hourlyGroups = Dictionary(grouping: allEpisodes) { episode in
+                        Calendar.current.component(.hour, from: episode.timestamp)
+                    }
+
+                    ForEach(hourlyGroups.keys.sorted(), id: \.self) { hour in
+                        let episodes = hourlyGroups[hour]!
+                        let avgLevel = episodes.reduce(0) { $0 + $1.predictedStressLevel } / episodes.count
+                        // Dominant type for the hour
+                        let typeCounts = Dictionary(grouping: episodes, by: { $0.stressType })
+                        let dominant = typeCounts.max(by: { $0.value.count < $1.value.count })?.key ?? .none
+                        let hourLabel: String = {
+                            let f = DateFormatter()
+                            f.dateFormat = "h a"
+                            var c = DateComponents()
+                            c.hour = hour
+                            return f.string(from: Calendar.current.date(from: c) ?? Date())
+                        }()
+
                         HStack(spacing: 10) {
-                            Image(systemName: episode.stressType.icon)
+                            Image(systemName: dominant.icon)
                                 .font(.caption)
-                                .foregroundColor(episode.stressType.color)
+                                .foregroundColor(dominant.color)
                                 .frame(width: 22, height: 22)
-                                .background(episode.stressType.color.opacity(0.12))
+                                .background(dominant.color.opacity(0.12))
                                 .cornerRadius(6)
 
-                            Text(episode.stressType.rawValue)
+                            Text(dominant.rawValue)
                                 .font(.caption)
-                                .foregroundColor(episode.stressType.color)
+                                .foregroundColor(dominant.color)
                                 .fontWeight(.medium)
 
                             Spacer()
 
-                            Text("Level \(episode.predictedStressLevel)")
+                            Text("Avg \(avgLevel)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
 
-                            Text(formatTime(episode.timestamp))
+                            Text(hourLabel)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                                 .monospacedDigit()
@@ -2267,39 +2352,55 @@ struct TodayStressSummaryCard: View {
     }
 }
 
-// MARK: - Stress Timeline View
+// MARK: - Stress Timeline View (Hourly Averages)
 struct StressTimelineView: View {
     let predictions: [StressPrediction]
     
+    /// Aggregate raw predictions into hourly buckets for a compact display.
+    private var hourlyBuckets: [(hour: String, avgLevel: Int)] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: predictions) { p in
+            calendar.component(.hour, from: p.timestamp)
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "ha" // e.g. "9AM"
+        
+        return grouped.keys.sorted().map { hour in
+            let preds = grouped[hour]!
+            let avg = preds.reduce(0) { $0 + $1.predictedStressLevel } / preds.count
+            var comps = DateComponents()
+            comps.hour = hour
+            let refDate = calendar.date(from: comps) ?? Date()
+            return (hour: formatter.string(from: refDate), avgLevel: avg)
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("STRESS TIMELINE")
+            Text("HOURLY STRESS")
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
             
             GeometryReader { geometry in
-                HStack(spacing: 2) {
-                    ForEach(predictions.suffix(12)) { prediction in
-                        Rectangle()
-                            .fill(colorForStress(prediction.predictedStressLevel))
-                            .frame(height: heightForStress(prediction.predictedStressLevel, maxHeight: 30))
-                            .cornerRadius(2)
+                HStack(spacing: 4) {
+                    ForEach(Array(hourlyBuckets.enumerated()), id: \.offset) { _, bucket in
+                        VStack(spacing: 2) {
+                            Rectangle()
+                                .fill(colorForStress(bucket.avgLevel))
+                                .frame(height: heightForStress(bucket.avgLevel, maxHeight: 30))
+                                .cornerRadius(3)
+                            Text(bucket.hour)
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 30)
-            
-            HStack {
-                Text("Earlier")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("Now")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
+            .frame(height: 44)
         }
     }
     
@@ -2653,6 +2754,7 @@ struct InsightCard: View {
 
 struct WeeklyTrendsCard: View {
     @ObservedObject var batteryManager: BodyBatteryManager
+    @Environment(\.colorScheme) private var colorScheme
 
     private let calendar = Calendar.current
 
@@ -2732,11 +2834,11 @@ struct WeeklyTrendsCard: View {
                     .font(.caption)
                 Text(trendText)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(colorScheme == .dark ? .white.opacity(0.9) : .ptBody)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.ptSurface)
+            .background(colorScheme == .dark ? Color(.tertiarySystemBackground) : Color.ptSurface)
             .cornerRadius(10)
 
             // Stats row

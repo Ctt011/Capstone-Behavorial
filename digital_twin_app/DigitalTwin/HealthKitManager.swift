@@ -292,6 +292,8 @@ class HealthKitManager: ObservableObject {
     // Apple Watch connectivity
     @Published var isAppleWatchConnected: Bool = false
     @Published var appleWatchLastSeen: Date?
+    private let watchActiveDataWindow: TimeInterval = 15 * 60 // 15 minutes
+    private let watchStatusLookbackWindow: TimeInterval = 2 * 60 * 60 // 2 hours
     
     // Metrics with timestamps
     @Published var sleepMetric = HealthMetric<Double>()
@@ -411,9 +413,7 @@ class HealthKitManager: ObservableObject {
         }
         
         let now = Date()
-        let activeWatchWindow: TimeInterval = 60 * 60   // treat as connected if seen within last hour
-        let lookbackWindow: TimeInterval = 2 * 60 * 60  // search enough history to find watch-origin samples
-        let lookbackStart = now.addingTimeInterval(-lookbackWindow)
+        let lookbackStart = now.addingTimeInterval(-watchStatusLookbackWindow)
         let predicate = HKQuery.predicateForSamples(withStart: lookbackStart, end: now, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         
@@ -457,7 +457,7 @@ class HealthKitManager: ObservableObject {
                 let lastSeen = latestWatchSample?.startDate
                 let isConnected: Bool
                 if let lastSeen = lastSeen {
-                    isConnected = now.timeIntervalSince(lastSeen) <= activeWatchWindow
+                    isConnected = now.timeIntervalSince(lastSeen) <= watchActiveDataWindow
                 } else {
                     isConnected = false
                 }
@@ -476,13 +476,23 @@ class HealthKitManager: ObservableObject {
             print("⌚ Apple Watch NOT detected — stress prediction disabled")
         }
     }
+
+    /// Returns true only when Apple Watch has provided data recently enough
+    /// to be considered valid for real-time stress and battery updates.
+    func hasFreshAppleWatchData(maxAge: TimeInterval? = nil) -> Bool {
+        guard isAppleWatchConnected, let lastSeen = appleWatchLastSeen else {
+            return false
+        }
+        let allowedAge = maxAge ?? watchActiveDataWindow
+        return Date().timeIntervalSince(lastSeen) <= allowedAge
+    }
     
     // MARK: - Activity Classification
     
     /// Runs the activity classification pipeline if enough time has passed
     func runActivityClassificationIfNeeded() async {
         // Skip classification if Apple Watch is not connected
-        guard isAppleWatchConnected else {
+        guard hasFreshAppleWatchData() else {
             print("⌚ Skipping activity classification — Apple Watch not detected")
             return
         }
@@ -1218,6 +1228,59 @@ class HealthKitManager: ObservableObject {
         }
     }
     
+    /// Checks whether the user is currently in an active workout session
+    /// recorded on the Apple Watch (walking, running, etc.).
+    /// Returns the workout if one is currently in progress (started but not yet ended).
+    func fetchActiveWorkout() async -> HKWorkout? {
+        let workoutType = HKObjectType.workoutType()
+        let now = Date()
+        // Look back up to 4 hours for an ongoing workout
+        let lookback = now.addingTimeInterval(-4 * 3600)
+        let predicate = HKQuery.predicateForSamples(withStart: lookback, end: now, options: .strictStartDate)
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: workoutType,
+                                      predicate: predicate,
+                                      limit: 5,
+                                      sortDescriptors: [sortDescriptor]) { _, samples, _ in
+                guard let workouts = samples as? [HKWorkout] else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                // A workout is "active" if its endDate is very recent (within 60s)
+                // or effectively equal to now (some apps set endDate = startDate while active)
+                for w in workouts {
+                    if w.endDate.timeIntervalSince(w.startDate) < 5 || now.timeIntervalSince(w.endDate) < 60 {
+                        continuation.resume(returning: w)
+                        return
+                    }
+                }
+                continuation.resume(returning: nil)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Fetches total step count for the last N minutes as a single number.
+    /// More reliable than per-minute buckets because HealthKit may batch-deliver steps.
+    func fetchTotalSteps(minutes: Int) async -> Double {
+        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return 0 }
+        let now = Date()
+        let startTime = now.addingTimeInterval(-Double(minutes * 60))
+        let predicate = HKQuery.predicateForSamples(withStart: startTime, end: now, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: stepType,
+                                          quantitySamplePredicate: predicate,
+                                          options: .cumulativeSum) { _, result, _ in
+                let steps = result?.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                continuation.resume(returning: steps)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     private func fetchTodayWorkouts() async -> ([WorkoutSummary], Date?) {
         let workoutType = HKObjectType.workoutType()
         let now = Date()

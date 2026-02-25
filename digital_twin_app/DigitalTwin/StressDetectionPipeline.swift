@@ -784,14 +784,69 @@ class StressDetectionPipeline: ObservableObject {
         // Fetch real steps for the same window with proper statistics
         // This replaces the previous hardcoded stepsStd with real variability calculation
         let (stepsPerMin, stepsStd) = await healthKitManager.fetchStepsStatistics(minutes: Int(windowMinutes))
+        
+        // Also fetch total steps (more reliable than per-minute buckets for rule-based check)
+        let totalSteps = await healthKitManager.fetchTotalSteps(minutes: Int(windowMinutes))
+        let avgStepsPerMinFromTotal = totalSteps / max(1, windowMinutes)
+
+        // ── PRE-STAGE: Rule-Based Physical Activity Override ────────────
+        // The ML model was trained on raw accelerometer g-force, but we feed it
+        // steps-per-minute which is a completely different scale. This rule-based
+        // check fires FIRST and overrides the model when walking/running signals
+        // are unambiguous.
+        var overridePhysical = false
+        var overrideConfidence = 0.0
+        var overrideReason = ""
+        
+        // Check 1: Active HKWorkout session on Apple Watch
+        let activeWorkout = await healthKitManager.fetchActiveWorkout()
+        if activeWorkout != nil {
+            overridePhysical = true
+            overrideConfidence = 0.95
+            overrideReason = "Active HKWorkout session detected"
+        }
+        
+        // Check 2: Step count above walking threshold
+        // Normal walking = 80-130 steps/min. Even slow walking ~50 steps/min.
+        // Threshold: 30+ steps/min averaged over the window = clearly moving.
+        if !overridePhysical && avgStepsPerMinFromTotal >= 30 {
+            overridePhysical = true
+            overrideConfidence = min(1.0, avgStepsPerMinFromTotal / 100.0)
+            overrideReason = "High step rate: \(String(format: "%.0f", avgStepsPerMinFromTotal)) steps/min (total: \(Int(totalSteps)))"
+        }
+        
+        // Check 3: Even modest steps (15+/min) with elevated HR = physical
+        if !overridePhysical && avgStepsPerMinFromTotal >= 15,
+           let hr = hrMean, hr > 85 {
+            overridePhysical = true
+            overrideConfidence = 0.80
+            overrideReason = "Moderate steps (\(String(format: "%.0f", avgStepsPerMinFromTotal))/min) + elevated HR (\(Int(hr)) BPM)"
+        }
+        
+        if overridePhysical {
+            print("🏃 Rule-based PHYSICAL override: \(overrideReason)")
+        }
 
         // ── STAGE 1: Activity Classification ────────────────────────────
-        let (activityType, confidence) = activityClassifier.classify(
-            hrMean: hrMean,
-            hrStd: hrStd,
-            accMean: stepsPerMin,  // Real steps per minute mean from HealthKit
-            accStd: stepsStd       // Real step variability from minute-by-minute buckets
-        )
+        // Use rule-based override if triggered, otherwise fall back to ML model
+        let activityType: ClassifiedActivityType
+        let confidence: Double
+        
+        if overridePhysical {
+            activityType = .physical
+            confidence = overrideConfidence
+        } else {
+            let (mlType, mlConf) = activityClassifier.classify(
+                hrMean: hrMean,
+                hrStd: hrStd,
+                accMean: stepsPerMin,  // Note: scale mismatch with training data
+                accStd: stepsStd
+            )
+            activityType = mlType
+            confidence = mlConf
+        }
+        
+        print("📋 Activity Classification: \(activityType.rawValue) (confidence: \(String(format: "%.2f", confidence)), steps/min: \(String(format: "%.1f", avgStepsPerMinFromTotal)), total steps: \(Int(totalSteps)))")
 
         // ── STAGE 2: Sleep Threshold Adjustment ─────────────────────────
         // Fetch 30-day sleep baseline if not cached
