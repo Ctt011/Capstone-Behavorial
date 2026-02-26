@@ -10,6 +10,7 @@
 		020334D32F3B04E20010F178 /* StressDetectionPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020334D22F3B04E20010F178 /* StressDetectionPipeline.swift */; };
 		020334D52F3B04FC0010F178 /* ActivityClassifier_preprocessing.json in Resources */ = {isa = PBXBuildFile; fileRef = 020334D42F3B04FC0010F178 /* ActivityClassifier_preprocessing.json */; };
 		020334D72F3B05010010F178 /* ActivityClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 020334D62F3B05010010F178 /* ActivityClassifier.mlmodel */; };
+		020EE6552F510F8000E70379 /* CitationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020EE6542F510F8000E70379 /* CitationsView.swift */; };
 		027F471D2F244B67003E6708 /* ActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027F471C2F244B67003E6708 /* ActivityManager.swift */; };
 		027F471F2F244B68003E6708 /* BodyBatteryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027F471E2F244B68003E6708 /* BodyBatteryView.swift */; };
 		A1000001226B8D7A00F12345 /* DigitalTwinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000226B8D7A00F12345 /* DigitalTwinApp.swift */; };
@@ -27,6 +28,7 @@
 		020334D42F3B04FC0010F178 /* ActivityClassifier_preprocessing.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ActivityClassifier_preprocessing.json; sourceTree = "<group>"; };
 		020334D62F3B05010010F178 /* ActivityClassifier.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = ActivityClassifier.mlmodel; sourceTree = "<group>"; };
 		020334D92F3B05370010F178 /* DigitalTwin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DigitalTwin.entitlements; sourceTree = "<group>"; };
+		020EE6542F510F8000E70379 /* CitationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationsView.swift; sourceTree = "<group>"; };
 		027F471C2F244B67003E6708 /* ActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityManager.swift; sourceTree = "<group>"; };
 		027F471E2F244B68003E6708 /* BodyBatteryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBatteryView.swift; sourceTree = "<group>"; };
 		A0FFFFF0226B8D7A00F12345 /* DigitalTwin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DigitalTwin.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -78,6 +80,7 @@
 				027F471E2F244B68003E6708 /* BodyBatteryView.swift */,
 				020334D22F3B04E20010F178 /* StressDetectionPipeline.swift */,
 				A1000006226B8D7B00F12345 /* HealthKitManager.swift */,
+				020EE6542F510F8000E70379 /* CitationsView.swift */,
 				020334D62F3B05010010F178 /* ActivityClassifier.mlmodel */,
 				A1000012226B8D7B00F12345 /* AddActivityView.swift */,
 				A1000014226B8D7B00F12345 /* Theme.swift */,
@@ -174,6 +177,7 @@
 				027F471F2F244B68003E6708 /* BodyBatteryView.swift in Sources */,
 				A1000007226B8D7B00F12345 /* HealthKitManager.swift in Sources */,
 				020334D72F3B05010010F178 /* ActivityClassifier.mlmodel in Sources */,
+				020EE6552F510F8000E70379 /* CitationsView.swift in Sources */,
 				A1000011226B8D7B00F12345 /* Frameworks in Sources */,
 				A1000013226B8D7B00F12345 /* AddActivityView.swift in Sources */,
 				A1000015226B8D7B00F12345 /* Theme.swift in Sources */,
@@ -311,7 +315,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5CXN5G9Q6F;
+				DEVELOPMENT_TEAM = K4L6T6JMX9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalTwin/Info.plist;
@@ -331,7 +335,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.camille.digitaltwin;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dhyaythak.digitaltwin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -349,7 +353,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5CXN5G9Q6F;
+				DEVELOPMENT_TEAM = K4L6T6JMX9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalTwin/Info.plist;
@@ -369,7 +373,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.camille.digitaltwin;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dhyaythak.digitaltwin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;

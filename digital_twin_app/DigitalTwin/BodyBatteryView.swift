@@ -1656,6 +1656,7 @@ struct BodyBatteryView: View {
     @State private var selectedDate = Date()
     @State private var showingBreathingExercise = false
     @State private var showingCalendar = false
+    @State private var showingCitations = false
     @State private var activeSection: String = "Stress"
 
     private let sections = ["Stress", "Sleep", "Activity", "Insights", "Health"]
@@ -1844,6 +1845,18 @@ struct BodyBatteryView: View {
             .background(backgroundColor.ignoresSafeArea())
             .navigationTitle("Body Battery")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingCitations = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 16))
+                            .foregroundColor(.ptTeal)
+                    }
+                    .accessibilityLabel("Sources & Citations")
+                }
+            }
             .refreshable {
                 await healthKitManager.refreshAllData()
                 batteryManager.updateStressPrediction(
@@ -1872,6 +1885,9 @@ struct BodyBatteryView: View {
         }
         .sheet(isPresented: $showingBreathingExercise) {
             BreathingExerciseView(batteryManager: batteryManager)
+        }
+        .sheet(isPresented: $showingCitations) {
+            CitationsView()
         }
     }
 }
