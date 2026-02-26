@@ -414,6 +414,7 @@ class HealthKitManager: ObservableObject {
         
         let now = Date()
         let lookbackStart = now.addingTimeInterval(-watchStatusLookbackWindow)
+        let activeDataWindow = watchActiveDataWindow
         let predicate = HKQuery.predicateForSamples(withStart: lookbackStart, end: now, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
         
@@ -457,7 +458,7 @@ class HealthKitManager: ObservableObject {
                 let lastSeen = latestWatchSample?.startDate
                 let isConnected: Bool
                 if let lastSeen = lastSeen {
-                    isConnected = now.timeIntervalSince(lastSeen) <= watchActiveDataWindow
+                    isConnected = now.timeIntervalSince(lastSeen) <= activeDataWindow
                 } else {
                     isConnected = false
                 }
