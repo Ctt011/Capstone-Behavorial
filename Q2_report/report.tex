@@ -20,7 +20,7 @@
   {\tt dthakrar@ucsd.edu} \\\And
   Levy Sahoo \\
   {\tt slsahoo@ucsd.edu} \\\And
-  Essie Chang \\
+  Essie Cheng \\
   {\tt e3cheng@ucsd.edu} \\\And
   Selina Zhang \\
   {\tt xiz154@ucsd.edu} \\\And
@@ -291,35 +291,96 @@ To evaluate whether DC/AC metrics distinguish stress from rest in the WISE datas
 
 \subsection{Stage 1: Activity Classification}
 
-% TODO: Add table with LOSO results (3-class vs 2-class comparison)
-% TODO: Add confusion matrix for final 2-class model
-% TODO: Add feature importance plot (ACC_mean 52%, ACC_std 25%, HR_mean 13%, HR_std 10%)
+Our initial three-class activity classifier (COGNITIVE vs.\ AEROBIC vs.\ ANAEROBIC) achieved 91.3\% LOSO accuracy with a Random Forest, but suffered from severe class imbalance: the ANAEROBIC class contained only 68 windows compared to 1,968 for AEROBIC and 413 for COGNITIVE. This imbalance manifested as 46\% recall for ANAEROBIC and 86\% precision for COGNITIVE---meaning 14\% of windows predicted as ``cognitive'' were actually exercise, which would leak false stress detections to downstream stages.
+
+Since the pipeline only needs to distinguish exercise from non-exercise (not the type of exercise), we merged AEROBIC and ANAEROBIC into a single PHYSICAL class. Table~\ref{tab:stage1-comparison} summarizes the improvement.
+
+\begin{table}[H]
+\centering
+\caption{3-class vs.\ 2-class activity classification (LOSO, Random Forest).}
+\label{tab:stage1-comparison}
+\begin{tabular}{llll}
+\toprule
+\textbf{Formulation} & \textbf{Classes} & \textbf{LOSO Accuracy} & \textbf{$F_1$ Macro} \\
+\midrule
+3-class & COG / AER / ANA & 91.3\% & 0.713 \\
+\textbf{2-class} & \textbf{COG / PHYSICAL} & \textbf{93.6\%} & \textbf{0.91} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The confusion matrix for the final 2-class model (Figure~\ref{fig:confusion-matrix}) shows that the primary source of error is COGNITIVE windows misclassified as PHYSICAL (94 out of 413, 22.8\%). In practice, this is the safer failure mode: it means some cognitive stress episodes are missed rather than exercise being misidentified as stress.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{figure/confusion_matrix.png}
+\caption{Confusion matrix for the 2-class Stage~1 activity classifier evaluated via LOSO cross-validation (22 folds). The model correctly identifies 96.7\% of PHYSICAL windows and 77.2\% of COGNITIVE windows.}
+\label{fig:confusion-matrix}
+\end{figure}
+
+Feature importance analysis (Figure~\ref{fig:feature-importance}) reveals that movement features dominate: ACC\_mean (45.7\%) and ACC\_std (34.2\%) together account for 79.9\% of the Random Forest's discriminative power. Heart rate features contribute modestly (HR\_mean 12.8\%, HR\_std 7.3\%). This aligns with the physical intuition that exercise is most reliably distinguished from cognitive activity by movement intensity, not heart rate---which can be elevated by either physical exertion or psychological stress.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{figure/feature_importance.png}
+\caption{Random Forest feature importance for the 2-class activity classifier. Accelerometer features (ACC) account for 79.9\% of importance, confirming movement as the primary distinguisher between physical activity and cognitive states.}
+\label{fig:feature-importance}
+\end{figure}
 
 \subsection{Negative Results: Why Pure ML Stress Detection Failed}
 
-% TODO: Report stress regression R² = -0.035
-% TODO: Report binary classifier F1 = 0.46 (predicts mostly REST)
-% TODO: Compare with literature: Velmovitsky 55-64%, Bahameish F1=0.56
-% TODO: Discuss class imbalance (2860 REST vs 413 STRESS = 87:13)
-% TODO: Feature ablation showing features don't matter for Stage 2 (~85.5% all configs)
+Before adopting the hybrid architecture, we attempted two pure ML approaches to stress detection within the COGNITIVE windows identified by Stage~1.
+
+\paragraph{Stress Regression.} We trained a Random Forest regressor to predict continuous stress levels from the same physiological features, using LOSO cross-validation. The resulting $R^2 = -0.035$, meaning the model performed \emph{worse} than simply predicting the population mean for every subject. This is a clear signal that 22 subjects do not provide sufficient variance for machine learning to capture the subtle, person-specific physiological patterns of graded stress.
+
+\paragraph{Binary Stress Classification.} We also attempted binary classification (STRESS vs.\ REST), which should be easier than regression. The best classifier achieved $F_1 = 0.46$, driven by extreme class imbalance: the STRESS protocol produced 413 stress windows but 2,860 rest windows (87:13 ratio), causing the model to default to predicting REST for nearly all inputs.
+
+\paragraph{Feature Ablation.} Systematic feature ablation for the stress task showed that changing the feature set had virtually no impact on performance---all configurations hovered around 85.5\% accuracy, which simply reflects the base rate of the majority class. When all feature sets produce the same accuracy, the model is not learning signal; it is learning class proportions.
+
+\paragraph{Context in Literature.} These negative results are consistent with the broader literature. \cite{velmovitsky2022smartwatch} achieved only 55--64\% accuracy on stress detection with 33 Apple Watch subjects---more data than WISE provides---and \cite{bahameish2022stress} reported $F_1 = 0.56$ for stress versus neutral classification. The challenge is not implementation quality but fundamental data limitations: physiological stress responses vary substantially between individuals, and small datasets cannot capture this person-specific variance.
 
 \subsection{DC/AC Validation on WISE IBI Data}
 
-% TODO: Report paired t-test results (p=0.51 — NOT significant)
-% TODO: Discuss why this supports hybrid approach rather than undermining it
-% TODO: Note that DC/AC works better with personal baselines than population-level comparison
+We computed DC and AC values from the WISE inter-beat interval (IBI) data for each subject's STRESS and REST segments, then conducted paired $t$-tests to determine whether DC/AC metrics differ significantly between stress and rest at the population level.
+
+The result was $p = 0.51$ (not significant), meaning DC/AC values computed from WISE IBI data do \emph{not} reliably distinguish stress from rest across subjects. This finding has two important implications:
+
+First, it confirms that population-level thresholds for DC/AC-based stress detection are unreliable with small samples. Individual baseline DC/AC values vary widely, and a threshold that works for one subject may misclassify another. This validates our design choice in Stage~3 to compare each user's current DC/AC values against their \emph{own} rolling 7-day baseline rather than a fixed population threshold.
+
+Second, the non-significant result does not invalidate the PRSA method itself. DC/AC was originally developed for cardiac mortality prediction \citep{bauer2006prsa}, where between-group differences are large. For stress detection, within-subject changes are more relevant than between-group differences, and the WISE dataset's controlled protocols may produce smaller DC/AC shifts than real-world sustained stress. The personal baseline approach in our deployed system is designed to detect these within-subject deviations.
+
+\subsection{Sleep Quality Validation on PMData}
+
+To validate the sleep-based threshold adjustment in Stage~2, we compared our sleep quality formula against the Fitbit-computed sleep scores in the PMData dataset \citep{thambawita2020pmdata}. PMData provides daily Fitbit sleep scores alongside self-reported stress levels for free-living participants, enabling validation in a naturalistic setting.
+
+Our sleep quality formula (a weighted combination of sleep duration, continuity, sleep stage proportions, and physiological recovery) achieved a Pearson correlation of $r = 0.765$ against Fitbit's proprietary sleep score. This strong correlation suggests that our transparent, formula-based approach captures the same underlying sleep quality construct as Fitbit's proprietary algorithm, without requiring access to their undisclosed methodology.
+
+Additionally, we examined the relationship between sleep quality components and next-day stress. Sleep efficiency (time asleep divided by time in bed, a proxy for sleep continuity) showed a significant negative Spearman correlation with next-day self-reported stress ($\rho = -0.186$, $p < 0.01$). This finding---that sleep continuity matters more than raw sleep duration for next-day stress resilience---supports the inclusion of continuity as a weighted factor in our Stage~2 threshold adjustment.
 
 \subsection{Apple Watch Feature Ablation}
 
-% TODO: Include full ablation table (already in CLAUDE.md)
-% TODO: Key finding: ACC is critical (94.5% → 82.0% without)
-% TODO: Key finding: EDA/TEMP not needed (94.4% → 94.3% without)
+The ablation results presented in Table~\ref{tab:stage1-ablation} (Section~2.3.2) answer a critical deployment question: can the Stage~1 classifier maintain accuracy when restricted to sensors available on Apple Watch?
+
+The key findings are:
+
+\begin{itemize}
+    \item \textbf{Accelerometer features are critical.} Removing ACC\_mean and ACC\_std causes accuracy to drop from 94.5\% to 82.0\% and $F_1$ from 0.897 to 0.450. The classifier cannot distinguish physical activity from cognitive states using heart rate alone.
+    \item \textbf{EDA and temperature are dispensable.} Dropping these two modalities (which Apple Watch does not provide) reduces accuracy by only 0.1 percentage point (94.4\% to 94.3\%), confirming that the model does not depend on signals unavailable on consumer wearables.
+    \item \textbf{HRV adds nothing to activity classification.} The HR + HRV configuration (81.5\%) performs worse than HR + ACC (94.5\%), confirming that HRV is not useful for distinguishing exercise from cognitive activity---its value lies in stress detection within cognitive states (Stage~3).
+    \item \textbf{The 4-feature minimum (HR + ACC) is optimal.} The HR + ACC configuration actually outperforms the full 10-feature Empatica set (94.5\% vs.\ 94.4\%), likely because irrelevant features introduce noise that slightly degrades generalization across subjects.
+\end{itemize}
 
 \subsection{iOS Application}
 
-% TODO: Screenshots of dashboard and Body Battery views
-% TODO: CoreML inference latency
-% TODO: Description of user experience flow
+The full pipeline is deployed as PhysioTwin, a native iOS application built with SwiftUI. The app reads physiological data from Apple Watch via HealthKit and runs all inference on-device.
+
+\paragraph{Model Size and Latency.} The Stage~1 CoreML model is 528~KB, small enough to ship in the app binary without network dependency. Inference takes less than 1~ms per window on an iPhone, making real-time classification feasible.
+
+\paragraph{User Experience.} The app presents a dashboard with three primary views: (1)~a Body Battery gauge showing current energy level (0--100), (2)~a timeline of stress detections and recovery activities throughout the day, and (3)~a weekly trends card showing 7-day patterns. When the Body Battery drops below a configurable threshold, the app recommends recovery activities (breathing exercises, walking, stretching, or rest) and monitors physiological response during recovery to validate effectiveness.
+
+\paragraph{Data Flow.} In active monitoring mode, the app uses HealthKit workout sessions to receive heart rate updates every 5--6 seconds. Heart rate and step count are passed to the Stage~1 classifier, which determines whether the user is exercising. For cognitive states, the app applies the Stage~2 sleep adjustment and Stage~3 DC/AC stress scoring. The stress score feeds into the Body Battery drain calculation, while sleep and recovery activities contribute to recharge.
+
+\paragraph{Deployment.} The app was submitted to TestFlight for beta testing and subsequently to the App Store for review. The App Store submission required adding a medical disclaimer clarifying that PhysioTwin is for informational and wellness purposes only and does not provide medical diagnosis or treatment.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -330,35 +391,55 @@ To evaluate whether DC/AC metrics distinguish stress from rest in the WISE datas
 
 \subsection{The Case for Hybrid Architectures}
 
-% TODO: Discuss why ML fails on small stress datasets but works for activity classification
-% TODO: Compare with pure ML approaches in literature
-% TODO: Argue that hybrid is more honest and practical
+Our results illustrate a fundamental asymmetry in wearable health problems: some sub-tasks are well-suited to machine learning, while others are not. Activity classification works because the physical signals of exercise (sustained high movement intensity) are consistent across individuals and well-represented even in small datasets. Stress detection fails because physiological stress responses are person-specific, variable in magnitude, and confounded by numerous factors (caffeine, hydration, posture) that small datasets cannot control for.
+
+The hybrid approach acknowledges this asymmetry by matching each sub-problem to the appropriate analytical tool. Machine learning handles activity classification (where it excels), established physiological formulas handle stress scoring (where individual baselines are more informative than population models), and evidence-based rules handle sleep adjustment (where the relationships are well-documented but person-specific in magnitude).
+
+This decomposition also improves interpretability. When the system reports elevated stress, a clinician or user can trace the decision: Was the user sedentary? (Stage~1) Was their sleep poor? (Stage~2) Is their current DC below personal baseline? (Stage~3) This transparency is difficult to achieve with end-to-end neural networks, which have been the dominant approach in recent wearable stress detection literature.
 
 \subsection{Activity-Aware Filtering as a Prerequisite}
 
-% TODO: Discuss Bonneval 2025 finding (93% HRV error during movement)
-% TODO: Most stress apps skip this step — explain why that's a problem
+The 93\% HRV measurement error during movement reported by \cite{bonneval2025hrv} has a direct consequence for stress detection systems: any approach that computes stress scores from HRV without first confirming that the user is sedentary will generate unreliable results during the large fraction of daily life spent in motion (walking, commuting, exercising). Our Stage~1 classifier addresses this by gating stress detection on activity state---stress scoring only proceeds when the user is classified as COGNITIVE.
+
+This activity-aware filtering is arguably the most impactful component of our pipeline from a practical standpoint. Without it, elevated heart rate during a brisk walk would be scored as stress, and the Body Battery would drain erroneously. With it, the system only evaluates stress during periods where HRV measurements are reliable and elevated HR is genuinely anomalous. The 93.6\% accuracy of Stage~1 means that the vast majority of exercise periods are correctly filtered out, preventing the cascading false positives that would otherwise undermine user trust in the system.
 
 \subsection{Honest Reporting of Negative Results}
 
-% TODO: Discuss DC/AC p=0.51 finding and what it means
-% TODO: Stress regression R² = -0.035
-% TODO: Why these negative results are valuable to the community
+We report two significant negative findings: the stress regression $R^2 = -0.035$ and the DC/AC population-level $p = 0.51$. Both are informative for the research community.
+
+The regression failure ($R^2 < 0$) demonstrates that with 22 subjects, machine learning cannot learn graded stress intensity from wrist-worn physiological signals. This is consistent with the broader pattern of underwhelming results in the literature \citep{velmovitsky2022smartwatch, bahameish2022stress}, yet many papers do not report attempts that failed, creating a publication bias toward methods that happened to work on their specific (often small) datasets. By reporting this result, we provide evidence that the hybrid approach is not merely a design preference but a response to empirical failure of the pure ML alternative.
+
+The DC/AC non-significance ($p = 0.51$) is equally informative. It tells us that DC/AC values from short lab-controlled stress protocols do not differ reliably across subjects at the population level. This does not mean DC/AC is useless---it means that fixed thresholds applied across individuals will not work. Our system's use of personal baselines is the appropriate response: detecting within-subject deviations rather than comparing against population norms.
 
 \subsection{Limitations}
 
-% TODO: Small sample (N=22), young adults only
-% TODO: Steps ≠ raw accelerometer (deployment gap)
-% TODO: SDNN sparsity on Apple Watch (2-3 readings/day)
-% TODO: No real-world validation yet (lab data only)
-% TODO: DC/AC not statistically significant on WISE IBI
+Several limitations constrain the generalizability of our findings:
+
+\begin{enumerate}
+    \item \textbf{Small, homogeneous sample.} The WISE dataset contains only 22 subjects, predominantly young adults. The 93.6\% LOSO accuracy for activity classification may not generalize to older adults, individuals with mobility impairments, or populations with different baseline physiology.
+
+    \item \textbf{Steps as accelerometer proxy.} Apple Watch does not expose raw accelerometer data to third-party apps. We use step count as a proxy for the ACC features that the model was trained on. While our quantized-ACC simulation suggests minimal degradation (94.5\% to 93.8\%), this proxy has not been validated with real step count data from Apple Watch.
+
+    \item \textbf{Sparse HRV on Apple Watch.} Apple Watch computes SDNN only 2--3 times per day during periods of stillness, compared to the continuous IBI data from the Empatica E4 used for training. This sparsity means the app must often fall back to HR-only stress estimation, which is less reliable than the full DC/AC approach.
+
+    \item \textbf{No real-world validation.} All classification results are based on lab-controlled protocols. The WISE stress tasks (Stroop, mental arithmetic, speeches) may not represent the range and intensity of real-world cognitive stress. A validation study with free-living participants wearing Apple Watch is needed.
+
+    \item \textbf{DC/AC not validated at population level.} The $p = 0.51$ result means we cannot confirm that DC/AC distinguishes stress from rest on the WISE dataset. Our system relies on within-subject comparisons, which we believe are more appropriate but have not yet been validated longitudinally.
+\end{enumerate}
 
 \subsection{Future Work}
 
-% TODO: Validation study with N=10-20 participants
-% TODO: Transfer learning to PMData
-% TODO: Calendar integration, proactive alerts
-% TODO: Longer-term personalization study
+Several directions would strengthen and extend this work:
+
+\begin{itemize}
+    \item \textbf{Real-world validation study.} A study with 10--20 participants wearing Apple Watch for 2--4 weeks, with ecological momentary assessment (EMA) stress prompts, would validate whether the pipeline's stress detections correspond to subjective stress in daily life.
+
+    \item \textbf{Transfer learning to free-living data.} The PMData dataset provides daily self-reported stress alongside Fitbit physiological data. Adapting the Stage~1 classifier to PMData's step-based movement features would test cross-dataset generalization and the viability of the steps-as-ACC proxy.
+
+    \item \textbf{Context integration.} Calendar data (upcoming meetings, deadlines) and location data (work vs.\ home) could serve as additional inputs to the stress threshold adjustment, enabling proactive stress alerts before physiological signs manifest.
+
+    \item \textbf{Longitudinal personalization.} Tracking how individual DC/AC baselines, sleep quality norms, and recovery effectiveness evolve over weeks and months would enable the system to adapt to long-term changes in the user's physiology and lifestyle.
+\end{itemize}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -367,9 +448,9 @@ To evaluate whether DC/AC metrics distinguish stress from rest in the WISE datas
 
 \section{Conclusion}
 
-% TODO: Summarize hybrid approach and why it works
-% TODO: Key numbers: 93.6% activity classification, closed-loop system
-% TODO: Broader impact: practical wearable stress monitoring with small data
+We presented a hybrid three-stage pipeline for wearable stress detection that combines machine learning, evidence-based rules, and established physiological formulas. Stage~1 classifies physical activity versus cognitive states with 93.6\% LOSO accuracy using only heart rate and accelerometer features. Stage~2 adjusts stress sensitivity thresholds based on sleep quality, validated against PMData's Fitbit sleep scores ($r = 0.765$). Stage~3 computes stress scores from DC/AC heart rate metrics using personal baselines. These stages feed a Body Battery energy system that completes a closed loop: detect, quantify, intervene, validate, and learn. The pipeline is deployed on-device as a CoreML model within an iOS application that reads Apple Watch data via HealthKit.
+
+Our work demonstrates that hybrid architectures offer a practical path forward for wearable stress monitoring when training data is limited. The honest negative results---stress regression $R^2 = -0.035$, DC/AC population $p = 0.51$---are not failures but findings that informed the design. By using machine learning only where it succeeds (activity classification) and relying on transparent formulas and rules elsewhere, we achieve a system that is more interpretable, more robust to individual differences, and more deployable on consumer hardware than pure ML alternatives. We hope this approach encourages the community to consider hybrid designs that match analytical tools to sub-problem characteristics rather than applying end-to-end learning by default.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -455,11 +536,11 @@ Capstone-Behavorial/
 \toprule
 \textbf{Member} & \textbf{Contributions} \\
 \midrule
-% Camille Tran & Designed the hybrid 3-stage architecture. Trained and exported the Stage~1 Activity Classifier (Random Forest, 93.6\% LOSO) to CoreML. Implemented Stage~2 sleep rules and Stage~3 DC/AC stress formulas in Python. Wrote the \texttt{StressDetectionPipeline.swift} for the iOS app. Conducted Apple Watch feature ablation experiments. Wrote all shared preprocessing code (\texttt{preprocess\_wise.py}). Led the pivot from pure ML to hybrid approach. Primary author of this report. \\[6pt]
-% Dhyay Thakrar & Built the Body Battery system (\texttt{BodyBatteryView.swift}), including energy drain/recharge logic, activity simulator, recovery activities, and 30-day history visualization. Developed the full iOS app dashboard (\texttt{ContentView.swift}) with HealthKit integration. Implemented \texttt{HealthKitManager.swift} for Apple Watch data access (HR, HRV, steps, sleep). Responsible for wiring the 3-stage pipeline into the app. \\[6pt]
-% Levy Sahoo & Validated DC/AC stress formulas on Apple Health export data. Implemented per-subject HRV imputation methodology. Documented IBI data quality findings. Contributed to data preprocessing improvements. Responsible for poster checkpoint. \\[6pt]
-% Essie Chang & Led the report writing and editing process. Proposed sliding window methodology (30s windows, 50\% overlap) that increased sample size from 341 to 2,449. Proposed Leave-One-Subject-Out validation. Designed poster layout. Responsible for discussion and limitations sections. \\[6pt]
-% Selina Zhang & Developed the project website (design, content, and implementation). Contributed to the Q2 proposal introduction and problem statement. Responsible for website checkpoint and final website updates. \\
+Camille Tran & Designed the hybrid 3-stage architecture. Trained and exported the Stage~1 Activity Classifier (Random Forest, 93.6\% LOSO) to CoreML. Implemented Stage~2 sleep rules and Stage~3 DC/AC stress formulas in Python. Wrote the \texttt{StressDetectionPipeline.swift} for the iOS app. Conducted Apple Watch feature ablation experiments. Wrote all shared preprocessing code (\texttt{preprocess\_wise.py}). Led the pivot from pure ML to hybrid approach. Primary author of this report. \\[6pt]
+Dhyay Thakrar & Built the Body Battery system (\texttt{BodyBatteryView.swift}), including energy drain/recharge logic, activity simulator, recovery activities, and 30-day history visualization. Developed the full iOS app dashboard (\texttt{ContentView.swift}) with HealthKit integration. Implemented \texttt{HealthKitManager.swift} for Apple Watch data access (HR, HRV, steps, sleep). Responsible for wiring the 3-stage pipeline into the app. \\[6pt]
+Levy Sahoo & Validated DC/AC stress formulas on Apple Health export data. Implemented per-subject HRV imputation methodology. Documented IBI data quality findings. Contributed to data preprocessing improvements. Responsible for poster checkpoint. \\[6pt]
+Essie Cheng & Led the report writing and editing process. Proposed sliding window methodology (30s windows, 50\% overlap) that increased sample size from 341 to 2,449. Proposed Leave-One-Subject-Out validation. Designed poster layout. Responsible for discussion and limitations sections. \\[6pt]
+Selina Zhang & Developed the project website (design, content, and implementation). Contributed to the Q2 proposal introduction and problem statement. Responsible for website checkpoint and final website updates. \\
 \bottomrule
 \end{tabular}
 \end{table}
