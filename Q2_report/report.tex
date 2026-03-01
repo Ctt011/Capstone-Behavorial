@@ -293,7 +293,7 @@ To evaluate whether DC/AC metrics distinguish stress from rest in the WISE datas
 
 Our initial three-class activity classifier (COGNITIVE vs.\ AEROBIC vs.\ ANAEROBIC) achieved 91.3\% LOSO accuracy with a Random Forest, but suffered from severe class imbalance: the ANAEROBIC class contained only 68 windows compared to 1,968 for AEROBIC and 413 for COGNITIVE. This imbalance manifested as 46\% recall for ANAEROBIC and 86\% precision for COGNITIVE---meaning 14\% of windows predicted as ``cognitive'' were actually exercise, which would leak false stress detections to downstream stages.
 
-Since the pipeline only needs to distinguish exercise from non-exercise (not the type of exercise), we merged AEROBIC and ANAEROBIC into a single PHYSICAL class. Table~\ref{tab:stage1-comparison} summarizes the improvement.
+Since the pipeline only needs to distinguish exercise from non-exercise (not the type of exercise), we merged AEROBIC and ANAEROBIC into a single PHYSICAL class. This decision was further supported by ANOVA analysis: while ACC features strongly separated all three classes ($F > 600$, $p < 0.0001$), heart rate could not distinguish AEROBIC from ANAEROBIC exercise ($p = 0.80$), confirming that the distinction between exercise types is not meaningful for downstream stress detection. Table~\ref{tab:stage1-comparison} summarizes the improvement.
 
 \begin{table}[H]
 \centering
@@ -308,6 +308,8 @@ Since the pipeline only needs to distinguish exercise from non-exercise (not the
 \bottomrule
 \end{tabular}
 \end{table}
+
+Per-subject LOSO accuracy ranged from 76.9\% (subject f03) to 100.0\% (subject S18), with 18 of 22 subjects exceeding 90\%. The lower-performing subjects (f03, f10) were female participants from the V2 protocol, which had fewer cognitive task segments and shorter sprint phases, yielding less training data per subject.
 
 The confusion matrix for the final 2-class model (Figure~\ref{fig:confusion-matrix}) shows that the primary source of error is COGNITIVE windows misclassified as PHYSICAL (94 out of 413, 22.8\%). In practice, this is the safer failure mode: it means some cognitive stress episodes are missed rather than exercise being misidentified as stress.
 
@@ -341,19 +343,37 @@ Before adopting the hybrid architecture, we attempted two pure ML approaches to 
 
 \subsection{DC/AC Validation on WISE IBI Data}
 
-We computed DC and AC values from the WISE inter-beat interval (IBI) data for each subject's STRESS and REST segments, then conducted paired $t$-tests to determine whether DC/AC metrics differ significantly between stress and rest at the population level.
+We computed DC and SDNN values from the WISE inter-beat interval (IBI) data for each subject's STRESS and REST segments, then conducted paired $t$-tests to determine whether these metrics differ significantly between stress and rest at the population level.
 
-The result was $p = 0.51$ (not significant), meaning DC/AC values computed from WISE IBI data do \emph{not} reliably distinguish stress from rest across subjects. This finding has two important implications:
+Neither metric reached statistical significance: DC showed $t = 1.83$, $p = 0.075$ (REST DC: $21.1 \pm 5.0$~ms vs.\ STRESS DC: $17.9 \pm 5.9$~ms), and SDNN showed $t = 0.34$, $p = 0.735$ (REST SDNN: $69.9 \pm 17.0$~ms vs.\ STRESS SDNN: $67.6 \pm 23.8$~ms). While DC trended in the expected direction (lower during stress, reflecting reduced parasympathetic activity), the effect was not large enough to reach significance with 22 subjects. SDNN showed virtually no difference between conditions.
 
-First, it confirms that population-level thresholds for DC/AC-based stress detection are unreliable with small samples. Individual baseline DC/AC values vary widely, and a threshold that works for one subject may misclassify another. This validates our design choice in Stage~3 to compare each user's current DC/AC values against their \emph{own} rolling 7-day baseline rather than a fixed population threshold.
+Figure~\ref{fig:dcac-boxplot} visualizes the overlap between REST and STRESS distributions for both metrics, illustrating why population-level thresholds fail.
 
-Second, the non-significant result does not invalidate the PRSA method itself. DC/AC was originally developed for cardiac mortality prediction \citep{bauer2006prsa}, where between-group differences are large. For stress detection, within-subject changes are more relevant than between-group differences, and the WISE dataset's controlled protocols may produce smaller DC/AC shifts than real-world sustained stress. The personal baseline approach in our deployed system is designed to detect these within-subject deviations.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{figure/dcac_boxplot.png}
+\caption{HRV metrics (SDNN and RMSSD) for REST vs.\ STRESS conditions across 22 WISE subjects. Neither metric significantly distinguishes stress from rest at the population level, supporting the use of personal baselines rather than fixed thresholds.}
+\label{fig:dcac-boxplot}
+\end{figure}
+
+These results have two important implications. First, they confirm that population-level thresholds for DC/AC-based stress detection are unreliable with small samples. Individual baseline DC/AC values vary widely, and a threshold that works for one subject may misclassify another. This validates our design choice in Stage~3 to compare each user's current DC/AC values against their \emph{own} rolling 7-day baseline rather than a fixed population threshold.
+
+Second, the non-significant results do not invalidate the PRSA method itself. DC/AC was originally developed for cardiac mortality prediction \citep{bauer2006prsa}, where between-group differences are large. For stress detection, within-subject changes are more relevant than between-group differences, and the WISE dataset's mild cognitive stress protocols (Stroop, mental arithmetic) may produce smaller DC/AC shifts than real-world sustained stress. The personal baseline approach in our deployed system is designed to detect these within-subject deviations.
 
 \subsection{Sleep Quality Validation on PMData}
 
 To validate the sleep-based threshold adjustment in Stage~2, we compared our sleep quality formula against the Fitbit-computed sleep scores in the PMData dataset \citep{thambawita2020pmdata}. PMData provides daily Fitbit sleep scores alongside self-reported stress levels for free-living participants, enabling validation in a naturalistic setting.
 
 Our sleep quality formula (a weighted combination of sleep duration, continuity, sleep stage proportions, and physiological recovery) achieved a Pearson correlation of $r = 0.765$ against Fitbit's proprietary sleep score. This strong correlation suggests that our transparent, formula-based approach captures the same underlying sleep quality construct as Fitbit's proprietary algorithm, without requiring access to their undisclosed methodology.
+
+Figure~\ref{fig:sleep-threshold} illustrates how Stage~2 adjusts the stress threshold based on sleep quality, and how the same physiological stress score can produce different clinical outcomes depending on prior sleep.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\linewidth]{figure/sleep_threshold.png}
+\caption{Stage~2 sleep-based threshold adjustment. Left: the adjusted stress threshold as a function of hours slept (baseline = 7.0h). Right: a fixed stress score of 55 triggers a ``STRESSED'' alert after poor sleep (threshold lowered to 48--51) but reads as ``OK'' after good sleep (threshold raised to 63--65).}
+\label{fig:sleep-threshold}
+\end{figure}
 
 Additionally, we examined the relationship between sleep quality components and next-day stress. Sleep efficiency (time asleep divided by time in bed, a proxy for sleep continuity) showed a significant negative Spearman correlation with next-day self-reported stress ($\rho = -0.186$, $p < 0.01$). This finding---that sleep continuity matters more than raw sleep duration for next-day stress resilience---supports the inclusion of continuity as a weighted factor in our Stage~2 threshold adjustment.
 
@@ -380,6 +400,15 @@ The full pipeline is deployed as PhysioTwin, a native iOS application built with
 
 \paragraph{Data Flow.} In active monitoring mode, the app uses HealthKit workout sessions to receive heart rate updates every 5--6 seconds. Heart rate and step count are passed to the Stage~1 classifier, which determines whether the user is exercising. For cognitive states, the app applies the Stage~2 sleep adjustment and Stage~3 DC/AC stress scoring. The stress score feeds into the Body Battery drain calculation, while sleep and recovery activities contribute to recharge.
 
+Figure~\ref{fig:body-battery-sim} shows a simulated full-day pipeline run demonstrating all three stages operating together: Stage~1 classifying activities, Stage~2 applying a sleep-adjusted threshold, and the Body Battery draining and tracking cumulative stress burden.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{figure/body_battery_simulation.png}
+\caption{Full-day pipeline simulation (8am--9pm). Top: heart rate colored by Stage~1 classification (green = PHYSICAL, blue = COGNITIVE). Middle: stress scores for cognitive windows, with the sleep-adjusted threshold (dashed red line at 51, lowered due to 5.5h sleep). Bottom: Body Battery energy level declining from 100\% to 64\% over the day, with steeper drops during high-stress cognitive periods.}
+\label{fig:body-battery-sim}
+\end{figure}
+
 \paragraph{Deployment.} The app was submitted to TestFlight for beta testing and subsequently to the App Store for review. The App Store submission required adding a medical disclaimer clarifying that PhysioTwin is for informational and wellness purposes only and does not provide medical diagnosis or treatment.
 
 
@@ -405,11 +434,11 @@ This activity-aware filtering is arguably the most impactful component of our pi
 
 \subsection{Honest Reporting of Negative Results}
 
-We report two significant negative findings: the stress regression $R^2 = -0.035$ and the DC/AC population-level $p = 0.51$. Both are informative for the research community.
+We report two significant negative findings: the stress regression $R^2 = -0.035$ and the DC/AC population-level non-significance ($p = 0.075$ for DC, $p = 0.735$ for SDNN). Both are informative for the research community.
 
 The regression failure ($R^2 < 0$) demonstrates that with 22 subjects, machine learning cannot learn graded stress intensity from wrist-worn physiological signals. This is consistent with the broader pattern of underwhelming results in the literature \citep{velmovitsky2022smartwatch, bahameish2022stress}, yet many papers do not report attempts that failed, creating a publication bias toward methods that happened to work on their specific (often small) datasets. By reporting this result, we provide evidence that the hybrid approach is not merely a design preference but a response to empirical failure of the pure ML alternative.
 
-The DC/AC non-significance ($p = 0.51$) is equally informative. It tells us that DC/AC values from short lab-controlled stress protocols do not differ reliably across subjects at the population level. This does not mean DC/AC is useless---it means that fixed thresholds applied across individuals will not work. Our system's use of personal baselines is the appropriate response: detecting within-subject deviations rather than comparing against population norms.
+The DC/AC non-significance is equally informative. Although DC trended in the expected direction (REST: $21.1$~ms vs.\ STRESS: $17.9$~ms), neither DC nor SDNN reached significance, telling us that population-level thresholds from short lab stress protocols will not work. This does not mean DC/AC is useless---it means that fixed thresholds applied across individuals are unreliable. Our system's use of personal baselines is the appropriate response: detecting within-subject deviations rather than comparing against population norms.
 
 \subsection{Limitations}
 
@@ -424,7 +453,7 @@ Several limitations constrain the generalizability of our findings:
 
     \item \textbf{No real-world validation.} All classification results are based on lab-controlled protocols. The WISE stress tasks (Stroop, mental arithmetic, speeches) may not represent the range and intensity of real-world cognitive stress. A validation study with free-living participants wearing Apple Watch is needed.
 
-    \item \textbf{DC/AC not validated at population level.} The $p = 0.51$ result means we cannot confirm that DC/AC distinguishes stress from rest on the WISE dataset. Our system relies on within-subject comparisons, which we believe are more appropriate but have not yet been validated longitudinally.
+    \item \textbf{DC/AC not validated at population level.} Neither DC ($p = 0.075$) nor SDNN ($p = 0.735$) reached significance for distinguishing stress from rest on the WISE dataset. Our system relies on within-subject comparisons, which we believe are more appropriate but have not yet been validated longitudinally.
 \end{enumerate}
 
 \subsection{Future Work}
@@ -450,7 +479,7 @@ Several directions would strengthen and extend this work:
 
 We presented a hybrid three-stage pipeline for wearable stress detection that combines machine learning, evidence-based rules, and established physiological formulas. Stage~1 classifies physical activity versus cognitive states with 93.6\% LOSO accuracy using only heart rate and accelerometer features. Stage~2 adjusts stress sensitivity thresholds based on sleep quality, validated against PMData's Fitbit sleep scores ($r = 0.765$). Stage~3 computes stress scores from DC/AC heart rate metrics using personal baselines. These stages feed a Body Battery energy system that completes a closed loop: detect, quantify, intervene, validate, and learn. The pipeline is deployed on-device as a CoreML model within an iOS application that reads Apple Watch data via HealthKit.
 
-Our work demonstrates that hybrid architectures offer a practical path forward for wearable stress monitoring when training data is limited. The honest negative results---stress regression $R^2 = -0.035$, DC/AC population $p = 0.51$---are not failures but findings that informed the design. By using machine learning only where it succeeds (activity classification) and relying on transparent formulas and rules elsewhere, we achieve a system that is more interpretable, more robust to individual differences, and more deployable on consumer hardware than pure ML alternatives. We hope this approach encourages the community to consider hybrid designs that match analytical tools to sub-problem characteristics rather than applying end-to-end learning by default.
+Our work demonstrates that hybrid architectures offer a practical path forward for wearable stress monitoring when training data is limited. The honest negative results---stress regression $R^2 = -0.035$, DC/AC population-level non-significance---are not failures but findings that informed the design. By using machine learning only where it succeeds (activity classification) and relying on transparent formulas and rules elsewhere, we achieve a system that is more interpretable, more robust to individual differences, and more deployable on consumer hardware than pure ML alternatives. We hope this approach encourages the community to consider hybrid designs that match analytical tools to sub-problem characteristics rather than applying end-to-end learning by default.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
