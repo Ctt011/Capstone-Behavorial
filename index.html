@@ -729,24 +729,24 @@
               <div class="feat-row">
                 <span class="feat-label">ACC_mean</span>
                 <div class="feat-track"><div class="feat-fill" data-width="100"></div></div>
-                <span class="feat-pct">26.8%</span>
+                <span class="feat-pct">45.7%</span>
               </div>
               <div class="feat-row">
                 <span class="feat-label">ACC_std</span>
-                <div class="feat-track"><div class="feat-fill" data-width="93.7"></div></div>
-                <span class="feat-pct">25.1%</span>
-              </div>
-              <div class="feat-row">
-                <span class="feat-label">TEMP_std</span>
-                <div class="feat-track"><div class="feat-fill" data-width="54.1" style="background:var(--muted)"></div></div>
-                <span class="feat-pct">14.5%</span>
+                <div class="feat-track"><div class="feat-fill" data-width="74.8"></div></div>
+                <span class="feat-pct">34.2%</span>
               </div>
               <div class="feat-row">
                 <span class="feat-label">HR_mean</span>
-                <div class="feat-track"><div class="feat-fill" data-width="38.1" style="background:var(--muted)"></div></div>
-                <span class="feat-pct">10.2%</span>
+                <div class="feat-track"><div class="feat-fill" data-width="28.0"></div></div>
+                <span class="feat-pct">12.8%</span>
               </div>
-              <p style="font-size:11px;color:var(--muted);margin-top:6px;">* TEMP_std from E4 training data only — ACC + HR are the deployed features on Apple Watch</p>
+              <div class="feat-row">
+                <span class="feat-label">HR_std</span>
+                <div class="feat-track"><div class="feat-fill" data-width="16.0"></div></div>
+                <span class="feat-pct">7.3%</span>
+              </div>
+              <p style="font-size:11px;color:var(--muted);margin-top:6px;">2-class RF model (4 features) — movement dominates at 79.9% combined importance</p>
             </div>
           </div>
         </details>
@@ -870,7 +870,7 @@
           <div class="val-stat-sub">Stage 2 · PMData vs Fitbit</div>
         </div>
         <div class="val-stat">
-          <div class="val-stat-value" style="color:var(--warning)">p = 0.51</div>
+          <div class="val-stat-value" style="color:var(--warning)">p = 0.075</div>
           <div class="val-stat-label">DC/AC Significance</div>
           <div class="val-stat-sub">Stage 3 · Validates hybrid</div>
         </div>
@@ -890,7 +890,7 @@
       <div style="margin: 24px 0;">
         <div class="alert alert-success">✓ Activity classifier: <strong>93.6% LOSO accuracy</strong> — exercise reliably separated from cognitive states using 4 wrist-worn features</div>
         <div class="alert alert-success">✓ Stage 2 validation: Formula sleep score vs Fitbit <strong>r = 0.765</strong> (PMData, N=3 subjects) — confirms sleep quality proxy is meaningful</div>
-        <div class="alert alert-warn">⚠ DC/AC on WISE (p = 0.51, not significant) — validates hybrid approach over pure single-snapshot ML classification</div>
+        <div class="alert alert-warn">⚠ DC/AC on WISE (p = 0.075, not significant) — validates hybrid approach over pure single-snapshot ML classification</div>
         <div class="alert alert-info">ℹ Sleep continuity more predictive than duration (ρ = −0.186**) — validates Stage 2 threshold design</div>
       </div>
 
@@ -973,7 +973,7 @@
       </div>
       <div class="team-card reveal" data-delay="0.2">
         <div class="team-avatar">EC</div>
-        <h3 class="team-name">Essie Chang</h3>
+        <h3 class="team-name">Essie Cheng</h3>
         <p class="team-role">Data & Modeling</p>
       </div>
       <div class="team-card reveal" data-delay="0.25">
