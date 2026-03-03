@@ -789,7 +789,7 @@
           <summary>Technical details</summary>
           <div class="details-content">
             <p>We compute three HRV metrics from RR intervals (the time between heartbeats):</p>
-            <p><strong>DC/AC</strong> — Deceleration/Acceleration Capacity via Phase-Rectified Signal Averaging (Bauer 2006). These were identified by Velmovitsky et al. (2022) as the #1 and #2 most important stress features on Apple Watch data.</p>
+            <p><strong>DC/AC</strong> — Deceleration/Acceleration Capacity via Phase-Rectified Signal Averaging (Bauer 2006). Velmovitsky et al. (2022) found these among the most informative HRV features for stress detection on Apple Watch data (N=33, 55-64% accuracy). Our own evaluation on WISE (N=22) showed trends in the expected direction (DC p=0.075) but did not reach statistical significance — motivating our hybrid approach with personal baselines rather than fixed thresholds.</p>
             <p><strong>SDNN</strong> — Standard deviation of RR intervals. Robust to the data gaps typical of wrist-worn sensors (Hernando 2018).</p>
             <p><strong>RMSSD</strong> — Root mean square of successive RR differences. Captures short-term parasympathetic activity.</p>
             <p>These metrics are compared against a <strong>rolling personal baseline</strong> built from each user's own calm-state data, producing a 0–100 stress score that feeds the Body Battery.</p>
@@ -906,7 +906,7 @@
             </div>
             <div class="ref-row">
               <span class="ref-key">Velmovitsky 2022</span>
-              <span class="ref-desc">DC/AC identified as #1 and #2 stress features on Apple Watch</span>
+              <span class="ref-desc">DC/AC among top stress-informative HRV features on Apple Watch (N=33, 55-64% accuracy)</span>
             </div>
             <div class="ref-row">
               <span class="ref-key">Bonneval 2025</span>
@@ -939,6 +939,28 @@
         <p>
           The Body Battery gives users an intuitive energy score they can act on immediately, while the system closes the loop by measuring recovery through HealthKit — moving from <em>detection</em> to <em>intervention</em> to <em>validation</em>. Future work includes longitudinal field studies with real Apple Watch users and expanding the sleep modulation stage with more granular sleep architecture data.
         </p>
+      </div>
+    </div>
+
+    <!-- Limitations -->
+    <div class="reveal" data-delay="0.15" style="margin-top: 56px;">
+      <h3 class="section-title-sm">Limitations</h3>
+      <div style="margin: 16px 0;">
+        <div class="alert alert-warn" style="margin-bottom: 8px;">
+          <strong>Sensor gap.</strong> Our model was trained on Empatica E4 data (EDA, skin temperature, BVP, ACC) but deploys on Apple Watch, which lacks EDA and skin temperature sensors entirely. Stage 1 uses only HR and ACC features that transfer directly, but Stage 3 stress scoring cannot leverage EDA — a signal strongly associated with sympathetic arousal.
+        </div>
+        <div class="alert alert-warn" style="margin-bottom: 8px;">
+          <strong>Small sample size.</strong> The WISE dataset contains only 22 subjects. While LOSO cross-validation mitigates overfitting, N=22 limits the generalizability of our findings and is the primary reason DC/AC metrics did not reach statistical significance at the group level (DC p=0.075, SDNN p=0.735).
+        </div>
+        <div class="alert alert-warn" style="margin-bottom: 8px;">
+          <strong>ACC-to-steps proxy.</strong> The activity classifier was trained on raw 3-axis accelerometer data (ACC_mean, ACC_std), but Apple Watch provides step counts rather than raw accelerometer streams. We use steps as a proxy, but this mapping has not been formally validated.
+        </div>
+        <div class="alert alert-warn" style="margin-bottom: 8px;">
+          <strong>Lab vs. real world.</strong> WISE protocols are controlled lab sessions (Stroop tasks, treadmill walking). Real-world stress is more ambiguous, lower intensity, and interleaved with daily activities — a domain shift that may reduce classifier performance in deployment.
+        </div>
+        <div class="alert alert-warn">
+          <strong>DC/AC not significant at group level.</strong> Our DC/AC analysis on WISE showed trends in the expected direction but did not reach statistical significance. This is why our pipeline uses personalized baselines rather than fixed population thresholds — individual HRV patterns vary too widely for a one-size-fits-all cutoff with this sample size.
+        </div>
       </div>
     </div>
   </div>

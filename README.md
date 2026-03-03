@@ -69,6 +69,17 @@ jupyter notebook main_analysis_notebooks/Biomarker_Comparison.ipynb
 ```
 Expected output: ANOVA results, confusion matrices, feature importance plots, 2-class and 3-class LOSO results.
 
+**Verify Stage 1 accuracy (LOSO evaluation):**
+```bash
+python run_evaluation.py
+```
+Expected output: 22-fold LOSO results with per-fold accuracy, overall accuracy (~93.6%), confusion matrix, and classification report. Pre-generated results are in `results/loso_evaluation.txt`.
+
+To save results to a file:
+```bash
+python run_evaluation.py --save results/loso_evaluation.txt
+```
+
 **Parse an Apple Health export:**
 ```bash
 python parse_apple_health.py
@@ -92,6 +103,7 @@ Open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode. Requires Apple Watch sim
 | `parse_apple_health.py` | Parses Apple Health `export.xml` into CSVs (HR, SDNN, Sleep). |
 | `preprocess_wise.py` | Single source of truth for WISE data preprocessing. Imported by all notebooks. |
 | `run_stage2_fitbit.py` | PMData/Fitbit validation script for Stage 2 sleep scoring. |
+| `run_evaluation.py` | Reproduces Stage 1 LOSO evaluation (93.6%). Saves results to `results/`. |
 
 ### Trained Models (`models/`)
 
@@ -199,11 +211,13 @@ Capstone-Behavorial/
 ├── Q1_report/                     # Quarter 1 LaTeX report
 ├── Q2_report/                     # Quarter 2 LaTeX report + figures
 ├── website_page_files/            # Website assets (images, SVG, style guide)
+├── results/                       # Evaluation outputs (LOSO results)
 ├── preprocess_wise.py             # Preprocessing (imported by all notebooks)
 ├── export_stage1_model.py         # Stage 1 model training + export
 ├── stage2_sleep_rules.py          # Stage 2 sleep threshold rules
 ├── stage3_stress_formulas.py      # Stage 3 DC/AC stress formulas
 ├── parse_apple_health.py          # Apple Health XML parser
+├── run_evaluation.py              # Stage 1 LOSO evaluation script
 ├── run_stage2_fitbit.py           # PMData/Fitbit validation
 ├── stage2_fitbit_analysis.ipynb   # PMData sleep validation notebook
 ├── Pipeline_Walkthrough.ipynb     # End-to-end pipeline tutorial (34 cells)
