@@ -524,33 +524,34 @@ All code is available at: \url{https://github.com/Ctt011/Capstone-Behavorial.git
 
 \begin{verbatim}
 Capstone-Behavorial/
-├── models/
-│   ├── ActivityClassifier.mlmodel    # CoreML model (528 KB)
-│   ├── ActivityClassifier.pkl        # sklearn pipeline (testing)
-│   ├── ActivityClassifier.onnx       # ONNX format (portability)
+├── models/                           # Trained models
+│   ├── ActivityClassifier.mlmodel    # CoreML (528 KB)
+│   ├── ActivityClassifier.pkl        # sklearn pipeline
+│   ├── ActivityClassifier.onnx       # ONNX (cross-platform)
 │   └── ActivityClassifier_preprocessing.json
-├── main_analysis_notebooks/
-│   ├── Biomarker_Comparison.ipynb    # Stage 1 analysis
-│   ├── StressLevel_model.ipynb       # Stage 2 regression (negative)
+├── main_analysis_notebooks/          # Analysis notebooks
+│   ├── Biomarker_Comparison.ipynb    # Stage 1 LOSO analysis
+│   ├── StressLevel_model.ipynb       # Stage 2 regression
 │   ├── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
-│   ├── Apple_Watch_Ablation.ipynb    # Feature ablation study
-│   ├── DC_AC_Validation.ipynb        # DC/AC statistical tests
-│   └── _setup.py                     # Path helper for notebooks
-├── notebook_drafts/                  # Exploratory notebooks
+│   ├── AerobicModel.ipynb            # Aerobic classifier
+│   ├── AnaerobicModel.ipynb          # Anaerobic classifier
+│   ├── CognitiveModel.ipynb          # Cognitive classifier
+│   └── _setup.py                     # Path helper
 ├── digital_twin_app/DigitalTwin/     # iOS application
 │   ├── StressDetectionPipeline.swift # 3-stage pipeline
 │   ├── BodyBatteryView.swift         # Body Battery UI + logic
 │   ├── HealthKitManager.swift        # Apple Watch data access
-│   ├── ActivityManager.swift         # Activity logging
-│   ├── ContentView.swift             # Dashboard
-│   ├── ActivityClassifier.mlmodel    # Model copy for Xcode
-│   └── ActivityClassifier_preprocessing.json
+│   └── ContentView.swift             # Dashboard
+├── 22subjects/                       # Raw WISE data (22 subjects)
+├── WISE_data_files/                  # Dataset metadata + labels
 ├── preprocess_wise.py                # Shared preprocessing
 ├── export_stage1_model.py            # Model training + export
-├── stage3_stress_formulas.py         # DC/AC Python reference
-├── stage2_sleep_rules.py             # Sleep rules Python reference
+├── stage2_sleep_rules.py             # Sleep rules (Python ref)
+├── stage3_stress_formulas.py         # DC/AC formulas (Python ref)
 ├── parse_apple_health.py             # Apple Health XML parser
-├── main.py                           # Pipeline orchestration
+├── Pipeline_Walkthrough.ipynb        # End-to-end tutorial
+├── requirements.txt                  # Python dependencies
+├── index.html                        # Project website
 └── Q2_report/                        # This report
 \end{verbatim}
 

@@ -152,7 +152,9 @@ Open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode. Requires Apple Watch sim
 
 ## Dataset
 
-**WISE (Wearable Stress & Exercise)** — PhysioNet, 22 subjects, Empatica E4 wearable.
+**WISE (Wearable Stress & Exercise)** — 22 subjects, Empatica E4 wearable.
+
+Download: https://physionet.org/content/wearable-exam-stress/1.0.0/
 
 Each participant completed 3 sessions:
 1. **Cognitive stress** — Stroop test, TMCT (mental math)
