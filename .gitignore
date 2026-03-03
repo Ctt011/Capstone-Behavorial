@@ -1,34 +1,53 @@
+# === System / editor ===
 .ipynb_checkpoints/
 .DS_Store
 __pycache__/
 *.pyc
 .vscode/
 .claude/
+.Rhistory
+
+# === Archives ===
 *.zip
-Q1_report_requirements.txt
+
+# === LaTeX build artifacts (all reports) ===
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.thm
+*.toc
+*.xdv
+Q2_report/report.pdf
+
+# === Figure generation scripts (keep local only) ===
+Q2_report/generate_report_figures.py
+Q2_report/generate_extra_figures.py
+
+# === Local archive (drafts, old versions — not for repo) ===
+_archive/
+notebook_drafts/
+website_page_files/old-index.html
+website_page_files/old-index-v2.html
+website_page_files/levy_ver.html
+main_analysis_notebooks/stress_predictions*.csv
+
+# === Data not for repo ===
 apple_health_export/
+Fitbit6-PMData/
+Q1_report_requirements.txt
+
+# === iOS app build artifacts ===
 digital_twin_app/.DS_Store
+digital_twin_app/DigitalTwin/.DS_Store
 digital_twin_app/DigitalTwin.xcodeproj/project.pbxproj
 digital_twin_app/DigitalTwin.xcodeproj/project.xcworkspace/xcuserdata/
 digital_twin_app/DigitalTwin.xcodeproj/xcuserdata/
-digital_twin_app/DigitalTwin/.DS_Store
-digital_twin_app/DigitalTwin.xcodeproj/project.pbxproj
-
 digital_twin_app/DigitalTwin/Testing_files/
-
-Fitbit6-PMData/
 digital_twin_app/navigation_mockups.html
 digital_twin_app/app_replica.html
 digital_twin_app/onboarding_mockups.html
-Q2_report/generate_report_figures.py
-Q2_report/generate_extra_figures.py
-Q2_report/report.aux
-Q2_report/report.bbl
-Q2_report/report.blg
-Q2_report/report.log
-Q2_report/report.out
-Q2_report/report.pdf
-Q2_report/report.synctex.gz
-Q2_report/report.aux
-Q2_report/report.aux
-Q2_report/report.aux

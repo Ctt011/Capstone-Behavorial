@@ -2,12 +2,12 @@
 
 A hybrid stress detection system that uses a 3-stage pipeline to distinguish cognitive stress from physical exertion on Apple Watch. Stage 1 runs a CoreML Random Forest model (93.6% LOSO accuracy) to classify activity as physical or cognitive — filtering out exercise, which is not stress. Stage 2 applies sleep-adjusted HR thresholds to gate stress detection. Stage 3 computes a continuous stress score (0–100) using the validated DC/AC PRSA method (Bauer 2006) on HRV data. Scores drain a Garmin-inspired "Body Battery," which recharges through logged recovery activities. Built natively for Apple Watch using HealthKit, CoreML, and SwiftUI.
 
-**Team:** Camille Tran, Dhyay Thakrar, Levy Sahoo, Essie Chang, Selina Zhang
+**Team:** Camille Tran, Dhyay Thakrar, Levy Sahoo, Essie Cheng, Selina Zhang
 **Mentor:** Tauhidur Rahman
 **Course:** DSC 180B Capstone, UC San Diego, Winter 2026
 
 Code: https://github.com/Ctt011/Capstone-Behavorial
-Website: [Pulse.com](https://ctt011.github.io/Capstone-Behavorial/)
+Website: [PhysioTwin](https://ctt011.github.io/Capstone-Behavorial/)
 
 ---
 
@@ -77,7 +77,7 @@ To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
 | `stage2_sleep_rules.py` | Sleep quality threshold adjustment rules. Python reference implementation. |
 | `parse_apple_health.py` | Parses Apple Health `export.xml` into CSVs (HR, SDNN, Sleep). |
 | `preprocess_wise.py` | Single source of truth for WISE data preprocessing. Imported by all notebooks. |
-| `TEAM_PROJECT_UPDATE.md` | Team-facing project update with architecture, deadlines, and task assignments. |
+| `run_stage2_fitbit.py` | PMData/Fitbit validation script for Stage 2 sleep scoring. |
 
 ### Trained Models (`models/`)
 
@@ -119,7 +119,6 @@ To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
 | File | What It Does |
 |------|-------------|
 | `preprocess_wise.py` | Single source of truth for all WISE data preprocessing. Signal loading, segmentation, sliding windows (30s, 50% overlap), per-subject HRV imputation. Imported by all notebooks. |
-| `main.py` | Entry-point script for DSMLP (runs WISE_Stress_EDA_Model.ipynb) |
 
 ### Data
 
@@ -127,7 +126,6 @@ To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
 |-----------|----------|
 | `22subjects/` | Raw WISE data — 22 subjects, each with ACC, BVP, EDA, HR, IBI, TEMP CSVs |
 | `WISE_data_files/` | Dataset metadata: stress labels (v1, v2), subject info, data dictionary |
-| `notebook_drafts/` | Exploratory notebooks (Levy's EDA, PMData draft, statistical analysis) |
 
 ### Reports
 
