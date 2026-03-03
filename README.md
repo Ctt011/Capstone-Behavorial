@@ -36,33 +36,47 @@ Apple Watch Data (HR, Steps, Sleep, HRV)
 
 ### Prerequisites
 
-```bash
-pip install pandas numpy matplotlib scikit-learn scipy coremltools
-```
+- Python 3.10+
+- Xcode 15+ (for iOS app only)
 
-For notebooks:
-```bash
-pip install notebook
-```
-
-### Clone and Run
+### Setup
 
 ```bash
 git clone https://github.com/Ctt011/Capstone-Behavorial.git
 cd Capstone-Behavorial
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-To reproduce the Stage 1 model training + CoreML export:
+### Running Experiments
+
+**Reproduce Stage 1 model training + CoreML export:**
 ```bash
 python export_stage1_model.py
 ```
+Expected output: 4 model files in `models/` (`.mlmodel`, `.pkl`, `.onnx`, `_preprocessing.json`). Console prints LOSO accuracy per fold and overall accuracy (~93.6%).
 
-To parse an Apple Health export:
+**Run the end-to-end pipeline walkthrough:**
+```bash
+jupyter notebook Pipeline_Walkthrough.ipynb
+```
+Expected output: 34-cell notebook covering data loading → preprocessing → Stage 1 LOSO → Stage 2 sleep rules → Stage 3 DC/AC → Body Battery simulation. All figures render inline.
+
+**Run the biomarker comparison analysis:**
+```bash
+jupyter notebook main_analysis_notebooks/Biomarker_Comparison.ipynb
+```
+Expected output: ANOVA results, confusion matrices, feature importance plots, 2-class and 3-class LOSO results.
+
+**Parse an Apple Health export:**
 ```bash
 python parse_apple_health.py
 ```
+Expected output: CSVs for heart rate, SDNN, and sleep data extracted from `export.xml`.
 
-To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
+**Run the iOS app:**
+Open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode. Requires Apple Watch simulator or paired device.
 
 ---
 
@@ -106,13 +120,13 @@ To run the iOS app, open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode.
 
 | File | What It Does |
 |------|-------------|
-| `notebooks/Biomarker_Comparison.ipynb` | Stage 1 analysis: 3-way biomarker comparison (Cognitive vs Aerobic vs Anaerobic), LOSO validation, 2-class vs 3-class |
-| `notebooks/StressLevel_model.ipynb` | Stage 2 stress regression (LassoCV, R²=-0.035). Documents why pure ML regression fails on N=22. |
-| `notebooks/WISE_Stress_EDA_Model.ipynb` | Original binary stress classifier (77.1% CV). Q1 work. |
-| `notebooks/AerobicModel.ipynb` | Aerobic exercise classifier |
-| `notebooks/AnaerobicModel.ipynb` | Anaerobic exercise classifier |
-| `notebooks/CognitiveModel.ipynb` | Cognitive stress model |
-| `notebooks/_setup.py` | Path helper — auto-configures CWD and sys.path so notebooks work from the subdirectory |
+| `Biomarker_Comparison.ipynb` | Stage 1 analysis: 3-way biomarker comparison (Cognitive vs Aerobic vs Anaerobic), LOSO validation, 2-class vs 3-class |
+| `StressLevel_model.ipynb` | Stage 2 stress regression (LassoCV, R²=-0.035). Documents why pure ML regression fails on N=22. |
+| `WISE_Stress_EDA_Model.ipynb` | Original binary stress classifier (77.1% CV). Q1 work. |
+| `AerobicModel.ipynb` | Aerobic exercise classifier |
+| `AnaerobicModel.ipynb` | Anaerobic exercise classifier |
+| `CognitiveModel.ipynb` | Cognitive stress model |
+| `_setup.py` | Path helper — auto-configures CWD and sys.path so notebooks work from the subdirectory |
 
 ### Shared Preprocessing
 
@@ -168,6 +182,33 @@ Row 3+ → Sensor values
 | Stress Regression (attempted) | R²=-0.035 | LassoCV — worse than mean prediction, consistent with literature (Velmovitsky 2022: 55-64% with N=33) |
 | Binary Stress Classifier (attempted) | F1=0.46 | Predicts mostly REST due to class imbalance (87:13) |
 | DC/AC Stress Formulas (Stage 3) | Implemented | Bauer 2006 PRSA method, validated on WISE IBI data |
+
+---
+
+## Directory Structure
+
+```
+Capstone-Behavorial/
+├── models/                        # Trained models (CoreML, sklearn, ONNX)
+├── main_analysis_notebooks/       # Analysis notebooks (Stage 1, Stage 2, EDA)
+├── 22subjects/                    # Raw WISE dataset (22 subjects × 6 signals)
+├── WISE_data_files/               # Dataset metadata (labels, data dictionary)
+├── digital_twin_app/              # iOS app (SwiftUI + HealthKit + CoreML)
+├── Q1_report/                     # Quarter 1 LaTeX report
+├── Q2_report/                     # Quarter 2 LaTeX report + figures
+├── website_page_files/            # Website assets (images, SVG, style guide)
+├── preprocess_wise.py             # Preprocessing (imported by all notebooks)
+├── export_stage1_model.py         # Stage 1 model training + export
+├── stage2_sleep_rules.py          # Stage 2 sleep threshold rules
+├── stage3_stress_formulas.py      # Stage 3 DC/AC stress formulas
+├── parse_apple_health.py          # Apple Health XML parser
+├── run_stage2_fitbit.py           # PMData/Fitbit validation
+├── stage2_fitbit_analysis.ipynb   # PMData sleep validation notebook
+├── Pipeline_Walkthrough.ipynb     # End-to-end pipeline tutorial (34 cells)
+├── index.html                     # Project website
+├── requirements.txt               # Python dependencies
+└── README.md
+```
 
 ---
 
