@@ -601,12 +601,7 @@
     <div class="stat reveal" data-delay="0">
       <div class="stat-value" data-count="93.6" data-suffix="%">0%</div>
       <div class="stat-label">LOSO Accuracy</div>
-      <div class="stat-sub">Activity Classifier</div>
-    </div>
-    <div class="stat reveal" data-delay="0.1">
-      <div class="stat-value" data-count="22" data-suffix="">0</div>
-      <div class="stat-label">Subjects</div>
-      <div class="stat-sub">WISE Dataset</div>
+      <div class="stat-sub">Activity Classifier · 22 Subjects</div>
     </div>
     <div class="stat reveal" data-delay="0.1">
       <div class="stat-value">3</div>
@@ -617,6 +612,11 @@
       <div class="stat-value">0–100</div>
       <div class="stat-label">Stress Score</div>
       <div class="stat-sub">Personal Baseline</div>
+    </div>
+    <div class="stat reveal" data-delay="0.3">
+      <div class="stat-value">r = 0.765</div>
+      <div class="stat-label">Sleep Correlation</div>
+      <div class="stat-sub">Stage 2 · PMData vs Fitbit</div>
     </div>
   </div>
 </section>
@@ -633,13 +633,10 @@
 
     <div class="reveal" data-delay="0.1">
       <p class="body-text">
-        Chronic stress is one of the leading contributors to heart disease, anxiety, and burnout — yet most people can't tell when their body is stressed versus when it's just active. Smartwatches like the Apple Watch already measure heart rate and heart rate variability (HRV), but these signals are noisy: a fast heartbeat during a morning jog looks identical to one caused by a stressful meeting. Current stress detection tools either ignore this problem or rely on machine learning models that need massive datasets to work — and even then, the best published classifiers only achieve about 56% accuracy distinguishing stress from a neutral state.
+        Smartwatches like the Apple Watch measure heart rate and HRV, but these signals are noisy: a fast heartbeat during a jog looks identical to one caused by a stressful meeting. Current tools either ignore this or rely on ML models that top out around 56% accuracy.
       </p>
       <p class="body-text">
-        We set out to build something better. <strong>PhysioTwin</strong> is a hybrid stress detection system that combines machine learning where it works best — separating exercise from stillness — with proven physiological formulas for the hard part: actually measuring stress. Instead of trying to learn stress patterns from a small dataset, we use a 3-stage pipeline: first filtering out physical activity, then adjusting for sleep quality, and finally computing a personalized stress score based on your own baseline, not a population average.
-      </p>
-      <p class="body-text">
-        The result is a "Body Battery" — a simple 0–100 energy score that drains when you're stressed and recovers when you're calm. It's designed to be something anyone can glance at and immediately understand, while being grounded in peer-reviewed HRV science.
+        <strong>PhysioTwin</strong> takes a different approach — a 3-stage hybrid pipeline that filters out physical activity, adjusts for sleep quality, and computes a personalized HRV stress score based on your own baseline. The result is a "Body Battery": a simple 0–100 score that drains when you're stressed and recovers when you're calm, grounded in peer-reviewed science.
       </p>
     </div>
 

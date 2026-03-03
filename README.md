@@ -1,6 +1,6 @@
 # Digital Twin: Hybrid Stress Detection from Apple Watch
 
-A hybrid stress detection system that combines ML activity classification with validated physiological formulas and a Body Battery energy management interface. Built for Apple Watch via HealthKit.
+A hybrid stress detection system that uses a 3-stage pipeline to distinguish cognitive stress from physical exertion on Apple Watch. Stage 1 runs a CoreML Random Forest model (93.6% LOSO accuracy) to classify activity as physical or cognitive — filtering out exercise, which is not stress. Stage 2 applies sleep-adjusted HR thresholds to gate stress detection. Stage 3 computes a continuous stress score (0–100) using the validated DC/AC PRSA method (Bauer 2006) on HRV data. Scores drain a Garmin-inspired "Body Battery," which recharges through logged recovery activities. Built natively for Apple Watch using HealthKit, CoreML, and SwiftUI.
 
 **Team:** Camille Tran, Dhyay Thakrar, Levy Sahoo, Essie Chang, Selina Zhang
 **Mentor:** Tauhidur Rahman
