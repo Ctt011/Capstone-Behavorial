@@ -1919,6 +1919,16 @@ struct BodyBatteryView: View {
                     heartRate: healthKitManager.latestHeartRate,
                     activeEnergy: healthKitManager.activeCalories
                 )
+                // Process sleep recharge after fresh data is available
+                if let sleepHours = healthKitManager.lastNightSleep {
+                    batteryManager.processSleepRecharge(
+                        sleepHours: sleepHours,
+                        sleepStages: healthKitManager.sleepStages,
+                        overnightHRV: healthKitManager.overnightHRVMetric.value,
+                        overnightHR: healthKitManager.overnightRestingHeartRateMetric.value,
+                        sleepDate: healthKitManager.sleepMetric.lastUpdated ?? Date()
+                    )
+                }
             }
             .onAppear {
                 batteryManager.configure(with: healthKitManager)
@@ -1927,7 +1937,25 @@ struct BodyBatteryView: View {
                     heartRate: healthKitManager.latestHeartRate,
                     activeEnergy: healthKitManager.activeCalories
                 )
-                if let sleepHours = healthKitManager.lastNightSleep {
+                // Fetch sleep data asynchronously on appear, then process recharge.
+                // Without this, lastNightSleep is nil on a cold launch because
+                // refreshAllData() is only called on first auth or pull-to-refresh.
+                Task {
+                    await healthKitManager.refreshAllData()
+                    if let sleepHours = healthKitManager.lastNightSleep {
+                        batteryManager.processSleepRecharge(
+                            sleepHours: sleepHours,
+                            sleepStages: healthKitManager.sleepStages,
+                            overnightHRV: healthKitManager.overnightHRVMetric.value,
+                            overnightHR: healthKitManager.overnightRestingHeartRateMetric.value,
+                            sleepDate: healthKitManager.sleepMetric.lastUpdated ?? Date()
+                        )
+                    }
+                }
+            }
+            // Also react to sleep data arriving via background delivery
+            .onChange(of: healthKitManager.lastNightSleep) { _, newSleep in
+                if let sleepHours = newSleep {
                     batteryManager.processSleepRecharge(
                         sleepHours: sleepHours,
                         sleepStages: healthKitManager.sleepStages,

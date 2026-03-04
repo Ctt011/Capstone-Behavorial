@@ -868,6 +868,12 @@ class HealthKitManager: ObservableObject {
         sleepStages = stages
         lastNightSleep = hours
 
+        if let h = hours {
+            print("😴 refreshSleepData: \(String(format: "%.1f", h))h, \(stages.count) stages, lastUpdated=\(date?.description ?? "nil")")
+        } else {
+            print("😴 refreshSleepData: no sleep data found")
+        }
+
         await refreshOvernightRecoverySnapshot(stages: stages, sleepEndDate: date)
     }
 
@@ -1181,10 +1187,10 @@ class HealthKitManager: ObservableObject {
         let todayAfternoon = calendar.date(bySettingHour: 14, minute: 0, second: 0, of: now)!
         let windowEnd = min(todayAfternoon, now)
 
-        // Use .strictEndDate so we also capture samples that START before the
-        // window but END inside it. .strictStartDate was too restrictive for
-        // WHOOP/third-party devices that may record long spans.
-        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: .strictEndDate)
+        // Use no strict options — return ANY sample that overlaps the window.
+        // This is the most inclusive and catches WHOOP, Apple Watch, and all
+        // third-party devices regardless of how they write sample boundaries.
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: [])
 
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
@@ -1192,6 +1198,24 @@ class HealthKitManager: ObservableObject {
                     print("😴 No sleep samples found in window \(windowStart) → \(windowEnd)")
                     continuation.resume(returning: (nil, [], nil))
                     return
+                }
+
+                // Debug: log all raw samples so we can diagnose issues
+                print("😴 Found \(samples.count) raw sleep samples in window:")
+                for (i, sample) in samples.prefix(20).enumerated() {
+                    let val = HKCategoryValueSleepAnalysis(rawValue: sample.value)
+                    let valName: String
+                    switch val {
+                    case .awake: valName = "awake"
+                    case .asleepREM: valName = "REM"
+                    case .asleepCore: valName = "core"
+                    case .asleepDeep: valName = "deep"
+                    case .asleep: valName = "asleep"
+                    default: valName = "inBed/other(\(sample.value))"
+                    }
+                    let src = sample.sourceRevision.source.name
+                    let dur = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
+                    print("   [\(i)] \(valName): \(sample.startDate) → \(sample.endDate) (\(String(format: "%.0f", dur))min) src=\(src)")
                 }
 
                 // ----------------------------------------------------------------
