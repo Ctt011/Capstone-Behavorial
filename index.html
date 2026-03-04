@@ -633,7 +633,7 @@
 
     <div class="reveal" data-delay="0.1">
       <p class="body-text">
-        Smartwatches like the Apple Watch measure heart rate and HRV, but these signals are noisy: a fast heartbeat during a jog looks identical to one caused by a stressful meeting. Current tools either ignore this or rely on ML models that top out around 56% accuracy.
+        Smartwatches such as the Apple Watch track physiological signals like heart rate (HR) and heart rate variability (HRV), but these signals are noisy and highly context-dependent: a fast heartbeat during a jog looks identical to one caused by a stressful meeting. Current tools either ignore this ambiguity or rely on standard ML models that are best suited for homogeneous data with distributional consistency, which ignores the reality that stress responses are highly individualized and vary substantially across people. 
       </p>
       <p class="body-text">
         <strong>PhysioTwin</strong> takes a different approach — a 3-stage hybrid pipeline that filters out physical activity, adjusts for sleep quality, and computes a personalized HRV stress score based on your own baseline. The result is a "Body Battery": a simple 0–100 score that drains when you're stressed and recovers when you're calm, grounded in peer-reviewed science.
