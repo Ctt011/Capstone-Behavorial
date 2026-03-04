@@ -175,12 +175,12 @@ All Empatica (10 features) & 94.4\% & RF & 0.895 \\
 Apple Watch full (6 features) & 94.3\% & SVM & 0.890 \\
 \textbf{HR + ACC only (4 features)} & \textbf{94.5\%} & \textbf{SVM} & \textbf{0.897} \\
 HR + HRV only (5 features) & 81.5\% & SVM & 0.506 \\
-HR only (3 features) & 82.0\% & SVM & 0.450 \\
+HR only (3 features) & 83.1\% & SVM & 0.454 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The key finding is that movement features (ACC\_mean, ACC\_std) are critical: accuracy drops from 94.5\% to 82.0\% without them, and $F_1$ drops from 0.897 to 0.450. Conversely, dropping EDA and temperature (which Apple Watch does not provide) has negligible impact (94.4\% $\rightarrow$ 94.3\%). HRV features add nothing to Stage~1 when movement is available. The minimum viable feature set is \{HR\_mean, HR\_std, ACC\_mean, ACC\_std\}.
+The key finding is that movement features (ACC\_mean, ACC\_std) are critical: accuracy drops from 94.5\% to 83.1\% without them, and $F_1$ drops from 0.897 to 0.454. Conversely, dropping EDA and temperature (which Apple Watch does not provide) has negligible impact (94.4\% $\rightarrow$ 94.3\%). HRV features add nothing to Stage~1 when movement is available. The minimum viable feature set is \{HR\_mean, HR\_std, ACC\_mean, ACC\_std\}.
 
 \subsubsection{Model Training and Export}
 
@@ -304,7 +304,7 @@ Since the pipeline only needs to distinguish exercise from non-exercise (not the
 \textbf{Formulation} & \textbf{Classes} & \textbf{LOSO Accuracy} & \textbf{$F_1$ Macro} \\
 \midrule
 3-class & COG / AER / ANA & 91.3\% & 0.713 \\
-\textbf{2-class} & \textbf{COG / PHYSICAL} & \textbf{93.6\%} & \textbf{0.91} \\
+\textbf{2-class} & \textbf{COG / PHYSICAL} & \textbf{93.6\%} & \textbf{0.88} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -335,7 +335,7 @@ Before adopting the hybrid architecture, we attempted two pure ML approaches to 
 
 \paragraph{Stress Regression.} We trained a Random Forest regressor to predict continuous stress levels from the same physiological features, using LOSO cross-validation. The resulting $R^2 = -0.035$, meaning the model performed \emph{worse} than simply predicting the population mean for every subject. This is a clear signal that 22 subjects do not provide sufficient variance for machine learning to capture the subtle, person-specific physiological patterns of graded stress.
 
-\paragraph{Binary Stress Classification.} We also attempted binary classification (STRESS vs.\ REST), which should be easier than regression. The best classifier achieved $F_1 = 0.46$, driven by extreme class imbalance: the STRESS protocol produced 413 stress windows but 2,860 rest windows (87:13 ratio), causing the model to default to predicting REST for nearly all inputs.
+\paragraph{Binary Stress Classification.} We also attempted binary classification (STRESS vs.\ REST), which should be easier than regression. The best classifier achieved $F_1 = 0.47$, driven by extreme class imbalance: the STRESS protocol produced 413 stress windows but 2,860 rest windows (87:13 ratio), causing the model to default to predicting REST for nearly all inputs.
 
 \paragraph{Feature Ablation.} Systematic feature ablation for the stress task showed that changing the feature set had virtually no impact on performance---all configurations hovered around 85.5\% accuracy, which simply reflects the base rate of the majority class. When all feature sets produce the same accuracy, the model is not learning signal; it is learning class proportions.
 
@@ -364,7 +364,7 @@ Second, the non-significant results do not invalidate the PRSA method itself. DC
 
 To validate the sleep-based threshold adjustment in Stage~2, we compared our sleep quality formula against the Fitbit-computed sleep scores in the PMData dataset \citep{thambawita2020pmdata}. PMData provides daily Fitbit sleep scores alongside self-reported stress levels for free-living participants, enabling validation in a naturalistic setting.
 
-Our sleep quality formula (a weighted combination of sleep duration, continuity, sleep stage proportions, and physiological recovery) achieved a Pearson correlation of $r = 0.765$ against Fitbit's proprietary sleep score. This strong correlation suggests that our transparent, formula-based approach captures the same underlying sleep quality construct as Fitbit's proprietary algorithm, without requiring access to their undisclosed methodology.
+Our sleep quality formula (a weighted combination of sleep duration, continuity, sleep stage proportions, and physiological recovery) achieved a Pearson correlation of $r = 0.793$ against Fitbit's proprietary sleep score ($N = 1{,}527$ nights, 16 participants). This strong correlation suggests that our transparent, formula-based approach captures the same underlying sleep quality construct as Fitbit's proprietary algorithm, without requiring access to their undisclosed methodology.
 
 Figure~\ref{fig:sleep-threshold} illustrates how Stage~2 adjusts the stress threshold based on sleep quality, and how the same physiological stress score can produce different clinical outcomes depending on prior sleep.
 
@@ -375,7 +375,7 @@ Figure~\ref{fig:sleep-threshold} illustrates how Stage~2 adjusts the stress thre
 \label{fig:sleep-threshold}
 \end{figure}
 
-Additionally, we examined the relationship between sleep quality components and next-day stress. Sleep efficiency (time asleep divided by time in bed, a proxy for sleep continuity) showed a significant negative Spearman correlation with next-day self-reported stress ($\rho = -0.186$, $p < 0.01$). This finding---that sleep continuity matters more than raw sleep duration for next-day stress resilience---supports the inclusion of continuity as a weighted factor in our Stage~2 threshold adjustment.
+Additionally, we examined the relationship between sleep quality components and next-day stress. Sleep efficiency (time asleep divided by time in bed, a proxy for sleep continuity) showed a weak, non-significant Spearman correlation with next-day self-reported stress ($\rho = +0.042$, $p = 0.094$, $N = 1{,}556$). While population-level significance was not reached, this is consistent with findings from the DC/AC analysis: individual variability dominates, supporting our use of personalized baselines rather than fixed population thresholds in the Stage~2 adjustment.
 
 \subsection{Apple Watch Feature Ablation}
 
@@ -384,7 +384,7 @@ The ablation results presented in Table~\ref{tab:stage1-ablation} (Section~2.3.2
 The key findings are:
 
 \begin{itemize}
-    \item \textbf{Accelerometer features are critical.} Removing ACC\_mean and ACC\_std causes accuracy to drop from 94.5\% to 82.0\% and $F_1$ from 0.897 to 0.450. The classifier cannot distinguish physical activity from cognitive states using heart rate alone.
+    \item \textbf{Accelerometer features are critical.} Removing ACC\_mean and ACC\_std causes accuracy to drop from 94.5\% to 83.1\% and $F_1$ from 0.897 to 0.454. The classifier cannot distinguish physical activity from cognitive states using heart rate alone.
     \item \textbf{EDA and temperature are dispensable.} Dropping these two modalities (which Apple Watch does not provide) reduces accuracy by only 0.1 percentage point (94.4\% to 94.3\%), confirming that the model does not depend on signals unavailable on consumer wearables.
     \item \textbf{HRV adds nothing to activity classification.} The HR + HRV configuration (81.5\%) performs worse than HR + ACC (94.5\%), confirming that HRV is not useful for distinguishing exercise from cognitive activity---its value lies in stress detection within cognitive states (Stage~3).
     \item \textbf{The 4-feature minimum (HR + ACC) is optimal.} The HR + ACC configuration actually outperforms the full 10-feature Empatica set (94.5\% vs.\ 94.4\%), likely because irrelevant features introduce noise that slightly degrades generalization across subjects.
@@ -477,7 +477,7 @@ Several directions would strengthen and extend this work:
 
 \section{Conclusion}
 
-We presented a hybrid three-stage pipeline for wearable stress detection that combines machine learning, evidence-based rules, and established physiological formulas. Stage~1 classifies physical activity versus cognitive states with 93.6\% LOSO accuracy using only heart rate and accelerometer features. Stage~2 adjusts stress sensitivity thresholds based on sleep quality, validated against PMData's Fitbit sleep scores ($r = 0.765$). Stage~3 computes stress scores from DC/AC heart rate metrics using personal baselines. These stages feed a Body Battery energy system that completes a closed loop: detect, quantify, intervene, validate, and learn. The pipeline is deployed on-device as a CoreML model within an iOS application that reads Apple Watch data via HealthKit.
+We presented a hybrid three-stage pipeline for wearable stress detection that combines machine learning, evidence-based rules, and established physiological formulas. Stage~1 classifies physical activity versus cognitive states with 93.6\% LOSO accuracy using only heart rate and accelerometer features. Stage~2 adjusts stress sensitivity thresholds based on sleep quality, validated against PMData's Fitbit sleep scores ($r = 0.793$). Stage~3 computes stress scores from DC/AC heart rate metrics using personal baselines. These stages feed a Body Battery energy system that completes a closed loop: detect, quantify, intervene, validate, and learn. The pipeline is deployed on-device as a CoreML model within an iOS application that reads Apple Watch data via HealthKit.
 
 Our work demonstrates that hybrid architectures offer a practical path forward for wearable stress monitoring when training data is limited. The honest negative results---stress regression $R^2 = -0.035$, DC/AC population-level non-significance---are not failures but findings that informed the design. By using machine learning only where it succeeds (activity classification) and relying on transparent formulas and rules elsewhere, we achieve a system that is more interpretable, more robust to individual differences, and more deployable on consumer hardware than pure ML alternatives. We hope this approach encourages the community to consider hybrid designs that match analytical tools to sub-problem characteristics rather than applying end-to-end learning by default.
 
@@ -505,7 +505,7 @@ The following is a summary of our Quarter~2 project proposal, which described th
 Our Q2 proposal outlined a continuation of the pure ML approach from Q1: train a stress regression model on WISE, improve it with feature engineering and methodology upgrades (sliding windows, LOSO validation), and then transfer the learned model to PMData for real-world daily stress prediction. The proposal described a two-stage pipeline where Stage~1 classifies activity type and Stage~2 predicts stress level within cognitive activities.
 
 \paragraph{What Changed.}
-The stress regression model yielded $R^2 = -0.035$ (worse than mean prediction), and the binary stress classifier had $F_1 = 0.46$ (essentially predicting ``not stressed'' for all inputs). These results, combined with similar failures in the published literature, led us to pivot from pure ML to the hybrid architecture described in this report. Stage~1 (activity classification) was retained and improved, while Stage~2 was replaced with sleep-based rules and Stage~3 with formula-based DC/AC stress scoring. The Body Battery closed-loop system was added as the integration layer.
+The stress regression model yielded $R^2 = -0.035$ (worse than mean prediction), and the binary stress classifier had $F_1 = 0.47$ (essentially predicting ``not stressed'' for all inputs). These results, combined with similar failures in the published literature, led us to pivot from pure ML to the hybrid architecture described in this report. Stage~1 (activity classification) was retained and improved, while Stage~2 was replaced with sleep-based rules and Stage~3 with formula-based DC/AC stress scoring. The Body Battery closed-loop system was added as the integration layer.
 
 \paragraph{Key Differences from Proposal.}
 \begin{itemize}

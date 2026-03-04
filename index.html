@@ -614,7 +614,7 @@
       <div class="stat-sub">Personal Baseline</div>
     </div>
     <div class="stat reveal" data-delay="0.3">
-      <div class="stat-value">r = 0.765</div>
+      <div class="stat-value">r = 0.793</div>
       <div class="stat-label">Sleep Correlation</div>
       <div class="stat-sub">Stage 2 · PMData vs Fitbit</div>
     </div>
@@ -862,7 +862,7 @@
           <div class="val-stat-sub">Stage 1 · 22-fold CV</div>
         </div>
         <div class="val-stat">
-          <div class="val-stat-value" style="color:var(--info)">r = 0.765</div>
+          <div class="val-stat-value" style="color:var(--info)">r = 0.793</div>
           <div class="val-stat-label">Sleep Correlation</div>
           <div class="val-stat-sub">Stage 2 · PMData vs Fitbit</div>
         </div>
@@ -886,9 +886,9 @@
 
       <div style="margin: 24px 0;">
         <div class="alert alert-success">✓ Activity classifier: <strong>93.6% LOSO accuracy</strong> — exercise reliably separated from cognitive states using 4 wrist-worn features</div>
-        <div class="alert alert-success">✓ Stage 2 validation: Formula sleep score vs Fitbit <strong>r = 0.765</strong> (PMData, N=3 subjects) — confirms sleep quality proxy is meaningful</div>
+        <div class="alert alert-success">✓ Stage 2 validation: Formula sleep score vs Fitbit <strong>r = 0.793</strong> (PMData, N=16 subjects) — confirms sleep quality proxy is meaningful</div>
         <div class="alert alert-warn">⚠ DC/AC on WISE (p = 0.075, not significant) — validates hybrid approach over pure single-snapshot ML classification</div>
-        <div class="alert alert-info">ℹ Sleep continuity more predictive than duration (ρ = −0.186**) — validates Stage 2 threshold design</div>
+        <div class="alert alert-info">ℹ Sleep efficiency → stress: ρ = +0.042 (n.s., N=1,556) — supports personalized baselines over fixed thresholds</div>
       </div>
 
       <details>
