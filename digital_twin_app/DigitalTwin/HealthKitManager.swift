@@ -862,7 +862,7 @@ class HealthKitManager: ObservableObject {
         }
     }
     
-    private func refreshSleepData() async {
+    func refreshSleepData() async {
         let (hours, stages, date) = await fetchSleepWithStages()
         sleepMetric = HealthMetric(value: hours, lastUpdated: date)
         sleepStages = stages
@@ -1162,68 +1162,160 @@ class HealthKitManager: ObservableObject {
         guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return (nil, [], nil) }
         let calendar = Calendar.current
         let now = Date()
-        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else { return (nil, [], nil) }
-        let startOfYesterday = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday)!
-        let endOfSleep = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now)!
-        let predicate = HKQuery.predicateForSamples(withStart: startOfYesterday, end: endOfSleep, options: .strictStartDate)
-        
+
+        // Determine the "sleep day" we're interested in.
+        // If it's before noon we want LAST night's sleep (the one ending today).
+        // If it's noon or later we still want last night's sleep.
+        // The query window must be wide enough for WHOOP / third-party devices
+        // that write long .inBed samples or unusual timestamps.
+        //
+        // Window: 2 days ago at 6 PM → today at 2 PM
+        // This catches:
+        //   - Normal 10 PM → 6 AM sleep
+        //   - Late 2 AM → 10 AM sleep (attributed to today)
+        //   - Early risers / multi-phase sleepers
+        //   - WHOOP long .inBed spans
+        guard let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: now) else { return (nil, [], nil) }
+        let windowStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: twoDaysAgo)!
+        // End at 2 PM today or now, whichever is earlier
+        let todayAfternoon = calendar.date(bySettingHour: 14, minute: 0, second: 0, of: now)!
+        let windowEnd = min(todayAfternoon, now)
+
+        // Use .strictEndDate so we also capture samples that START before the
+        // window but END inside it. .strictStartDate was too restrictive for
+        // WHOOP/third-party devices that may record long spans.
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: .strictEndDate)
+
         return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
                 guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
+                    print("😴 No sleep samples found in window \(windowStart) → \(windowEnd)")
                     continuation.resume(returning: (nil, [], nil))
                     return
                 }
-                
-                var stages: [SleepStageData] = []
-                var totalAsleepSeconds: TimeInterval = 0
-                var latestDate: Date? = nil
-                
-                for sample in samples {
-                    let duration = sample.endDate.timeIntervalSince(sample.startDate)
-                    let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
-                    
-                    if latestDate == nil || sample.endDate > latestDate! {
-                        latestDate = sample.endDate
-                    }
-                    
-                    var stage: SleepStage? = nil
-                    var countAsAsleep = false
-                    
-                    switch value {
-                    case .awake:
-                        stage = .awake
-                    case .asleepREM:
-                        stage = .rem
-                        countAsAsleep = true
-                    case .asleepCore:
-                        stage = .core
-                        countAsAsleep = true
-                    case .asleepDeep:
-                        stage = .deep
-                        countAsAsleep = true
-                    case .asleep:
-                        stage = .asleep
-                        countAsAsleep = true
-                    default:
-                        break
-                    }
-                    
-                    if let stage = stage {
-                        stages.append(SleepStageData(
-                            stage: stage,
-                            duration: duration,
-                            startDate: sample.startDate,
-                            endDate: sample.endDate
-                        ))
-                    }
-                    
-                    if countAsAsleep {
-                        totalAsleepSeconds += duration
+
+                // ----------------------------------------------------------------
+                // Group samples into "sleep sessions" so we pick the most recent
+                // qualifying night. A session is a cluster of samples where gaps
+                // between consecutive samples are ≤ 60 min.
+                // ----------------------------------------------------------------
+                let sorted = samples.sorted { $0.startDate < $1.startDate }
+                var sessions: [[HKCategorySample]] = []
+                var currentSession: [HKCategorySample] = []
+
+                for sample in sorted {
+                    if let last = currentSession.last {
+                        let gap = sample.startDate.timeIntervalSince(last.endDate)
+                        if gap > 60 * 60 { // > 60 min gap → new session
+                            if !currentSession.isEmpty { sessions.append(currentSession) }
+                            currentSession = [sample]
+                        } else {
+                            currentSession.append(sample)
+                        }
+                    } else {
+                        currentSession.append(sample)
                     }
                 }
-                
-                let hours = totalAsleepSeconds / 3600.0
-                continuation.resume(returning: (hours > 0 ? hours : nil, stages, latestDate))
+                if !currentSession.isEmpty { sessions.append(currentSession) }
+
+                // Pick the session whose END is most recent AND that has actual
+                // asleep data (at least 30 min total sleep).
+                // Fall back to the most recent session if none qualifies.
+                func parseSession(_ sessionSamples: [HKCategorySample]) -> (Double, [SleepStageData], Date?) {
+                    var stages: [SleepStageData] = []
+                    var totalAsleepSeconds: TimeInterval = 0
+                    var latestDate: Date? = nil
+                    var hasStageData = false
+
+                    for sample in sessionSamples {
+                        let duration = sample.endDate.timeIntervalSince(sample.startDate)
+                        let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
+
+                        if latestDate == nil || sample.endDate > (latestDate ?? .distantPast) {
+                            latestDate = sample.endDate
+                        }
+
+                        var stage: SleepStage? = nil
+                        var countAsAsleep = false
+
+                        switch value {
+                        case .awake:
+                            stage = .awake
+                        case .asleepREM:
+                            stage = .rem
+                            countAsAsleep = true
+                            hasStageData = true
+                        case .asleepCore:
+                            stage = .core
+                            countAsAsleep = true
+                            hasStageData = true
+                        case .asleepDeep:
+                            stage = .deep
+                            countAsAsleep = true
+                            hasStageData = true
+                        case .asleep:
+                            stage = .asleep
+                            countAsAsleep = true
+                        default:
+                            // .inBed / other: count as asleep ONLY if we have no
+                            // stage-specific data for this session. This handles
+                            // WHOOP and third-party devices that only write .inBed.
+                            stage = .asleep
+                            // We'll decide countAsAsleep below after full scan
+                            break
+                        }
+
+                        if let stage = stage {
+                            stages.append(SleepStageData(
+                                stage: stage,
+                                duration: duration,
+                                startDate: sample.startDate,
+                                endDate: sample.endDate
+                            ))
+                        }
+
+                        if countAsAsleep {
+                            totalAsleepSeconds += duration
+                        }
+                    }
+
+                    // Second pass: if no stage-specific data was found, count
+                    // .inBed / default samples as asleep time (WHOOP fallback).
+                    if !hasStageData {
+                        totalAsleepSeconds = 0
+                        for sample in sessionSamples {
+                            let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
+                            if value != .awake {
+                                totalAsleepSeconds += sample.endDate.timeIntervalSince(sample.startDate)
+                            }
+                        }
+                    }
+
+                    let hours = totalAsleepSeconds / 3600.0
+                    return (hours, stages, latestDate)
+                }
+
+                // Try sessions from most-recent-ending to oldest.
+                let rankedSessions = sessions.sorted { s1, s2 in
+                    let end1 = s1.map({ $0.endDate }).max() ?? .distantPast
+                    let end2 = s2.map({ $0.endDate }).max() ?? .distantPast
+                    return end1 > end2
+                }
+
+                for session in rankedSessions {
+                    let (hours, stages, latestDate) = parseSession(session)
+                    // Accept sessions with ≥ 0.5 hours of sleep
+                    if hours >= 0.5 {
+                        let src = session.first?.sourceRevision.source.name ?? "unknown"
+                        print("😴 Sleep data: \(String(format: "%.1f", hours))h, \(stages.count) stage samples, source=\(src)")
+                        continuation.resume(returning: (hours, stages, latestDate))
+                        return
+                    }
+                }
+
+                // No qualifying session — return empty
+                print("😴 Sleep samples found (\(samples.count)) but none qualified (< 30 min total sleep)")
+                continuation.resume(returning: (nil, [], nil))
             }
             healthStore.execute(query)
         }
@@ -1428,32 +1520,10 @@ class HealthKitManager: ObservableObject {
     }
     
     private func fetchLastNightSleep() async -> Double? {
-        guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
-        let calendar = Calendar.current
-        let now = Date()
-        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else { return nil }
-        let startOfYesterday = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday)!
-        let endOfSleep = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now)!
-        let predicate = HKQuery.predicateForSamples(withStart: startOfYesterday, end: endOfSleep, options: .strictStartDate)
-        
-        return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
-                guard let samples = samples as? [HKCategorySample] else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                let asleepSamples = samples.filter { sample in
-                    let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
-                    return value == .asleepCore || value == .asleepDeep || value == .asleepREM || value == .asleep
-                }
-                let totalSeconds = asleepSamples.reduce(0.0) { total, sample in
-                    total + sample.endDate.timeIntervalSince(sample.startDate)
-                }
-                let hours = totalSeconds / 3600.0
-                continuation.resume(returning: hours > 0 ? hours : nil)
-            }
-            healthStore.execute(query)
-        }
+        // Delegate to the shared fetchSleepWithStages to ensure consistent
+        // window, WHOOP compatibility, and session grouping logic.
+        let (hours, _, _) = await fetchSleepWithStages()
+        return hours
     }
     
     /// Fetches average sleep hours over the last 30 days for personal baseline
@@ -1478,18 +1548,20 @@ class HealthKitManager: ObservableObject {
                 
                 for sample in samples {
                     let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
+                    // Accept asleep stages AND .inBed (used by WHOOP and third-party devices)
                     let isAsleep = value == .asleepCore || value == .asleepDeep || value == .asleepREM || value == .asleep
-                    guard isAsleep else { continue }
+                    let isInBed = (value != .awake && !isAsleep) // .inBed or other non-awake
+                    guard isAsleep || isInBed else { continue }
                     
-                    // Determine which "night" this sample belongs to
-                    // Sleep before 6 PM counts as previous night, after 6 PM counts as current night
+                    // Determine which \"night\" this sample belongs to.\n                    // Sleep before 6 PM → belongs to previous night's wake-day.\n                    // Sleep at/after 6 PM → belongs to the NEXT day's wake-day.\n                    // This means 2 AM sleep on March 3 is keyed to March 3 (wake-day),\n                    // and 11 PM sleep on March 2 is also keyed to March 3 (wake-day).
                     let hour = calendar.component(.hour, from: sample.startDate)
                     var nightDate: Date
                     if hour < 18 {
-                        // Before 6 PM - belongs to previous night
-                        nightDate = calendar.date(byAdding: .day, value: -1, to: sample.startDate)!
-                    } else {
+                        // Before 6 PM - wake-day is today (the day the sample starts on)
                         nightDate = sample.startDate
+                    } else {
+                        // At/after 6 PM - wake-day is tomorrow
+                        nightDate = calendar.date(byAdding: .day, value: 1, to: sample.startDate)!
                     }
                     nightDate = calendar.startOfDay(for: nightDate)
                     

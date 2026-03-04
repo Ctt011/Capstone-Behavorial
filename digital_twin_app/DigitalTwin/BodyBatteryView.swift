@@ -553,9 +553,9 @@ class BodyBatteryManager: ObservableObject {
         // Calculate battery drain for this interval
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
 
-        // Drain applies proportionally for all cognitive/sedentary time.
-        // Physical activity is excluded (has its own drain via workouts).
-        let shouldDrain = result.activityType == .cognitive
+        // Drain applies proportionally for all activity types.
+        // Physical activity now drains battery too (intensity-proportional).
+        let shouldDrain = true
         let appliedDrain: Int
         if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: result.timestamp,
@@ -642,7 +642,7 @@ class BodyBatteryManager: ObservableObject {
         let drain = calculateIntervalDrain(stressLevel: stressLevel, stressType: stressType)
 
         let fallbackTimestamp = Date()
-        let shouldDrain = stressType != .physical  // Drain for all non-physical states
+        let shouldDrain = true  // Drain for all states including physical
         let appliedDrain: Int
         if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: fallbackTimestamp,
@@ -675,14 +675,14 @@ class BodyBatteryManager: ObservableObject {
         print("📊 Fallback Stress: Level=\(stressLevel), Type=\(stressType.rawValue), Drain=\(drain)% (pipeline not configured)")
     }
     
-    /// Calculates battery drain for one timer interval using a gradual quadratic curve.
+    /// Calculates battery drain for one timer interval using a super-linear curve.
     ///
     /// Hourly drain targets (cognitive, multiplier 1.2):
-    ///   Stress   0 → ~1.0 %/hr  (basal metabolic drain)
-    ///   Stress  40 → ~2.5 %/hr
-    ///   Stress  60 → ~4.5 %/hr  (~72 % over a full 16-hr day → end ≈ 28 %)
-    ///   Stress  80 → ~7.1 %/hr
-    ///   Stress 100 → ~10.6 %/hr
+    ///   Stress   0 → ~2.5 %/hr  (basal metabolic drain)
+    ///   Stress  40 → ~5.4 %/hr  (~86 % over 16 hr → end ≈ 14 %)
+    ///   Stress  60 → ~8.1 %/hr
+    ///   Stress  80 → ~11.6 %/hr
+    ///   Stress 100 → ~16.9 %/hr
     ///
     /// Timer fires every 15 min (1/4 hr), so per-tick values are hourly ÷ 4.
     /// Uses a fractional accumulator so sub-1 % ticks aren't lost to rounding.
@@ -690,10 +690,10 @@ class BodyBatteryManager: ObservableObject {
         let stressFraction = Double(stressLevel) / 100.0
         let typeMul = stressType.drainMultiplier
         
-        // Quadratic curve: low stress barely drains, high stress ramps up
-        let baseDrainPerHour = 1.0   // Basal drain even at zero stress
-        let stressScale = 8.0        // Controls steepness of the curve
-        let hourlyDrain = baseDrainPerHour + stressScale * pow(stressFraction, 2.0) * typeMul
+        // Super-linear curve: meaningful basal drain, moderate ramp at high stress
+        let baseDrainPerHour = 2.5   // Basal drain even at zero stress (awake metabolic cost)
+        let stressScale = 12.0       // Controls steepness of the curve
+        let hourlyDrain = baseDrainPerHour + stressScale * pow(stressFraction, 1.5) * typeMul
         
         // Convert hourly rate to the actual timer interval (5 min = 1/12 hr)
         let intervalHours = stressPredictionIntervalSeconds / 3600.0
@@ -731,6 +731,13 @@ class BodyBatteryManager: ObservableObject {
     
     /// Comprehensive sleep recovery algorithm
     /// Computes a Sleep Recovery Score (0-1) from 4 sub-scores and converts to recharge points
+    ///
+    /// Sleep-night attribution: sleep is attributed to the night you went to bed.
+    /// If you sleep from 2 AM to 6 AM on March 3, the "sleep night" is March 2-3,
+    /// keyed by the START-OF-DAY of the WAKE date (March 3). This way:
+    ///   - 11 PM → 7 AM sleep is keyed to the wake day
+    ///   - 2 AM → 6 AM sleep is also keyed to the wake day (today)
+    /// The dedup guard prevents double-application for the same night.
     func processSleepRecharge(
         sleepHours: Double,
         sleepStages: [SleepStageData] = [],
@@ -738,13 +745,15 @@ class BodyBatteryManager: ObservableObject {
         overnightHR: Double? = nil,
         sleepDate: Date = Date()
     ) {
-        rolloverToTodayIfNeeded()
+        // Determine the "wake day" for dedup. sleepDate is the end of the sleep
+        // session (latest sample endDate). We key by the calendar day of waking.
+        let calendar = Calendar.current
+        let wakeDay = calendar.startOfDay(for: sleepDate)
 
-        let sleepDay = Calendar.current.startOfDay(for: sleepDate)
         if let lastSleepRechargeDay = UserDefaults.standard.data(forKey: lastSleepRechargeDayKey),
            let lastDay = try? JSONDecoder().decode(Date.self, from: lastSleepRechargeDay),
-           Calendar.current.isDate(lastDay, inSameDayAs: sleepDay) {
-            print("😴 Sleep recharge already applied for \(sleepDay). Skipping duplicate recharge.")
+           calendar.isDate(lastDay, inSameDayAs: wakeDay) {
+            print("😴 Sleep recharge already applied for night ending \(wakeDay). Skipping duplicate.")
             return
         }
 
@@ -816,8 +825,8 @@ class BodyBatteryManager: ObservableObject {
         )
         recordRechargeEvent(rechargeEvent)
 
-        if let encodedSleepDay = try? JSONEncoder().encode(sleepDay) {
-            UserDefaults.standard.set(encodedSleepDay, forKey: lastSleepRechargeDayKey)
+        if let encodedWakeDay = try? JSONEncoder().encode(wakeDay) {
+            UserDefaults.standard.set(encodedWakeDay, forKey: lastSleepRechargeDayKey)
         }
         
         // Save data
@@ -1068,13 +1077,18 @@ class BodyBatteryManager: ObservableObject {
     
     // MARK: - Day Management
     
-    /// Checks for a new day and handles unlogged days
+    /// Checks for a new day and handles unlogged days.
+    /// When a new day starts, immediately checks for overnight sleep data and
+    /// applies recharge BEFORE starting drain — fixing the off-by-one timing
+    /// issue where sleep recharge arrived late.
     private func rolloverToTodayIfNeeded() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
         guard let lastLoggedData = UserDefaults.standard.data(forKey: lastLoggedDayKey),
               let lastLogged = try? JSONDecoder().decode(Date.self, from: lastLoggedData) else {
+            // First launch — try applying sleep recharge proactively
+            applySleepRechargeOnRollover()
             ensureTodayHistoryEntry(startingBattery: currentBattery)
             if let encodedDate = try? JSONEncoder().encode(today) {
                 UserDefaults.standard.set(encodedDate, forKey: lastLoggedDayKey)
@@ -1091,27 +1105,37 @@ class BodyBatteryManager: ObservableObject {
         let daysBetween = calendar.dateComponents([.day], from: lastLoggedDay, to: today).day ?? 0
 
         if daysBetween > 1 {
-            print("⚠️ Detected \(daysBetween - 1) unlogged days. Resetting battery to 100%")
-            currentBattery = 100
+            // Multiple unlogged days: use a conservative estimate instead of
+            // assuming 100%. The user might have had poor sleep / high stress.
+            // Use 70% as a conservative middle-ground.
+            let conservativeEstimate = 70
+            print("⚠️ Detected \(daysBetween - 1) unlogged days. Setting battery to \(conservativeEstimate)% (conservative estimate)")
+            currentBattery = conservativeEstimate
 
             for dayOffset in 1..<daysBetween {
                 guard let unloggedDate = calendar.date(byAdding: .day, value: dayOffset, to: lastLoggedDay) else { continue }
                 if !batteryHistory.contains(where: { calendar.isDate($0.date, inSameDayAs: unloggedDate) }) {
                     let unloggedEntry = BatteryHistoryEntry(
                         date: unloggedDate,
-                        startingBattery: 100,
-                        currentBattery: 100,
-                        minBattery: 100,
-                        maxBattery: 100,
+                        startingBattery: conservativeEstimate,
+                        currentBattery: conservativeEstimate,
+                        minBattery: conservativeEstimate,
+                        maxBattery: conservativeEstimate,
                         isUnloggedDay: true
                     )
                     batteryHistory.insert(unloggedEntry, at: 0)
                 }
             }
-        } else if daysBetween == 1 {
-            print("🌅 New day started with battery at \(currentBattery)%")
         }
-        
+
+        if daysBetween >= 1 {
+            // New day detected — apply sleep recharge BEFORE starting today's drain.
+            // This fixes the off-by-one where sleep recharge was only applied when
+            // onAppear fired or background delivery pushed sleep data (often late).
+            print("🌅 New day started with battery at \(currentBattery)% — checking for overnight sleep")
+            applySleepRechargeOnRollover()
+        }
+
         ensureTodayHistoryEntry(startingBattery: currentBattery)
         
         if let encodedDate = try? JSONEncoder().encode(today) {
@@ -1129,6 +1153,37 @@ class BodyBatteryManager: ObservableObject {
         }
         
         saveData()
+    }
+
+    /// Proactively checks HealthKit for overnight sleep data and applies
+    /// sleep recharge during day rollover. This runs synchronously on the
+    /// main actor and kicks off an async fetch — the recharge is applied
+    /// as soon as sleep data is available.
+    private func applySleepRechargeOnRollover() {
+        guard let hkm = healthKitManager else { return }
+
+        Task { @MainActor in
+            // Trigger a fresh sleep fetch so we have the latest data
+            await hkm.refreshSleepData()
+
+            guard let sleepHours = hkm.lastNightSleep, sleepHours > 0 else {
+                print("🌅 No overnight sleep data available yet for rollover recharge")
+                return
+            }
+
+            // Determine the "sleep night" for dedup purposes:
+            // Use the sleep end date (wake time) to identify the night.
+            let sleepDate = hkm.sleepMetric.lastUpdated ?? Date()
+
+            self.processSleepRecharge(
+                sleepHours: sleepHours,
+                sleepStages: hkm.sleepStages,
+                overnightHRV: hkm.overnightHRVMetric.value,
+                overnightHR: hkm.overnightRestingHeartRateMetric.value,
+                sleepDate: sleepDate
+            )
+            print("🌅 Applied rollover sleep recharge: \(String(format: "%.1f", sleepHours))h → battery now \(currentBattery)%")
+        }
     }
 
     private func ensureTodayHistoryEntry(startingBattery: Int) {
@@ -1467,9 +1522,9 @@ class BodyBatteryManager: ObservableObject {
             stressType = .cognitive
         }
         
-        // Calculate potential drain (proportional via quadratic formula)
+        // Calculate potential drain (proportional via super-linear formula)
         let drain = calculateIntervalDrain(stressLevel: stressScore, stressType: stressType)
-        let shouldDrain = activityType == "COGNITIVE"  // Always drain during cognitive time
+        let shouldDrain = true  // Drain for all activity types including physical
         let appliedDrain: Int
         if shouldDrain && drain > 0 && shouldApplyStressDrain(
             at: timestamp,
