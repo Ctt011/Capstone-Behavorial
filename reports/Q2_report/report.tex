@@ -335,7 +335,7 @@ Before adopting the hybrid architecture, we attempted two pure ML approaches to 
 
 \paragraph{Stress Regression.} We trained a Random Forest regressor to predict continuous stress levels from the same physiological features, using LOSO cross-validation. The resulting $R^2 = -0.035$, meaning the model performed \emph{worse} than simply predicting the population mean for every subject. This is a clear signal that 22 subjects do not provide sufficient variance for machine learning to capture the subtle, person-specific physiological patterns of graded stress.
 
-\paragraph{Binary Stress Classification.} We also attempted binary classification (STRESS vs.\ REST), which should be easier than regression. The best classifier achieved $F_1 = 0.47$, driven by extreme class imbalance: the STRESS protocol produced 413 stress windows but 2,860 rest windows (87:13 ratio), causing the model to default to predicting REST for nearly all inputs.
+\paragraph{Binary Stress Classification.} We also attempted binary classification (STRESS vs.\ REST), which should be easier than regression. The best classifier achieved $F_1 = 0.47$, driven by extreme class imbalance: the STRESS protocol produced only 413 stress windows versus 2,860 rest windows (13\% stress, 87\% rest), causing the model to default to predicting REST for nearly all inputs.
 
 \paragraph{Feature Ablation.} Systematic feature ablation for the stress task showed that changing the feature set had virtually no impact on performance---all configurations hovered around 85.5\% accuracy, which simply reflects the base rate of the majority class. When all feature sets produce the same accuracy, the model is not learning signal; it is learning class proportions.
 
@@ -405,11 +405,11 @@ Figure~\ref{fig:body-battery-sim} shows a simulated full-day pipeline run demons
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\linewidth]{figure/body_battery_simulation.png}
-\caption{Full-day pipeline simulation (8am--9pm). Top: heart rate colored by Stage~1 classification (green = PHYSICAL, blue = COGNITIVE). Middle: stress scores for cognitive windows, with the sleep-adjusted threshold (dashed red line at 51, lowered due to 5.5h sleep). Bottom: Body Battery energy level declining from 100\% to 64\% over the day, with steeper drops during high-stress cognitive periods.}
+\caption{Full-day pipeline simulation (8am--9pm). Top: heart rate colored by Stage~1 classification (green = PHYSICAL, blue = COGNITIVE). Middle: stress scores for cognitive windows, with the sleep-adjusted threshold (dashed red line at 51, lowered from baseline 60 due to 5.5h sleep). Bottom: Body Battery energy level declining from 97\% to 64\% over the day through passive drain. In this simulation, stress scores remained below the threshold, demonstrating baseline energy expenditure; days with above-threshold stress events produce steeper drain (e.g., 100\% to 43.6\% in poster simulation).}
 \label{fig:body-battery-sim}
 \end{figure}
 
-\paragraph{Deployment.} The app was submitted to TestFlight for beta testing and subsequently to the App Store for review. The App Store submission required adding a medical disclaimer clarifying that PhysioTwin is for informational and wellness purposes only and does not provide medical diagnosis or treatment.
+\paragraph{Deployment.} The app was submitted to TestFlight for beta testing and subsequently approved on the App Store (March 2026). The App Store submission required adding a medical disclaimer clarifying that PhysioTwin is for informational and wellness purposes only and does not provide medical diagnosis or treatment.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -526,56 +526,64 @@ All code is available at: \url{https://github.com/Ctt011/Capstone-Behavorial.git
 
 \begin{verbatim}
 Capstone-Behavorial/
-├── models/                           # Trained models
-│   ├── ActivityClassifier.mlmodel    # CoreML (528 KB)
-│   ├── ActivityClassifier.pkl        # sklearn pipeline
-│   ├── ActivityClassifier.onnx       # ONNX (cross-platform)
-│   └── ActivityClassifier_preprocessing.json
-├── main_analysis_notebooks/          # Analysis notebooks
-│   ├── Biomarker_Comparison.ipynb    # Stage 1 LOSO analysis
-│   ├── StressLevel_model.ipynb       # Stage 2 regression
-│   ├── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
-│   ├── AerobicModel.ipynb            # Aerobic classifier
-│   ├── AnaerobicModel.ipynb          # Anaerobic classifier
-│   ├── CognitiveModel.ipynb          # Cognitive classifier
-│   └── _setup.py                     # Path helper
+├── src/                              # Source code
+│   ├── models/                       # Trained models
+│   │   ├── ActivityClassifier.mlmodel    # CoreML (528 KB)
+│   │   ├── ActivityClassifier.pkl        # sklearn pipeline
+│   │   ├── ActivityClassifier.onnx       # ONNX (cross-platform)
+│   │   └── ActivityClassifier_preprocessing.json
+│   ├── pipeline/                     # Pipeline scripts
+│   │   ├── preprocess_wise.py        # Shared preprocessing
+│   │   ├── export_stage1_model.py    # Model training + export
+│   │   ├── stage2_sleep_rules.py     # Sleep rules (Python ref)
+│   │   ├── stage3_stress_formulas.py # DC/AC formulas (Python ref)
+│   │   └── parse_apple_health.py     # Apple Health XML parser
+│   ├── eval/                         # Evaluation scripts
+│   │   ├── Pipeline_Walkthrough.ipynb    # End-to-end tutorial
+│   │   ├── run_evaluation.py         # LOSO evaluation
+│   │   └── results/                  # Pre-generated results
+│   └── main_analysis_notebooks/      # Analysis notebooks
+│       ├── Biomarker_Comparison.ipynb    # Stage 1 LOSO analysis
+│       ├── StressLevel_model.ipynb       # Stage 2 regression
+│       ├── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
+│       └── _setup.py                     # Path helper
+├── data/                             # Datasets
+│   ├── 22_subjects/                  # Raw WISE data (22 subjects)
+│   └── WISE_data_files/              # Dataset metadata + labels
 ├── digital_twin_app/DigitalTwin/     # iOS application
 │   ├── StressDetectionPipeline.swift # 3-stage pipeline
 │   ├── BodyBatteryView.swift         # Body Battery UI + logic
 │   ├── HealthKitManager.swift        # Apple Watch data access
 │   └── ContentView.swift             # Dashboard
-├── 22subjects/                       # Raw WISE data (22 subjects)
-├── WISE_data_files/                  # Dataset metadata + labels
-├── preprocess_wise.py                # Shared preprocessing
-├── export_stage1_model.py            # Model training + export
-├── stage2_sleep_rules.py             # Sleep rules (Python ref)
-├── stage3_stress_formulas.py         # DC/AC formulas (Python ref)
-├── parse_apple_health.py             # Apple Health XML parser
-├── Pipeline_Walkthrough.ipynb        # End-to-end tutorial
-├── requirements.txt                  # Python dependencies
+├── evaluation/                       # Evaluation (alt path)
+│   ├── run_evaluation.py             # LOSO evaluation
+│   └── results/                      # Pre-generated results
+├── reports/Q2_report/                # This report
+├── website/                          # Project website files
 ├── index.html                        # Project website
-└── Q2_report/                        # This report
+├── requirements.txt                  # Python dependencies
+└── README.md                         # Setup + usage guide
 \end{verbatim}
 
 
-% \subsection{Contributions}
+\subsection{Contributions}
 
-% \begin{table}[H]
-% \centering
-% \caption{Team member contributions for Quarter 2.}
-% \label{tab:contributions}
-% \begin{tabular}{p{3cm}p{11cm}}
-% \toprule
-% \textbf{Member} & \textbf{Contributions} \\
-% \midrule
-% Camille Tran & Designed the hybrid 3-stage architecture. Trained and exported the Stage~1 Activity Classifier (Random Forest, 93.6\% LOSO) to CoreML. Implemented Stage~2 sleep rules and Stage~3 DC/AC stress formulas in Python. Wrote the \texttt{StressDetectionPipeline.swift} for the iOS app. Conducted Apple Watch feature ablation experiments. Wrote all shared preprocessing code (\texttt{preprocess\_wise.py}). Led the pivot from pure ML to hybrid approach. Primary author of this report. \\[6pt]
-% Dhyay Thakrar & Built the Body Battery system (\texttt{BodyBatteryView.swift}), including energy drain/recharge logic, activity simulator, recovery activities, and 30-day history visualization. Developed the full iOS app dashboard (\texttt{ContentView.swift}) with HealthKit integration. Implemented \texttt{HealthKitManager.swift} for Apple Watch data access (HR, HRV, steps, sleep). Responsible for wiring the 3-stage pipeline into the app. \\[6pt]
-% Levy Sahoo & Validated DC/AC stress formulas on Apple Health export data. Implemented per-subject HRV imputation methodology. Documented IBI data quality findings. Contributed to data preprocessing improvements. Responsible for poster checkpoint. \\[6pt]
-% Essie Cheng & Led the report writing and editing process. Proposed sliding window methodology (30s windows, 50\% overlap) that increased sample size from 341 to 2,449. Proposed Leave-One-Subject-Out validation. Designed poster layout. Responsible for discussion and limitations sections. \\[6pt]
-% Selina Zhang & Developed the project website (design, content, and implementation). Contributed to the Q2 proposal introduction and problem statement. Responsible for website checkpoint and final website updates. \\
-% \bottomrule
-% \end{tabular}
-% \end{table}
+\begin{table}[H]
+\centering
+\caption{Team member contributions for Quarter 2.}
+\label{tab:contributions}
+\begin{tabular}{p{3cm}p{11cm}}
+\toprule
+\textbf{Member} & \textbf{Contributions} \\
+\midrule
+Camille Tran & Designed the hybrid 3-stage architecture. Trained and exported the Stage~1 Activity Classifier (Random Forest, 93.6\% LOSO) to CoreML. Implemented Stage~2 sleep rules and Stage~3 DC/AC stress formulas in Python. Wrote the \texttt{StressDetectionPipeline.swift} for the iOS app. Conducted Apple Watch feature ablation experiments. Wrote all shared preprocessing code (\texttt{preprocess\_wise.py}). Led the pivot from pure ML to hybrid approach. Primary author of this report. \\[6pt]
+Dhyay Thakrar & Built the Body Battery system (\texttt{BodyBatteryView.swift}), including energy drain/recharge logic, activity simulator, recovery activities, and 30-day history visualization. Developed the full iOS app dashboard (\texttt{ContentView.swift}) with HealthKit integration. Implemented \texttt{HealthKitManager.swift} for Apple Watch data access (HR, HRV, steps, sleep). Responsible for wiring the 3-stage pipeline into the app. \\[6pt]
+Levy Sahoo & Validated DC/AC stress formulas on Apple Health export data. Implemented per-subject HRV imputation methodology. Documented IBI data quality findings. Contributed to data preprocessing improvements. Responsible for poster checkpoint. \\[6pt]
+Essie Cheng & Led the report writing and editing process. Proposed sliding window methodology (30s windows, 50\% overlap) that increased sample size from 341 to 2,449. Proposed Leave-One-Subject-Out validation. Designed poster layout. Responsible for discussion and limitations sections. \\[6pt]
+Selina Zhang & Developed the project website (design, content, and implementation). Contributed to the Q2 proposal introduction and problem statement. Responsible for website checkpoint and final website updates. \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 
 \end{document}
