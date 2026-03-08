@@ -12,7 +12,7 @@ import sys
 import os
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "pipeline"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from stage2_sleep_rules import (
     SleepQualityAssessor,
     SleepAssessment,
