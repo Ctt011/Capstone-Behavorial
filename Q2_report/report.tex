@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage{placeins}
+\usepackage{needspace} 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Title and Authors
@@ -182,10 +183,9 @@ HR only (3 features) & 83.1\% & SVM & 0.454 \\
 \end{table}
 
 The key finding is that movement features (ACC\_mean, ACC\_std) are critical: accuracy drops from 94.5\% to 83.1\% without them, and $F_1$ drops from 0.897 to 0.454. Conversely, dropping EDA and temperature (which Apple Watch does not provide) has negligible impact (94.4\% $\rightarrow$ 94.3\%). HRV features add nothing to Stage~1 when movement is available. The minimum viable feature set is \{HR\_mean, HR\_std, ACC\_mean, ACC\_std\}.
-
+\vspace*{-1em}
 \subsubsection{Model Training and Export}
-
-The final Stage~1 model was trained using:
+The final Stage~1 model was trained using:          
 \begin{itemize}
     \item \textbf{Algorithm:} Random Forest with 100 trees \citep{breiman2001random}
     \item \textbf{Pipeline:} Mean imputation $\rightarrow$ Standard scaling $\rightarrow$ Random Forest
@@ -193,6 +193,7 @@ The final Stage~1 model was trained using:
     \item \textbf{Validation:} Leave-One-Subject-Out (22 folds)
     \item \textbf{Final accuracy:} 93.6\% LOSO
 \end{itemize}
+
 
 The trained scikit-learn \citep{pedregosa2011sklearn} pipeline was exported to CoreML format \citep{apple2023coreml} for on-device inference on iOS. Due to incompatibilities between scikit-learn 1.7.2 and coremltools 9.0, we built the CoreML model specification directly from the Random Forest's tree internals using the \texttt{TreeEnsembleClassifier} builder API. Preprocessing parameters (imputer means and scaler statistics) were exported as a JSON file for the Swift application to apply before model inference.
 
@@ -520,7 +521,7 @@ The stress regression model yielded $R^2 = -0.035$ (worse than mean prediction),
 
 
 
-
+\newpage       
 \subsection{Code Repository Structure}
 
 All code is available at: \url{https://github.com/Ctt011/Capstone-Behavorial.git}
