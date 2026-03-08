@@ -49,7 +49,9 @@ from preprocess_wise import df_activity
 # ── Configuration ────────────────────────────────────────────────────────────
 
 FEATURES = ['HR_mean', 'HR_std', 'ACC_mean', 'ACC_std']
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.dirname(SCRIPT_DIR)
+OUTPUT_DIR = os.path.join(SRC_DIR, 'models')
 
 # ── Create 2-class dataset ───────────────────────────────────────────────────
 
