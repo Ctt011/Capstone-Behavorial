@@ -6,6 +6,7 @@ __pycache__/
 .vscode/
 .claude/
 .Rhistory
+.pytest_cache/
 
 # === Archives ===
 *.zip

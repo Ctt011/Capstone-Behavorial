@@ -89,6 +89,13 @@ Expected output: CSVs for heart rate, SDNN, and sleep data extracted from `expor
 **Run the iOS app:**
 Open `digital_twin_app/DigitalTwin.xcodeproj` in Xcode. Requires Apple Watch simulator or paired device.
 
+**Run unit tests:**
+```bash
+make test           # all tests (skips data tests if dataset absent)
+make test-quick     # Stage 2 + Stage 3 only (no dataset needed)
+```
+Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress formulas, HRV metrics, baseline learning, and edge cases.
+
 ---
 
 ## File Guide
@@ -205,6 +212,7 @@ Row 3+ → Sensor values
 Capstone-Behavorial/
 ├── models/                        # Trained models (CoreML, sklearn, ONNX)
 ├── main_analysis_notebooks/       # Analysis notebooks (Stage 1, Stage 2, EDA)
+├── tests/                         # Unit tests (pytest) — 47 tests
 ├── 22subjects/                    # Raw WISE dataset (22 subjects × 6 signals)
 ├── WISE_data_files/               # Dataset metadata (labels, data dictionary)
 ├── digital_twin_app/              # iOS app (SwiftUI + HealthKit + CoreML)
@@ -212,6 +220,7 @@ Capstone-Behavorial/
 ├── Q2_report/                     # Quarter 2 LaTeX report + figures
 ├── website_page_files/            # Website assets (images, SVG, style guide)
 ├── results/                       # Evaluation outputs (LOSO results)
+├── .github/workflows/test.yml     # CI — runs tests on push/PR
 ├── preprocess_wise.py             # Preprocessing (imported by all notebooks)
 ├── export_stage1_model.py         # Stage 1 model training + export
 ├── stage2_sleep_rules.py          # Stage 2 sleep threshold rules
@@ -221,8 +230,9 @@ Capstone-Behavorial/
 ├── run_stage2_fitbit.py           # PMData/Fitbit validation
 ├── stage2_fitbit_analysis.ipynb   # PMData sleep validation notebook
 ├── Pipeline_Walkthrough.ipynb     # End-to-end pipeline tutorial (34 cells)
+├── Makefile                       # make test, make evaluate, make export-model
 ├── index.html                     # Project website
-├── requirements.txt               # Python dependencies
+├── requirements.txt               # Python dependencies (pinned versions)
 └── README.md
 ```
 

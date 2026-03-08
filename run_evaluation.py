@@ -21,9 +21,16 @@ Output:
 
 import os
 import sys
+import logging
 import argparse
 import numpy as np
 from sklearn.pipeline import make_pipeline
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
@@ -43,8 +50,12 @@ FEATURES = ['HR_mean', 'HR_std', 'ACC_mean', 'ACC_std']
 CLASSES = ['COGNITIVE', 'PHYSICAL']
 
 
+logger = logging.getLogger(__name__)
+
+
 def run_loso_evaluation():
     """Run 22-fold LOSO cross-validation and return results."""
+    logger.info("Starting LOSO evaluation")
 
     df = df_activity.copy()
 
@@ -83,6 +94,7 @@ def run_loso_evaluation():
         y_pred = pipeline.predict(X_test)
 
         acc = accuracy_score(y_test, y_pred)
+        logger.info(f"Fold {fold_idx + 1:2d} | Subject {held_out:>4s} | Acc {acc:.1%} | n={len(y_test)}")
         fold_results.append({
             'fold': fold_idx + 1,
             'subject': held_out,
@@ -96,6 +108,8 @@ def run_loso_evaluation():
     all_y_true = np.array(all_y_true)
     all_y_pred = np.array(all_y_pred)
     overall_acc = accuracy_score(all_y_true, all_y_pred)
+
+    logger.info(f"LOSO complete — Overall accuracy: {overall_acc:.1%} ({len(all_y_true)} windows)")
 
     return fold_results, all_y_true, all_y_pred, le, overall_acc
 
