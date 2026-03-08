@@ -53,36 +53,36 @@ pip install -r requirements.txt
 
 **Reproduce Stage 1 model training + CoreML export:**
 ```bash
-python export_stage1_model.py
+python src/pipeline/export_stage1_model.py
 ```
 Expected output: 4 model files in `models/` (`.mlmodel`, `.pkl`, `.onnx`, `_preprocessing.json`). Console prints LOSO accuracy per fold and overall accuracy (~93.6%).
 
 **Run the end-to-end pipeline walkthrough:**
 ```bash
-jupyter notebook Pipeline_Walkthrough.ipynb
+jupyter notebook src/evaluation/Pipeline_Walkthrough.ipynb
 ```
 Expected output: 34-cell notebook covering data loading → preprocessing → Stage 1 LOSO → Stage 2 sleep rules → Stage 3 DC/AC → Body Battery simulation. All figures render inline.
 
 **Run the biomarker comparison analysis:**
 ```bash
-jupyter notebook main_analysis_notebooks/Biomarker_Comparison.ipynb
+jupyter notebook src/main_analysis_notebooks/Biomarker_Comparison.ipynb
 ```
 Expected output: ANOVA results, confusion matrices, feature importance plots, 2-class and 3-class LOSO results.
 
 **Verify Stage 1 accuracy (LOSO evaluation):**
 ```bash
-python run_evaluation.py
+python evaluation/run_evaluation.py
 ```
 Expected output: 22-fold LOSO results with per-fold accuracy, overall accuracy (~93.6%), confusion matrix, and classification report. Pre-generated results are in `results/loso_evaluation.txt`.
 
 To save results to a file:
 ```bash
-python run_evaluation.py --save results/loso_evaluation.txt
+python evaluation/run_evaluation.py --save results/loso_evaluation.txt
 ```
 
 **Parse an Apple Health export:**
 ```bash
-python parse_apple_health.py
+python src/pipeline/parse_apple_health.py
 ```
 Expected output: CSVs for heart rate, SDNN, and sleep data extracted from `export.xml`.
 
@@ -100,7 +100,7 @@ Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress form
 
 ## File Guide
 
-### Pipeline Scripts (repo root)
+### Pipeline Scripts (src/pipeline/)
 
 | File | What It Does |
 |------|-------------|
@@ -112,7 +112,7 @@ Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress form
 | `run_stage2_fitbit.py` | PMData/Fitbit validation script for Stage 2 sleep scoring. |
 | `run_evaluation.py` | Reproduces Stage 1 LOSO evaluation (93.6%). Saves results to `results/`. |
 
-### Trained Models (`models/`)
+### Trained Models (`src/models/`)
 
 | File | What It Does |
 |------|-------------|
@@ -135,7 +135,7 @@ Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress form
 | `AddActivityView.swift` | UI for logging activities |
 | `DigitalTwinApp.swift` | App entry point |
 
-### Analysis Notebooks (`main_analysis_notebooks/`)
+### Analysis Notebooks (`src/main_analysis_notebooks/`)
 
 | File | What It Does |
 |------|-------------|
@@ -153,14 +153,14 @@ Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress form
 |------|-------------|
 | `preprocess_wise.py` | Single source of truth for all WISE data preprocessing. Signal loading, segmentation, sliding windows (30s, 50% overlap), per-subject HRV imputation. Imported by all notebooks. |
 
-### Data
+### Data (`data/`)
 
 | Directory | Contents |
 |-----------|----------|
 | `22subjects/` | Raw WISE data — 22 subjects, each with ACC, BVP, EDA, HR, IBI, TEMP CSVs |
 | `WISE_data_files/` | Dataset metadata: stress labels (v1, v2), subject info, data dictionary |
 
-### Reports
+### Reports (`reports/`)
 
 | Directory | Contents |
 |-----------|----------|
@@ -246,3 +246,4 @@ Capstone-Behavorial/
 4. Bahameish & Stockman — Stress vs Neutral F1=56%, Stress vs Relaxation F1=89%
 5. Apple (2024) — Behavioral Foundation Model: sleep + sensor fusion improves predictions
 6. Bauer et al. (2006) — PRSA method for Deceleration/Acceleration Capacity
+
