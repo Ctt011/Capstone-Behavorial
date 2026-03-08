@@ -601,7 +601,7 @@
     <div class="stat reveal" data-delay="0">
       <div class="stat-value" data-count="93.6" data-suffix="%">0%</div>
       <div class="stat-label">LOSO Accuracy</div>
-      <div class="stat-sub">Leave-One-Subject-Out · 22 Subjects</div>
+      <div class="stat-sub">Activity Classifier · 22 Subjects</div>
     </div>
     <div class="stat reveal" data-delay="0.1">
       <div class="stat-value">3</div>
@@ -673,9 +673,6 @@
       <p class="body-text">
         Our pipeline processes wearable sensor data in three sequential stages. Each stage solves a specific problem that the next stage depends on — you can't score stress accurately without first removing exercise artifacts and accounting for sleep.
       </p>
-      <p class="body-text" style="font-size:14px; color:var(--muted); border-left:3px solid var(--border); padding-left:16px;">
-        <strong>Built vs. reused:</strong> We built the full 3-stage pipeline, the iOS Digital Twin app, and all evaluation code from scratch. The Stage&nbsp;1 Random Forest classifier, the sleep-modulation rule engine, and the DC/AC stress-scoring module are original implementations. We adapted established physiological formulas (PRSA, SDNN, RMSSD) from the literature and trained on the publicly available WISE dataset from PhysioNet. The CoreML export pipeline and HealthKit integration are also our own work.
-      </p>
     </div>
 
     <!-- Pipeline overview -->
@@ -695,7 +692,7 @@
       <div class="pipe-stage">
         <div class="pipe-stage-num">Stage 3</div>
         <div class="pipe-stage-title">Stress Score</div>
-        <div class="pipe-stage-desc">Deceleration / Acceleration Capacity</div>
+        <div class="pipe-stage-desc">DC/AC scoring</div>
         <span class="pipe-badge pipe-formula">Formula</span>
       </div>
     </div>
@@ -805,7 +802,7 @@
     <div class="data-subsection reveal" data-delay="0.1">
       <div class="section-tag" style="color:#2E7EBD">Training Data</div>
       <h3 class="section-title-sm">WISE Dataset</h3>
-      <p class="body-text">We trained and validated our activity classifier on the <a href="https://physionet.org/content/wearable-device-dataset/1.0.1/">WISE (Wearable and Intelligent Stress and affect dEtection)</a> dataset — 22 subjects performing controlled activities (cognitive, aerobic, anaerobic) while wearing wristband sensors. Segmenting the physiological signals using sliding windows, we built a model that reliably separates physical activity from cognitive states.</p>
+      <p class="body-text">We trained and validated our activity classifier on the <a href="https://physionet.org/content/wearable-device-dataset/1.0.1/">WISE</a> dataset — 22 subjects performing controlled activities (cognitive, aerobic, anaerobic) while wearing wristband sensors. Segmenting the physiological signals using sliding windows, we built a model that reliably separates physical activity from cognitive states.</p>
 
       <div class="data-cards">
         <div class="data-card" style="background:#EAF4EF; border:1px solid rgba(61,139,110,0.2)">
@@ -880,9 +877,6 @@
     <!-- Findings -->
     <div class="reveal" data-delay="0.2" style="margin-top: 48px;">
       <h3 class="section-title-sm">Key Findings</h3>
-      <p class="body-text" style="background: #FEF4E6; border-radius: 8px; padding: 16px 20px; border-left: 3px solid var(--warning); margin-bottom: 24px;">
-        <strong>Why hybrid?</strong> Our initial approach tried a pure machine-learning model — training an end-to-end classifier (XGBoost) directly on HRV features to predict stress labels. This achieved an <strong>R²&nbsp;=&nbsp;−0.035</strong> on WISE data, essentially no better than random guessing. That failure motivated our pivot to the current hybrid architecture: use ML only where it clearly excels (activity classification, 93.6%) and rely on established physiological formulas combined with personal baselines for the stress scoring itself.
-      </p>
       <p class="body-text">
         Our activity classifier achieved <strong>93.6% LOSO accuracy</strong>, confirming that exercise can be reliably separated from cognitive states using wrist-worn sensor data alone. This is the foundation that makes the rest of the pipeline possible.
       </p>
