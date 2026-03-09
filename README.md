@@ -209,31 +209,46 @@ Row 3+ → Sensor values
 ## Directory Structure
 
 ```
-Capstone-Behavorial/
-├── models/                        # Trained models (CoreML, sklearn, ONNX)
-├── main_analysis_notebooks/       # Analysis notebooks (Stage 1, Stage 2, EDA)
-├── tests/                         # Unit tests (pytest) — 47 tests
-├── 22subjects/                    # Raw WISE dataset (22 subjects × 6 signals)
-├── WISE_data_files/               # Dataset metadata (labels, data dictionary)
-├── digital_twin_app/              # iOS app (SwiftUI + HealthKit + CoreML)
-├── Q1_report/                     # Quarter 1 LaTeX report
-├── Q2_report/                     # Quarter 2 LaTeX report + figures
-├── website_page_files/            # Website assets (images, SVG, style guide)
-├── results/                       # Evaluation outputs (LOSO results)
-├── .github/workflows/test.yml     # CI — runs tests on push/PR
-├── preprocess_wise.py             # Preprocessing (imported by all notebooks)
-├── export_stage1_model.py         # Stage 1 model training + export
-├── stage2_sleep_rules.py          # Stage 2 sleep threshold rules
-├── stage3_stress_formulas.py      # Stage 3 DC/AC stress formulas
-├── parse_apple_health.py          # Apple Health XML parser
-├── run_evaluation.py              # Stage 1 LOSO evaluation script
-├── run_stage2_fitbit.py           # PMData/Fitbit validation
-├── stage2_fitbit_analysis.ipynb   # PMData sleep validation notebook
-├── Pipeline_Walkthrough.ipynb     # End-to-end pipeline tutorial (34 cells)
-├── Makefile                       # make test, make evaluate, make export-model
-├── index.html                     # Project website
-├── requirements.txt               # Python dependencies (pinned versions)
-└── README.md
+Capstone-Behavioral/
+├── .github/
+│   └── workflows/
+│       └── test.yml                      # CI — runs tests on push/PR
+├── data/   
+│   ├── 22subjects/                       # Raw WISE dataset (22 subjects × 6 signals)
+│   └── WISE_data_files/                  # Dataset metadata (labels, data dictionary)
+├── digital_twin_app/                     # iOS app (SwiftUI + HealthKit + CoreML)
+├── digital_twin_app/ 
+│   ├── Q1_report/                        # Quarter 1 LaTeX report
+│   └── Q2_report/                        # Quarter 2 LaTeX report + figures
+├── src/
+│   ├── eval/
+│   │   ├── results/                      # Evaluation outputs (LOSO results & PMData sleep validation noteboom)
+│   │   ├── Pipeline_Walkthrough.ipynb    # End-to-end pipeline tutorial (34 cells)
+│   │   ├── run_evaluation.py             # Stage 1 LOSO evaluation script
+│   │   └── run_stage2_fitbit.py          # PMData/Fitbit validation
+│   │
+│   ├── main_analysis_notebooks/          # Analysis notebooks (Stage 1, Stage 2, EDA)
+│   │
+│   ├── models/                           # Trained models (CoreML, sklearn, ONNX)
+│   │   ├── ActivityClassifier.mlmodel
+│   │   ├── ActivityClassifier.onnx
+│   │   ├── ActivityClassifier.pkl
+│   │   └── ActivityClassifier_preprocessing.pkl
+│   │
+│   └── pipeline/
+│       ├── export_stage1_model.py        # Stage 1 model training + export
+│       ├── parse_apple_health.py         # Apple Health XML parser
+│       ├── preprocess_wise.py            # Preprocessing (imported by all notebooks)
+│       ├── stage2_sleep_rules.py         # Stage 2 sleep threshold rules
+│       └── stage3_stress_formulas.py     # Stage 3 DC/AC stress formulas
+│
+├── tests/                                # Unit tests (pytest) — 47 tests
+├── website/website_page_files            # Website assets (images, SVG, style guide)          
+│
+├── README.md
+├── index.html                            # Project website
+└──  requirements.txt                     # Python dependencies (pinned versions)
+
 ```
 
 ---
@@ -246,5 +261,6 @@ Capstone-Behavorial/
 4. Bahameish & Stockman — Stress vs Neutral F1=56%, Stress vs Relaxation F1=89%
 5. Apple (2024) — Behavioral Foundation Model: sleep + sensor fusion improves predictions
 6. Bauer et al. (2006) — PRSA method for Deceleration/Acceleration Capacity
+
 
 
