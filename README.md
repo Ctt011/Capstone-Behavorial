@@ -59,7 +59,7 @@ Expected output: 4 model files in `models/` (`.mlmodel`, `.pkl`, `.onnx`, `_prep
 
 **Run the end-to-end pipeline walkthrough:**
 ```bash
-jupyter notebook src/evaluation/Pipeline_Walkthrough.ipynb
+jupyter notebook src/eval/Pipeline_Walkthrough.ipynb
 ```
 Expected output: 34-cell notebook covering data loading → preprocessing → Stage 1 LOSO → Stage 2 sleep rules → Stage 3 DC/AC → Body Battery simulation. All figures render inline.
 
@@ -71,13 +71,13 @@ Expected output: ANOVA results, confusion matrices, feature importance plots, 2-
 
 **Verify Stage 1 accuracy (LOSO evaluation):**
 ```bash
-python evaluation/run_evaluation.py
+python src/eval/run_evaluation.py
 ```
 Expected output: 22-fold LOSO results with per-fold accuracy, overall accuracy (~93.6%), confusion matrix, and classification report. Pre-generated results are in `results/loso_evaluation.txt`.
 
 To save results to a file:
 ```bash
-python evaluation/run_evaluation.py --save results/loso_evaluation.txt
+python src/eval/run_evaluation.py --save results/loso_evaluation.txt
 ```
 
 **Parse an Apple Health export:**
@@ -246,4 +246,5 @@ Capstone-Behavorial/
 4. Bahameish & Stockman — Stress vs Neutral F1=56%, Stress vs Relaxation F1=89%
 5. Apple (2024) — Behavioral Foundation Model: sleep + sensor fusion improves predictions
 6. Bauer et al. (2006) — PRSA method for Deceleration/Acceleration Capacity
+
 
