@@ -147,7 +147,7 @@ Expected output: 47 tests pass covering sleep threshold rules, DC/AC stress form
 | `CognitiveModel.ipynb` | Cognitive stress model |
 | `_setup.py` | Path helper — auto-configures CWD and sys.path so notebooks work from the subdirectory |
 
-### Shared Preprocessing
+### Shared Preprocessing (`src/pipeline/`)
 
 | File | What It Does |
 |------|-------------|
@@ -247,7 +247,7 @@ Capstone-Behavioral/
 │
 ├── README.md
 ├── index.html                            # Project website
-└──  requirements.txt                     # Python dependencies (pinned versions)
+└── requirements.txt                      # Python dependencies (pinned versions)
 
 ```
 
@@ -261,6 +261,7 @@ Capstone-Behavioral/
 4. Bahameish & Stockman — Stress vs Neutral F1=56%, Stress vs Relaxation F1=89%
 5. Apple (2024) — Behavioral Foundation Model: sleep + sensor fusion improves predictions
 6. Bauer et al. (2006) — PRSA method for Deceleration/Acceleration Capacity
+
 
 
 
