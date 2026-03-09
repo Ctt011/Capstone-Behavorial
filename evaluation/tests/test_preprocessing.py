@@ -14,11 +14,11 @@ import os
 import pytest
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "pipeline"))
 
 # Skip all tests in this module if the 22subjects directory doesn't exist
 # (CI environments or machines without the dataset)
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "22subjects")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "22_subjects")
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(DATA_DIR),
     reason="WISE dataset (22subjects/) not available"

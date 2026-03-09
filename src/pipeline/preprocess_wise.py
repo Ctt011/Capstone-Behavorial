@@ -37,18 +37,15 @@ ALL_FEATURES = ['SDNN', 'RMSSD', 'EDA_mean', 'EDA_std', 'HR_mean', 'HR_std', 'HR
 
 # ── File paths ───────────────────────────────────────────────────────────────
 
-#_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "../../"))
+STRESS_PATH = os.path.join(_BASE_DIR, "22subjects", "STRESS")
+AEROBIC_PATH = os.path.join(_BASE_DIR, "22subjects", "AEROBIC")
+ANAEROBIC_PATH = os.path.join(_BASE_DIR, "22subjects", "ANAEROBIC")
 
-STRESS_PATH = os.path.join(_REPO_ROOT, "data", "22_subjects", "STRESS")
-AEROBIC_PATH = os.path.join(_REPO_ROOT, "data", "22_subjects", "AEROBIC")
-ANAEROBIC_PATH = os.path.join(_REPO_ROOT, "data", "22_subjects", "ANAEROBIC")
-
-_stress_level_v1_path = os.path.join(_REPO_ROOT, "data", "WISE_data_files", "Stress_Level_v1.csv")
-_stress_level_v2_path = os.path.join(_REPO_ROOT, "data", "WISE_data_files", "Stress_Level_v2.csv")
-_subject_info_path = os.path.join(_REPO_ROOT, "data", "WISE_data_files", "subject-info.csv")
+_stress_level_v1_path = os.path.join(_BASE_DIR, "WISE_data_files", "Stress_Level_v1.csv")
+_stress_level_v2_path = os.path.join(_BASE_DIR, "WISE_data_files", "Stress_Level_v2.csv")
+_subject_info_path = os.path.join(_BASE_DIR, "WISE_data_files", "subject-info.csv")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

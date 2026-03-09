@@ -23,17 +23,9 @@ Model Details:
 
 import os
 import sys
-import logging
 import numpy as np
 import joblib
 from sklearn.pipeline import make_pipeline
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-)
-logger = logging.getLogger(__name__)
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
@@ -49,9 +41,7 @@ from preprocess_wise import df_activity
 # ── Configuration ────────────────────────────────────────────────────────────
 
 FEATURES = ['HR_mean', 'HR_std', 'ACC_mean', 'ACC_std']
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_DIR = os.path.dirname(SCRIPT_DIR)
-OUTPUT_DIR = os.path.join(SRC_DIR, 'models')
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
 
 # ── Create 2-class dataset ───────────────────────────────────────────────────
 
@@ -125,7 +115,6 @@ joblib.dump({
     'classes': list(le.classes_),
     'loso_accuracy': float(scores.mean()),
 }, pkl_path)
-logger.info(f"Saved sklearn pipeline: {pkl_path}")
 print(f"\nSaved: {pkl_path}")
 
 # ── Convert to CoreML (.mlmodel) ─────────────────────────────────────────────

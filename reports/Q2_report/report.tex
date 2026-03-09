@@ -529,33 +529,36 @@ All code is available at: \url{https://github.com/Ctt011/Capstone-Behavorial.git
 {\footnotesize
 \begin{verbatim}
 Capstone-Behavorial/
-├── models/                           # Trained models
-│   ├── ActivityClassifier.mlmodel    # CoreML (528 KB)
-│   ├── ActivityClassifier.pkl        # sklearn pipeline
-│   ├── ActivityClassifier.onnx       # ONNX (cross-platform)
-│   └── ActivityClassifier_preprocessing.json
-├── preprocess_wise.py                # Shared preprocessing
-├── export_stage1_model.py            # Model training + export
-├── stage2_sleep_rules.py             # Sleep rules (Python ref)
-├── stage3_stress_formulas.py         # DC/AC formulas (Python ref)
-├── parse_apple_health.py             # Apple Health XML parser
-├── run_evaluation.py                 # LOSO evaluation script
-├── results/                          # Pre-generated evaluation results
-├── Pipeline_Walkthrough.ipynb        # End-to-end tutorial
-├── main_analysis_notebooks/          # Analysis notebooks
-│   ├── Biomarker_Comparison.ipynb    # Stage 1 LOSO analysis
-│   ├── StressLevel_model.ipynb       # Stage 2 regression
-│   ├── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
-│   └── _setup.py                     # Path helper
-├── 22subjects/                       # Raw WISE data (22 subjects)
-├── WISE_data_files/                  # Dataset metadata + labels
+├── src/                              # Source code
+│   ├── models/                       # Trained models
+│   │   ├── ActivityClassifier.mlmodel    # CoreML (528 KB)
+│   │   ├── ActivityClassifier.pkl        # sklearn pipeline
+│   │   ├── ActivityClassifier.onnx       # ONNX (cross-platform)
+│   │   └── ActivityClassifier_preprocessing.json
+│   ├── pipeline/                     # Pipeline scripts
+│   │   ├── preprocess_wise.py        # Shared preprocessing
+│   │   ├── export_stage1_model.py    # Model training + export
+│   │   ├── stage2_sleep_rules.py     # Sleep rules (Python ref)
+│   │   ├── stage3_stress_formulas.py # DC/AC formulas (Python ref)
+│   │   └── parse_apple_health.py     # Apple Health XML parser
+│   ├── eval/                         # Evaluation scripts
+│   │   ├── Pipeline_Walkthrough.ipynb    # End-to-end tutorial
+│   │   ├── run_evaluation.py         # LOSO evaluation
+│   │   └── results/                  # Pre-generated results
+│   └── main_analysis_notebooks/      # Analysis notebooks
+│       ├── Biomarker_Comparison.ipynb    # Stage 1 LOSO analysis
+│       ├── StressLevel_model.ipynb       # Stage 2 regression
+│       └── WISE_Stress_EDA_Model.ipynb   # Binary stress classifier
+├── data/                             # Datasets
+│   ├── 22_subjects/                  # Raw WISE data (22 subjects)
+│   └── WISE_data_files/              # Dataset metadata + labels
 ├── digital_twin_app/DigitalTwin/     # iOS application
 │   ├── StressDetectionPipeline.swift # 3-stage pipeline
 │   ├── BodyBatteryView.swift         # Body Battery UI + logic
 │   ├── HealthKitManager.swift        # Apple Watch data access
 │   └── ContentView.swift             # Dashboard
-├── tests/                            # Unit tests (Stage 2 + Stage 3)
-├── Q2_report/                        # This report
+├── evaluation/tests/                 # Unit tests (Stage 2 + Stage 3)
+├── reports/Q2_report/                # This report
 ├── website/                          # Project website files
 ├── index.html                        # Project homepage
 ├── requirements.txt                  # Python dependencies

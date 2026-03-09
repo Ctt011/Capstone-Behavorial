@@ -35,12 +35,8 @@ from sklearn.metrics import (
 )
 
 # ── Import preprocessed data from the single source of truth ────────────────
-#sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "../"))
-sys.path.insert(0, REPO_ROOT)
-os.chdir(REPO_ROOT)
-from pipeline.preprocess_wise import df_activity
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from preprocess_wise import df_activity
 
 # ── Configuration ───────────────────────────────────────────────────────────
 FEATURES = ['HR_mean', 'HR_std', 'ACC_mean', 'ACC_std']
