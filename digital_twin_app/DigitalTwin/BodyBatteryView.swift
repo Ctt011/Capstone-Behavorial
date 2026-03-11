@@ -1722,6 +1722,7 @@ struct BodyBatteryView: View {
     @StateObject private var batteryManager = BodyBatteryManager.shared
     @ObservedObject private var activityManager = ActivityManager.shared
     @EnvironmentObject var healthKitManager: HealthKitManager
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var selectedDate = Date()
     @State private var showingBreathingExercise = false
@@ -1731,6 +1732,11 @@ struct BodyBatteryView: View {
     @State private var activeSection: String = "Stress"
 
     private let sections = ["Stress", "Sleep", "Activity", "Insights", "Health"]
+
+    /// Extra horizontal padding on iPad for readability
+    private var iPadPadding: CGFloat {
+        horizontalSizeClass == .regular ? 40 : 0
+    }
 
     var batteryColor: Color {
         switch batteryManager.currentBattery {
@@ -1783,7 +1789,7 @@ struct BodyBatteryView: View {
                             Label("Connect Apple Health", systemImage: "heart.text.square.fill")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: 500)
                                 .padding(.vertical, 16)
                                 .background(Color.ptTeal)
                                 .cornerRadius(14)
@@ -1964,6 +1970,7 @@ struct BodyBatteryView: View {
                 }
                 .padding(.top)
             }
+            .padding(.horizontal, iPadPadding)
             .background(backgroundColor.ignoresSafeArea())
             .navigationTitle("Body Battery")
             .navigationBarTitleDisplayMode(.large)
@@ -2044,6 +2051,7 @@ struct BodyBatteryView: View {
             }
             } // end else (authorized)
         }
+        .navigationViewStyle(.stack)
         .sheet(isPresented: $showingBreathingExercise) {
             BreathingExerciseView(batteryManager: batteryManager)
         }

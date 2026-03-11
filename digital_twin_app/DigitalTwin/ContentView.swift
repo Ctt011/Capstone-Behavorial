@@ -109,7 +109,7 @@ struct OnboardingView: View {
                             .font(.headline)
                     }
                     .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: 500)
                     .padding(.vertical, 18)
                     .background(
                         LinearGradient(
