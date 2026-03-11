@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PhysioTwin — Product Demo</title>
+<meta name="description" content="Watch the PhysioTwin mobile app demo — hybrid stress detection on your wrist." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  :root {
+    --sage:        #3D8B6E;
+    --sage-light:  #5AAD8A;
+    --sage-dark:   #2A6650;
+    --slate:       #1E2A35;
+    --body-color:  #3D4C59;
+    --muted:       #7A8FA0;
+    --border:      #DDE6EC;
+    --surface:     #F7FAFB;
+    --white:       #FFFFFF;
+    --shadow-md:   0 4px 16px rgba(30,42,53,.10);
+    --shadow-lg:   0 12px 40px rgba(30,42,53,.14);
+    --font-head:   'Syne', sans-serif;
+    --font-body:   'Inter', sans-serif;
+  }
+
+  body {
+    background: var(--slate);
+    color: var(--white);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Nav */
+  .nav {
+    padding: 20px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none; color: var(--white);
+  }
+  .nav-logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--sage);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; font-family: var(--font-head); color: #fff;
+  }
+  .nav-logo-text {
+    font-family: var(--font-head); font-weight: 700;
+    font-size: 18px; letter-spacing: -0.02em;
+  }
+  .nav-back {
+    color: rgba(255,255,255,0.6); text-decoration: none;
+    font-size: 14px; font-weight: 400; transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--white); }
+
+  /* Content */
+  .demo-container {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px 80px;
+    max-width: 960px; margin: 0 auto; width: 100%;
+  }
+  .demo-title {
+    font-family: var(--font-head);
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 700; letter-spacing: -0.03em;
+    margin-bottom: 12px; text-align: center;
+  }
+  .demo-subtitle {
+    color: rgba(255,255,255,0.55);
+    font-size: 16px; margin-bottom: 40px;
+    text-align: center;
+  }
+  .video-wrapper {
+    width: 100%; border-radius: 16px; overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    background: #000;
+  }
+  .video-wrapper video {
+    width: 100%; display: block;
+  }
+  .demo-cta {
+    margin-top: 40px; display: flex; gap: 16px; flex-wrap: wrap;
+    justify-content: center;
+  }
+  .demo-cta a {
+    display: inline-flex; align-items: center; gap: 8px;
+    text-decoration: none; font-size: 14px; font-weight: 500;
+    padding: 12px 28px; border-radius: 100px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary {
+    background: var(--sage); color: #fff;
+  }
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(61,139,110,0.30);
+  }
+  .btn-outline {
+    background: transparent; color: var(--white);
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  .btn-outline:hover {
+    border-color: rgba(255,255,255,0.5);
+    transform: scale(1.05);
+  }
+
+  @media (max-width: 768px) {
+    .nav { padding: 16px 20px; }
+    .demo-container { padding: 24px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-icon">PT</div>
+    <span class="nav-logo-text">PhysioTwin</span>
+  </a>
+  <a href="index.html" class="nav-back">&larr; Back to Home</a>
+</nav>
+
+<main class="demo-container">
+  <h1 class="demo-title">Product Demo</h1>
+  <p class="demo-subtitle">See PhysioTwin's hybrid stress detection in action on iOS.</p>
+
+  <div class="video-wrapper">
+    <video controls preload="metadata" playsinline>
+      <source src="website/PhysioTwin%20Mobile%20App.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <div class="demo-cta">
+    <a href="https://apps.apple.com/us/app/physiotwin/id6759465593" target="_blank" rel="noreferrer" class="btn-primary">
+      Download on the App Store
+    </a>
+    <a href="index.html" class="btn-outline">
+      Back to Home
+    </a>
+  </div>
+</main>
+
+</body>
+</html>
