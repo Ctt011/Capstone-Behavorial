@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>PhysioTwin reads your heart rate, heart rate variability, sleep stages, respiratory rate, steps, active energy, and workout data to calculate your body battery, detect stress, and provide personalized recovery insights.</string>
 	<key>NSHealthUpdateUsageDescription</key>
