@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var healthKitManager: HealthKitManager
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasSeenWalkthrough") private var hasSeenWalkthrough = false
+    @State private var showingWalkthrough = false
 
     var body: some View {
         Group {
@@ -17,6 +19,12 @@ struct ContentView: View {
         .onChange(of: healthKitManager.isAuthorized) { _, isAuthorized in
             if isAuthorized {
                 hasCompletedOnboarding = true
+                if !hasSeenWalkthrough {
+                    // Show walkthrough after a brief delay for smooth transition
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        showingWalkthrough = true
+                    }
+                }
             }
         }
         .onAppear {
@@ -24,6 +32,12 @@ struct ContentView: View {
             if healthKitManager.isAuthorized {
                 hasCompletedOnboarding = true
             }
+        }
+        .fullScreenCover(isPresented: $showingWalkthrough) {
+            OnboardingWalkthroughView(isPresented: $showingWalkthrough)
+                .onDisappear {
+                    hasSeenWalkthrough = true
+                }
         }
     }
 }
@@ -85,6 +99,7 @@ struct OnboardingView: View {
                 Spacer()
 
                 Button(action: {
+                    HapticManager.medium()
                     healthKitManager.requestAuthorization()
                 }) {
                     HStack(spacing: 12) {
@@ -107,6 +122,8 @@ struct OnboardingView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
+                .accessibilityLabel("Connect Apple Health")
+                .accessibilityHint("Grant access to your health data to enable body battery tracking")
 
                 Text("Works with any wearable synced to Apple Health")
                     .font(.caption)

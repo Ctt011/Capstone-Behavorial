@@ -1,5 +1,17 @@
 import SwiftUI
 
+// MARK: - Debug Logger
+/// Replaces raw `print()` across the codebase. In Release builds this compiles
+/// to nothing, so no health data leaks to the console and there's zero runtime
+/// overhead. In Debug builds it forwards to `print()` as before.
+@inline(__always)
+func debugLog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
+    #if DEBUG
+    let output = items.map { "\($0)" }.joined(separator: separator)
+    print(output, terminator: terminator)
+    #endif
+}
+
 // MARK: - PhysioTwin Design Tokens
 // Source: physiotwin-tokens.json + digital-twin-style-guide.html
 

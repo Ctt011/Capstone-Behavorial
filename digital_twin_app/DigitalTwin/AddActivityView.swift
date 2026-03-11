@@ -139,7 +139,10 @@ struct AddActivityView: View {
                 
                 // Save Button
                 Section {
-                    Button(action: saveActivity) {
+                    Button(action: {
+                        HapticManager.success()
+                        saveActivity()
+                    }) {
                         HStack {
                             Spacer()
                             Image(systemName: "checkmark.circle.fill")
@@ -365,7 +368,10 @@ struct EditActivityView: View {
                 
                 // Save Button
                 Section {
-                    Button(action: saveChanges) {
+                    Button(action: {
+                        HapticManager.success()
+                        saveChanges()
+                    }) {
                         HStack {
                             Spacer()
                             Image(systemName: "checkmark.circle.fill")
@@ -380,7 +386,10 @@ struct EditActivityView: View {
                 
                 // Delete Button
                 Section {
-                    Button(role: .destructive, action: { showingDeleteConfirmation = true }) {
+                    Button(role: .destructive, action: {
+                        HapticManager.warning()
+                        showingDeleteConfirmation = true
+                    }) {
                         HStack {
                             Spacer()
                             Image(systemName: "trash.fill")
@@ -411,6 +420,7 @@ struct EditActivityView: View {
             .alert("Delete Activity?", isPresented: $showingDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
+                    HapticManager.error()
                     activityManager.removeActivity(id: activity.id)
                     dismiss()
                 }
@@ -525,6 +535,7 @@ struct StressLevelSlider: View {
             ForEach(1...10, id: \.self) { level in
                 Button {
                     value = level
+                    HapticManager.selection()
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 6)

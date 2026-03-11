@@ -90,11 +90,16 @@ class ActivityClassifier_Stage1 {
 
     // Preprocessing params from ActivityClassifier_preprocessing.json
     // These MUST match the values from export_stage1_model.py
+    //
+    // IMPORTANT: imputerFillValues uses training-set MEDIANS so that
+    // imputed features don't collapse to z = 0 after standardization.
+    // If they equalled scalerMeans the model would always receive 0 for
+    // any missing feature, making it ignore that feature entirely.
     private let imputerFillValues: [String: Double] = [
-        "HR_mean": 96.3528,
-        "HR_std": 1.2719,
-        "ACC_mean": 3.4330,
-        "ACC_std": 1.2207
+        "HR_mean": 90.0,   // Median HR at rest (below mean — most people sit)
+        "HR_std": 0.9,     // Median HR variability in a quiet window
+        "ACC_mean": 2.0,   // Median accelerometer magnitude (light/no movement)
+        "ACC_std": 0.6     // Median accelerometer variability (still)
     ]
 
     private let scalerMeans: [String: Double] = [
@@ -132,7 +137,7 @@ class ActivityClassifier_Stage1 {
                 model = try MLModel(contentsOf: modelURL, configuration: config)
             }
         } catch {
-            print("Failed to load ActivityClassifier.mlmodel: \(error)")
+            debugLog("Failed to load ActivityClassifier.mlmodel: \(error)")
         }
     }
 
@@ -189,7 +194,7 @@ class ActivityClassifier_Stage1 {
             return (activityType, confidence)
 
         } catch {
-            print("Prediction failed: \(error)")
+            debugLog("Prediction failed: \(error)")
             return (ClassifiedActivityType.unknown, 0.0)
         }
     }
@@ -295,7 +300,7 @@ class StressCalculator_Stage3 {
         if let sdnnValues = UserDefaults.standard.array(forKey: baselineSDNNKey) as? [Double] {
             baselineSDNNValues = sdnnValues
         }
-        print("✅ Loaded \(baselineDCValues.count) DC baselines and \(baselineSDNNValues.count) SDNN baselines from storage")
+        debugLog("✅ Loaded \(baselineDCValues.count) DC baselines and \(baselineSDNNValues.count) SDNN baselines from storage")
     }
     
     private func saveBaselinesToStorage() {
@@ -403,7 +408,7 @@ class StressCalculator_Stage3 {
                                   restingHR: Double? = nil) -> StressMetrics {
         guard !heartRateSamples.isEmpty else {
             return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
-                               meanHR: nil, stressScore: 50,
+                               meanHR: nil, stressScore: -1,
                                stressLevel: .insufficientData)
         }
         
@@ -535,19 +540,19 @@ class StressCalculator_Stage3 {
         let sdnnAgeMinutes = sdnnAge.map { Int($0 / 60) }
         
         // Log what data we have available
-        print("📊 Stress calculation data available:")
-        print("   ├─ HR samples: \(heartRateSamples.count)")
+        debugLog("📊 Stress calculation data available:")
+        debugLog("   ├─ HR samples: \(heartRateSamples.count)")
         if let sdnn = recentSDNN, let age = sdnnAgeMinutes {
-            print("   ├─ SDNN: \(String(format: "%.1f", sdnn))ms (age: \(age)min)")
+            debugLog("   ├─ SDNN: \(String(format: "%.1f", sdnn))ms (age: \(age)min)")
         } else {
-            print("   ├─ SDNN: N/A")
+            debugLog("   ├─ SDNN: N/A")
         }
-        print("   └─ Resting HR: \(restingHR != nil ? String(format: "%.0f", restingHR!) : "N/A")")
+        debugLog("   └─ Resting HR: \(restingHR != nil ? String(format: "%.0f", restingHR!) : "N/A")")
         
         // Priority 1: If we have enough HR samples (10+), prefer real-time HR-derived calculation
         // This gives us the most responsive stress tracking
         if heartRateSamples.count >= 10 {
-            print("📊 → Using HR-derived metrics for stress calculation (\(heartRateSamples.count) samples)")
+            debugLog("📊 → Using HR-derived metrics for stress calculation (\(heartRateSamples.count) samples)")
             return computeStress(heartRateSamples: heartRateSamples)
         }
         
@@ -556,7 +561,7 @@ class StressCalculator_Stage3 {
         if let sdnn = recentSDNN,
            let age = sdnnAge,
            age < 10 * 60 {
-            print("📊 → Using very recent SDNN for stress calculation (age: \(Int(age/60))min)")
+            debugLog("📊 → Using very recent SDNN for stress calculation (age: \(Int(age/60))min)")
             let currentHR = heartRateSamples.last?.bpm
             return computeStressFromSDNN(sdnn: sdnn, restingHR: restingHR, currentHR: currentHR)
         }
@@ -564,7 +569,7 @@ class StressCalculator_Stage3 {
         // Priority 3: If we have some HR samples (3-9), use HR-only calculation
         // This is more responsive than stale SDNN
         if heartRateSamples.count >= 3 {
-            print("📊 → Using HR-only stress calculation (\(heartRateSamples.count) samples)")
+            debugLog("📊 → Using HR-only stress calculation (\(heartRateSamples.count) samples)")
             return computeStressFromHROnly(heartRateSamples: heartRateSamples, restingHR: restingHR)
         }
         
@@ -572,21 +577,21 @@ class StressCalculator_Stage3 {
         if let sdnn = recentSDNN,
            let age = sdnnAge,
            age < 30 * 60 {
-            print("📊 → Using older SDNN for stress calculation (age: \(Int(age/60))min, no fresh HR data)")
+            debugLog("📊 → Using older SDNN for stress calculation (age: \(Int(age/60))min, no fresh HR data)")
             let currentHR = heartRateSamples.last?.bpm
             return computeStressFromSDNN(sdnn: sdnn, restingHR: restingHR, currentHR: currentHR)
         }
         
         // Priority 5: HR-only calculation with whatever samples we have (even 1-2)
         if !heartRateSamples.isEmpty {
-            print("📊 → Using limited HR-only calculation (\(heartRateSamples.count) samples)")
+            debugLog("📊 → Using limited HR-only calculation (\(heartRateSamples.count) samples)")
             return computeStressFromHROnly(heartRateSamples: heartRateSamples, restingHR: restingHR)
         }
         
         // No data available
-        print("📊 → Insufficient data for stress calculation")
+        debugLog("📊 → Insufficient data for stress calculation")
         return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
-                            meanHR: nil, stressScore: 50,
+                            meanHR: nil, stressScore: -1,
                             stressLevel: .insufficientData)
     }
 
@@ -599,7 +604,7 @@ class StressCalculator_Stage3 {
 
         guard rr.count >= 5 else {
             return StressMetrics(dc: nil, ac: nil, sdnn: nil, rmssd: nil,
-                               meanHR: nil, stressScore: 50,
+                               meanHR: nil, stressScore: -1,
                                stressLevel: .insufficientData)
         }
 
@@ -709,9 +714,10 @@ class StressDetectionPipeline: ObservableObject {
     static let minHRSamplesForReliable: Int = 10
     static let minHRSamplesForBasic: Int = 3
     
-    // Cached sleep baseline (fetched once per session)
+    // Cached sleep baseline — refreshed every 24 hours
     private var cachedSleepBaseline: Double?
-    private var sleepBaselineFetched = false
+    private var sleepBaselineLastFetched: Date?
+    private static let sleepBaselineTTL: TimeInterval = 24 * 3600  // 24 hours
 
     @Published var latestResult: PipelineResult?
     @Published var isRunning = false
@@ -731,7 +737,7 @@ class StressDetectionPipeline: ObservableObject {
     func runFullPipeline() async -> PipelineResult {
         // Skip if Apple Watch is not connected
         guard healthKitManager.isAppleWatchConnected else {
-            print("⌚ Pipeline skipped — Apple Watch not connected")
+            debugLog("⌚ Pipeline skipped — Apple Watch not connected")
             return PipelineResult(
                 timestamp: Date(),
                 activityType: .unknown,
@@ -740,7 +746,7 @@ class StressDetectionPipeline: ObservableObject {
                 sleepQuality: .unknown,
                 adjustedThreshold: 60,
                 dc: nil, ac: nil, sdnn: nil, rmssd: nil,
-                stressScore: 0,
+                stressScore: -1,
                 stressLevel: .insufficientData,
                 isStressed: false,
                 recoverySlope: nil
@@ -763,12 +769,12 @@ class StressDetectionPipeline: ObservableObject {
         // Diagnostic logging for debugging HR sample issues
         let dateFormatter = DateFormatter()
         dateFormatter.timeStyle = .medium
-        print("🔍 Pipeline HR fetch: window \(Int(windowMinutes))min (\(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now)))")
-        print("   └─ Found \(hrSamples.count) HR samples (need \(Self.minHRSamplesForReliable)+ for reliable, \(Self.minHRSamplesForBasic)+ for basic)")
+        debugLog("🔍 Pipeline HR fetch: window \(Int(windowMinutes))min (\(dateFormatter.string(from: windowStart)) - \(dateFormatter.string(from: now)))")
+        debugLog("   └─ Found \(hrSamples.count) HR samples (need \(Self.minHRSamplesForReliable)+ for reliable, \(Self.minHRSamplesForBasic)+ for basic)")
         if let oldestSample = hrSamples.first,
            let newestSample = hrSamples.last {
-            print("   └─ Sample range: \(dateFormatter.string(from: oldestSample.timestamp)) - \(dateFormatter.string(from: newestSample.timestamp))")
-            print("   └─ HR range: \(Int(hrSamples.map { $0.bpm }.min() ?? 0)) - \(Int(hrSamples.map { $0.bpm }.max() ?? 0)) BPM")
+            debugLog("   └─ Sample range: \(dateFormatter.string(from: oldestSample.timestamp)) - \(dateFormatter.string(from: newestSample.timestamp))")
+            debugLog("   └─ HR range: \(Int(hrSamples.map { $0.bpm }.min() ?? 0)) - \(Int(hrSamples.map { $0.bpm }.max() ?? 0)) BPM")
         }
 
         // Compute HR stats for Stage 1
@@ -824,7 +830,7 @@ class StressDetectionPipeline: ObservableObject {
         }
         
         if overridePhysical {
-            print("🏃 Rule-based PHYSICAL override: \(overrideReason)")
+            debugLog("🏃 Rule-based PHYSICAL override: \(overrideReason)")
         }
 
         // ── STAGE 1: Activity Classification ────────────────────────────
@@ -846,17 +852,21 @@ class StressDetectionPipeline: ObservableObject {
             confidence = mlConf
         }
         
-        print("📋 Activity Classification: \(activityType.rawValue) (confidence: \(String(format: "%.2f", confidence)), steps/min: \(String(format: "%.1f", avgStepsPerMinFromTotal)), total steps: \(Int(totalSteps)))")
+        debugLog("📋 Activity Classification: \(activityType.rawValue) (confidence: \(String(format: "%.2f", confidence)), steps/min: \(String(format: "%.1f", avgStepsPerMinFromTotal)), total steps: \(Int(totalSteps)))")
 
         // ── STAGE 2: Sleep Threshold Adjustment ─────────────────────────
-        // Fetch 30-day sleep baseline if not cached
-        if !sleepBaselineFetched {
+        // Fetch 30-day sleep baseline if stale or not fetched
+        let sleepBaselineStale: Bool = {
+            guard let lastFetch = sleepBaselineLastFetched else { return true }
+            return Date().timeIntervalSince(lastFetch) > Self.sleepBaselineTTL
+        }()
+        if sleepBaselineStale {
             cachedSleepBaseline = await healthKitManager.fetchAverageSleepLast30Days()
-            sleepBaselineFetched = true
+            sleepBaselineLastFetched = Date()
             if let baseline = cachedSleepBaseline {
-                print("✅ Personal sleep baseline: \\(String(format: \"%.1f\", baseline)) hours (30-day average)")
+                debugLog("✅ Personal sleep baseline: \(String(format: "%.1f", baseline)) hours (30-day average)")
             } else {
-                print("ℹ️ Using default sleep baseline of 7.0 hours (insufficient data)")
+                debugLog("ℹ️ Using default sleep baseline of 7.0 hours (insufficient data)")
             }
         }
         
@@ -888,12 +898,12 @@ class StressDetectionPipeline: ObservableObject {
             // Diagnostic: Log SDNN and RHR state
             if let sdnn = recentSDNN, let timestamp = sdnnTimestamp {
                 let age = Int(now.timeIntervalSince(timestamp) / 60)
-                print("📊 SDNN from HealthKitManager: \(String(format: "%.1f", sdnn))ms, age: \(age)min")
+                debugLog("📊 SDNN from HealthKitManager: \(String(format: "%.1f", sdnn))ms, age: \(age)min")
             } else {
-                print("📊 SDNN from HealthKitManager: not available")
+                debugLog("📊 SDNN from HealthKitManager: not available")
             }
             if let rhr = restingHR {
-                print("📊 Resting HR: \(Int(rhr)) BPM")
+                debugLog("📊 Resting HR: \(Int(rhr)) BPM")
             }
             
             let metrics = stressCalculator.computeStressOpportunistic(
@@ -912,7 +922,30 @@ class StressDetectionPipeline: ObservableObject {
             isStressed = stressScore > adjustedThreshold
         } else if activityType == .physical {
             stressLevel = .physicalActivity
-            // Don't compute stress — data invalid during movement (Bonneval 2025)
+            // Don't compute HRV stress — data invalid during movement (Bonneval 2025)
+            // Instead, compute physical exertion score (0-100) based on:
+            //   - Heart rate elevation above resting HR (HR reserve %)
+            //   - Step intensity (steps/min normalised)
+            let restingHR = healthKitManager.restingHeartRate ?? 65.0
+            let maxHR = 220.0 - 30.0  // Conservative estimate; ideally use user age
+            let hrReserve = maxHR - restingHR
+
+            // HR component: fraction of HR reserve used (0-1)
+            let hrComponent: Double
+            if let hr = hrMean, hrReserve > 0 {
+                hrComponent = min(1.0, max(0.0, (hr - restingHR) / hrReserve))
+            } else {
+                hrComponent = 0.0
+            }
+
+            // Step component: 0 = still, 1 = vigorous running (~180 steps/min)
+            let stepComponent = min(1.0, avgStepsPerMinFromTotal / 180.0)
+
+            // Weighted blend: HR is the stronger signal of physiological cost
+            let exertion = (0.7 * hrComponent + 0.3 * stepComponent) * 100.0
+            stressScore = max(0, min(100, Int(exertion)))
+
+            debugLog("🏋️ Physical exertion score: \(stressScore) (HR comp: \(String(format: "%.2f", hrComponent)), Step comp: \(String(format: "%.2f", stepComponent)))")
         }
 
         let result = PipelineResult(

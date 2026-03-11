@@ -182,8 +182,10 @@ class ActivityManager: ObservableObject {
         activities.insert(activity, at: 0) // Most recent first
         saveActivities()
         
-        // Notify Body Battery Manager about the stress impact
-        Task { @MainActor in
+        // Notify Body Battery Manager about the stress impact.
+        // BodyBatteryManager is @MainActor, so schedule on main to avoid
+        // racing with concurrent battery mutations from the pipeline timer.
+        DispatchQueue.main.async {
             BodyBatteryManager.shared.applyStress(
                 stressLevel: activity.stressLevel,
                 durationMinutes: activity.durationMinutes
@@ -314,38 +316,22 @@ class ActivityManager: ObservableObject {
     // MARK: - Persistence
     
     private func saveActivities() {
-        do {
-            let encoded = try JSONEncoder().encode(activities)
-            UserDefaults.standard.set(encoded, forKey: storageKey)
-        } catch {
-            print("Failed to save activities: \(error)")
-        }
+        PersistenceManager.save(activities, filename: PersistenceManager.File.activities)
     }
     
     private func loadActivities() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
-        do {
-            activities = try JSONDecoder().decode([ActivityEntry].self, from: data)
-        } catch {
-            print("Failed to load activities: \(error)")
+        if let loaded = PersistenceManager.load([ActivityEntry].self, filename: PersistenceManager.File.activities) {
+            activities = loaded
         }
     }
     
     private func saveDetectedActivities() {
-        do {
-            let encoded = try JSONEncoder().encode(detectedActivities)
-            UserDefaults.standard.set(encoded, forKey: detectedActivitiesKey)
-        } catch {
-            print("Failed to save detected activities: \(error)")
-        }
+        PersistenceManager.save(detectedActivities, filename: PersistenceManager.File.detectedActivities)
     }
     
     private func loadDetectedActivities() {
-        guard let data = UserDefaults.standard.data(forKey: detectedActivitiesKey) else { return }
-        do {
-            detectedActivities = try JSONDecoder().decode([DetectedActivityEntry].self, from: data)
-        } catch {
-            print("Failed to load detected activities: \(error)")
+        if let loaded = PersistenceManager.load([DetectedActivityEntry].self, filename: PersistenceManager.File.detectedActivities) {
+            detectedActivities = loaded
         }
     }
     
@@ -368,7 +354,7 @@ class ActivityManager: ObservableObject {
             let data = try encoder.encode(activities)
             return String(data: data, encoding: .utf8)
         } catch {
-            print("Failed to export as JSON: \(error)")
+            debugLog("Failed to export as JSON: \(error)")
             return nil
         }
     }

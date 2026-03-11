@@ -282,6 +282,11 @@ class HealthKitManager: ObservableObject {
     private var lastActivityClassificationTime: Date?
     private let activityClassificationInterval: TimeInterval = 5 * 60  // 5 minutes
     
+    // Notification rate limiting
+    private var lastNotificationTime: Date?
+    private var lastNotifiedActivityType: String?
+    private let notificationCooldown: TimeInterval = 60 * 60  // 1 hour between notifications
+    
     @Published var isAuthorized = false
     @Published var authorizationStatus = "Not connected"
     @Published var isBackgroundDeliveryEnabled = false
@@ -386,11 +391,7 @@ class HealthKitManager: ObservableObject {
     init() {
         checkAuthorizationStatus()
         requestNotificationPermission()
-        // Initialize the stress detection pipeline with self reference
-        // Note: Pipeline is created lazily since self isn't fully initialized yet
-        Task { @MainActor in
-            self.stressPipeline = StressDetectionPipeline(healthKitManager: self)
-        }
+        // Pipeline is created lazily on first use (see ensurePipeline())
     }
     
     var isHealthKitAvailable: Bool {
@@ -472,9 +473,9 @@ class HealthKitManager: ObservableObject {
         appleWatchLastSeen = result.lastSeen
         
         if result.connected {
-            print("⌚ Apple Watch detected (last data: \(result.lastSeen?.description ?? "unknown"))")
+            debugLog("⌚ Apple Watch detected (last data: \(result.lastSeen?.description ?? "unknown"))")
         } else {
-            print("⌚ Apple Watch NOT detected — stress prediction disabled")
+            debugLog("⌚ Apple Watch NOT detected — stress prediction disabled")
         }
     }
 
@@ -490,11 +491,18 @@ class HealthKitManager: ObservableObject {
     
     // MARK: - Activity Classification
     
+    /// Lazily creates the single shared pipeline instance.
+    private func ensurePipeline() {
+        if stressPipeline == nil {
+            stressPipeline = StressDetectionPipeline(healthKitManager: self)
+        }
+    }
+
     /// Runs the activity classification pipeline if enough time has passed
     func runActivityClassificationIfNeeded() async {
         // Skip classification if Apple Watch is not connected
         guard hasFreshAppleWatchData() else {
-            print("⌚ Skipping activity classification — Apple Watch not detected")
+            debugLog("⌚ Skipping activity classification — Apple Watch not detected")
             return
         }
         
@@ -506,11 +514,8 @@ class HealthKitManager: ObservableObject {
             return
         }
         
-        // Initialize pipeline if needed
-        if stressPipeline == nil {
-            stressPipeline = StressDetectionPipeline(healthKitManager: self)
-        }
-        
+        // Use the single shared pipeline instance
+        ensurePipeline()
         guard let pipeline = stressPipeline else { return }
         
         // Run the pipeline
@@ -527,20 +532,20 @@ class HealthKitManager: ObservableObject {
             stressScore: result.activityType == .cognitive ? result.stressScore : nil
         )
         
-        // Update BodyBatteryManager with latest pipeline stress results
-        // This ensures background pipeline runs reflect in the Body Battery view
-        if result.activityType == .cognitive {
-            BodyBatteryManager.shared.updateFromPipelineResult(
-                stressScore: result.stressScore,
-                activityType: result.activityType.rawValue,
-                dc: result.dc,
-                ac: result.ac,
-                sdnn: result.sdnn,
-                adjustedThreshold: result.adjustedThreshold,
-                isStressed: result.isStressed,
-                timestamp: result.timestamp
-            )
-        }
+        // Update BodyBatteryManager with latest pipeline stress results.
+        // This ensures background pipeline runs reflect in the Body Battery view.
+        // Routes ALL activity types (physical + cognitive) so physical activity
+        // drain is not lost while the app is in the background.
+        BodyBatteryManager.shared.updateFromPipelineResult(
+            stressScore: result.stressScore,
+            activityType: result.activityType.rawValue,
+            dc: result.dc,
+            ac: result.ac,
+            sdnn: result.sdnn,
+            adjustedThreshold: result.adjustedThreshold,
+            isStressed: result.isStressed,
+            timestamp: result.timestamp
+        )
         
         // Send notification for significant activity detections (confidence > 70%)
         if result.activityConfidence > 0.7 {
@@ -550,16 +555,16 @@ class HealthKitManager: ObservableObject {
             )
         }
         
-        print("🏃 Activity classified: \\(result.activityType.rawValue) (confidence: \\(String(format: \"%.1f%%\", result.activityConfidence * 100)))")
+        debugLog("🏃 Activity classified: \(result.activityType.rawValue) (confidence: \(String(format: "%.1f%%", result.activityConfidence * 100)))")
     }
     
     // MARK: - Notification Permission
     private func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if granted {
-                print("✅ Notification permission granted")
+                debugLog("✅ Notification permission granted")
             } else if let error = error {
-                print("⚠️ Notification permission error: \\(error.localizedDescription)")
+                debugLog("⚠️ Notification permission error: \(error.localizedDescription)")
             }
         }
     }
@@ -576,13 +581,24 @@ class HealthKitManager: ObservableObject {
         // let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         // UNUserNotificationCenter.current().add(request) { error in
         //     if let error = error {
-        //         print("⚠️ Failed to send notification: \(error.localizedDescription)")
+        //         debugLog("⚠️ Failed to send notification: \(error.localizedDescription)")
         //     }
         // }
     }
     
     // MARK: - Activity Classification Notification
     func sendActivityNotification(activityType: String, confidence: Double) {
+        // Rate limit: skip if same activity type was notified recently
+        if let lastTime = lastNotificationTime,
+           let lastType = lastNotifiedActivityType,
+           lastType == activityType,
+           Date().timeIntervalSince(lastTime) < notificationCooldown {
+            return
+        }
+        
+        // Check user preference
+        guard UserDefaults.standard.bool(forKey: "notificationsEnabled") else { return }
+        
         let content = UNMutableNotificationContent()
         content.title = "Activity Detected"
         content.body = "You appear to be doing \(activityType.lowercased()) activity."
@@ -591,9 +607,12 @@ class HealthKitManager: ObservableObject {
         let request = UNNotificationRequest(identifier: "activity-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("⚠️ Failed to send activity notification: \(error.localizedDescription)")
+                debugLog("⚠️ Failed to send activity notification: \(error.localizedDescription)")
             }
         }
+        
+        lastNotificationTime = Date()
+        lastNotifiedActivityType = activityType
     }
     
     func checkAuthorizationStatus() {
@@ -602,8 +621,11 @@ class HealthKitManager: ObservableObject {
             isAuthorized = false
             return
         }
-        guard let stepType = HKObjectType.quantityType(forIdentifier: .stepCount) else { return }
-        let status = healthStore.authorizationStatus(for: stepType)
+        // Check a type that is in typesToWrite. authorizationStatus(for:) only
+        // reports write/sharing authorization; read-only types like stepCount
+        // always return .notDetermined regardless of actual user consent.
+        let workoutType = HKObjectType.workoutType()
+        let status = healthStore.authorizationStatus(for: workoutType)
         switch status {
         case .sharingAuthorized:
             authorizationStatus = "Connected"
@@ -659,7 +681,7 @@ class HealthKitManager: ObservableObject {
         Task { @MainActor in
             isBackgroundDeliveryEnabled = true
         }
-        print("✅ Background delivery setup complete for \(backgroundDeliveryTypes.count) types")
+        debugLog("✅ Background delivery setup complete for \(backgroundDeliveryTypes.count) types")
     }
     
     /// Enables background delivery for a specific sample type with observer and anchored queries
@@ -672,7 +694,7 @@ class HealthKitManager: ObservableObject {
             }
             
             if let error = error {
-                print("⚠️ Observer query error for \(sampleType.identifier): \(error.localizedDescription)")
+                debugLog("⚠️ Observer query error for \(sampleType.identifier): \(error.localizedDescription)")
                 completionHandler() // ALWAYS call completion handler even on error
                 return
             }
@@ -690,9 +712,9 @@ class HealthKitManager: ObservableObject {
         // Enable background delivery with immediate frequency
         healthStore.enableBackgroundDelivery(for: sampleType, frequency: .immediate) { success, error in
             if success {
-                print("✅ Background delivery enabled for \(sampleType.identifier)")
+                debugLog("✅ Background delivery enabled for \(sampleType.identifier)")
             } else if let error = error {
-                print("⚠️ Failed to enable background delivery for \(sampleType.identifier): \(error.localizedDescription)")
+                debugLog("⚠️ Failed to enable background delivery for \(sampleType.identifier): \(error.localizedDescription)")
             }
         }
     }
@@ -732,7 +754,7 @@ class HealthKitManager: ObservableObject {
                 }
                 
                 if let error = error {
-                    print("⚠️ Anchored query error for \(sampleType.identifier): \(error.localizedDescription)")
+                    debugLog("⚠️ Anchored query error for \(sampleType.identifier): \(error.localizedDescription)")
                     continuation.resume()
                     return
                 }
@@ -869,9 +891,9 @@ class HealthKitManager: ObservableObject {
         lastNightSleep = hours
 
         if let h = hours {
-            print("😴 refreshSleepData: \(String(format: "%.1f", h))h, \(stages.count) stages, lastUpdated=\(date?.description ?? "nil")")
+            debugLog("😴 refreshSleepData: \(String(format: "%.1f", h))h, \(stages.count) stages, lastUpdated=\(date?.description ?? "nil")")
         } else {
-            print("😴 refreshSleepData: no sleep data found")
+            debugLog("😴 refreshSleepData: no sleep data found")
         }
 
         await refreshOvernightRecoverySnapshot(stages: stages, sleepEndDate: date)
@@ -1097,7 +1119,7 @@ class HealthKitManager: ObservableObject {
             return result
         }
 
-        print("⚠️ No HRV samples found in last 7 days. Fetching all-time latest...")
+        debugLog("⚠️ No HRV samples found in last 7 days. Fetching all-time latest...")
         return await fetchLatestHRVWithTimestamp(start: nil, end: nil)
     }
 
@@ -1111,13 +1133,13 @@ class HealthKitManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: hrvType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { _, samples, error in
                 if let error = error {
-                    print("⚠️ HRV fetch error: \(error.localizedDescription)")
+                    debugLog("⚠️ HRV fetch error: \(error.localizedDescription)")
                 }
 
                 if let sample = samples?.first as? HKQuantitySample {
                     let value = sample.quantity.doubleValue(for: .secondUnit(with: .milli))
                     let source = sample.sourceRevision.source.name
-                    print("✅ HRV sample found: \(value) ms from \(source) at \(sample.startDate)")
+                    debugLog("✅ HRV sample found: \(value) ms from \(source) at \(sample.startDate)")
                     continuation.resume(returning: (value, sample.startDate))
                 } else {
                     continuation.resume(returning: nil)
@@ -1195,13 +1217,13 @@ class HealthKitManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]) { _, samples, _ in
                 guard let samples = samples as? [HKCategorySample], !samples.isEmpty else {
-                    print("😴 No sleep samples found in window \(windowStart) → \(windowEnd)")
+                    debugLog("😴 No sleep samples found in window \(windowStart) → \(windowEnd)")
                     continuation.resume(returning: (nil, [], nil))
                     return
                 }
 
                 // Debug: log all raw samples so we can diagnose issues
-                print("😴 Found \(samples.count) raw sleep samples in window:")
+                debugLog("😴 Found \(samples.count) raw sleep samples in window:")
                 for (i, sample) in samples.prefix(20).enumerated() {
                     let val = HKCategoryValueSleepAnalysis(rawValue: sample.value)
                     let valName: String
@@ -1215,7 +1237,7 @@ class HealthKitManager: ObservableObject {
                     }
                     let src = sample.sourceRevision.source.name
                     let dur = sample.endDate.timeIntervalSince(sample.startDate) / 60.0
-                    print("   [\(i)] \(valName): \(sample.startDate) → \(sample.endDate) (\(String(format: "%.0f", dur))min) src=\(src)")
+                    debugLog("   [\(i)] \(valName): \(sample.startDate) → \(sample.endDate) (\(String(format: "%.0f", dur))min) src=\(src)")
                 }
 
                 // ----------------------------------------------------------------
@@ -1247,10 +1269,10 @@ class HealthKitManager: ObservableObject {
                 // Fall back to the most recent session if none qualifies.
                 func parseSession(_ sessionSamples: [HKCategorySample]) -> (Double, [SleepStageData], Date?) {
                     var stages: [SleepStageData] = []
-                    var totalAsleepSeconds: TimeInterval = 0
                     var latestDate: Date? = nil
                     var hasStageData = false
 
+                    // First pass: build stages array and detect stage-specific data
                     for sample in sessionSamples {
                         let duration = sample.endDate.timeIntervalSince(sample.startDate)
                         let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
@@ -1260,33 +1282,24 @@ class HealthKitManager: ObservableObject {
                         }
 
                         var stage: SleepStage? = nil
-                        var countAsAsleep = false
 
                         switch value {
                         case .awake:
                             stage = .awake
                         case .asleepREM:
                             stage = .rem
-                            countAsAsleep = true
                             hasStageData = true
                         case .asleepCore:
                             stage = .core
-                            countAsAsleep = true
                             hasStageData = true
                         case .asleepDeep:
                             stage = .deep
-                            countAsAsleep = true
                             hasStageData = true
                         case .asleep:
                             stage = .asleep
-                            countAsAsleep = true
                         default:
-                            // .inBed / other: count as asleep ONLY if we have no
-                            // stage-specific data for this session. This handles
-                            // WHOOP and third-party devices that only write .inBed.
+                            // .inBed / other
                             stage = .asleep
-                            // We'll decide countAsAsleep below after full scan
-                            break
                         }
 
                         if let stage = stage {
@@ -1297,22 +1310,64 @@ class HealthKitManager: ObservableObject {
                                 endDate: sample.endDate
                             ))
                         }
+                    }
 
-                        if countAsAsleep {
-                            totalAsleepSeconds += duration
+                    // Second pass: collect "asleep" time intervals and merge
+                    // overlaps to avoid double-counting.
+                    //
+                    // Root cause of inflated hours: devices like WHOOP write BOTH
+                    // a parent .asleep sample spanning the whole night AND
+                    // individual stage samples (.asleepREM, .asleepCore,
+                    // .asleepDeep) covering the same period.  Naively summing
+                    // all durations counts the time twice.
+                    //
+                    // Fix: when stage-specific data exists, only count stage-
+                    // specific samples.  Then merge any remaining overlapping
+                    // intervals so multi-source overlap doesn't inflate the total.
+                    var asleepIntervals: [(start: Date, end: Date)] = []
+
+                    for sample in sessionSamples {
+                        let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
+
+                        let isAsleep: Bool
+                        if hasStageData {
+                            // Stage data present → only count stage-specific values.
+                            // Generic .asleep and .inBed are parent/container
+                            // samples that overlap with stages.
+                            switch value {
+                            case .asleepREM, .asleepCore, .asleepDeep:
+                                isAsleep = true
+                            default:
+                                isAsleep = false
+                            }
+                        } else {
+                            // No stage data (generic tracker): count everything
+                            // except .awake
+                            let awakeVal = HKCategoryValueSleepAnalysis.awake
+                            isAsleep = (value != awakeVal)
+                        }
+
+                        if isAsleep {
+                            asleepIntervals.append((start: sample.startDate, end: sample.endDate))
                         }
                     }
 
-                    // Second pass: if no stage-specific data was found, count
-                    // .inBed / default samples as asleep time (WHOOP fallback).
-                    if !hasStageData {
+                    // Merge overlapping / adjacent intervals, then sum durations
+                    let totalAsleepSeconds: TimeInterval
+                    if asleepIntervals.isEmpty {
                         totalAsleepSeconds = 0
-                        for sample in sessionSamples {
-                            let value = HKCategoryValueSleepAnalysis(rawValue: sample.value)
-                            if value != .awake {
-                                totalAsleepSeconds += sample.endDate.timeIntervalSince(sample.startDate)
+                    } else {
+                        let sortedIntervals = asleepIntervals.sorted { $0.start < $1.start }
+                        var merged: [(start: Date, end: Date)] = [sortedIntervals[0]]
+                        for interval in sortedIntervals.dropFirst() {
+                            if interval.start <= merged[merged.count - 1].end {
+                                // Overlapping or adjacent — extend
+                                merged[merged.count - 1].end = max(merged[merged.count - 1].end, interval.end)
+                            } else {
+                                merged.append(interval)
                             }
                         }
+                        totalAsleepSeconds = merged.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) }
                     }
 
                     let hours = totalAsleepSeconds / 3600.0
@@ -1331,14 +1386,14 @@ class HealthKitManager: ObservableObject {
                     // Accept sessions with ≥ 0.5 hours of sleep
                     if hours >= 0.5 {
                         let src = session.first?.sourceRevision.source.name ?? "unknown"
-                        print("😴 Sleep data: \(String(format: "%.1f", hours))h, \(stages.count) stage samples, source=\(src)")
+                        debugLog("😴 Sleep data: \(String(format: "%.1f", hours))h, \(stages.count) stage samples, source=\(src)")
                         continuation.resume(returning: (hours, stages, latestDate))
                         return
                     }
                 }
 
                 // No qualifying session — return empty
-                print("😴 Sleep samples found (\(samples.count)) but none qualified (< 30 min total sleep)")
+                debugLog("😴 Sleep samples found (\(samples.count)) but none qualified (< 30 min total sleep)")
                 continuation.resume(returning: (nil, [], nil))
             }
             healthStore.execute(query)
@@ -1627,30 +1682,36 @@ class HealthKitManager: ObservableObject {
     /// Fetches step counts for each minute in the last N minutes
     /// Used to calculate real step variability (std) for activity classification
     /// Returns: Array of step counts per minute, e.g. [12, 15, 8, 20, 14] for 5 minutes
+    /// Fetches step counts in 1-minute buckets using a single HKStatisticsCollectionQuery.
     func fetchStepsPerMinuteBuckets(_ minutes: Int) async -> [Double] {
         guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return [] }
         let now = Date()
         let calendar = Calendar.current
-        
-        var buckets: [Double] = []
-        
-        // Fetch steps for each 1-minute interval
-        for i in 0..<minutes {
-            let endTime = calendar.date(byAdding: .minute, value: -i, to: now)!
-            let startTime = calendar.date(byAdding: .minute, value: -(i + 1), to: now)!
-            let predicate = HKQuery.predicateForSamples(withStart: startTime, end: endTime, options: .strictStartDate)
-            
-            let steps = await withCheckedContinuation { continuation in
-                let query = HKStatisticsQuery(quantityType: stepType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, _ in
-                    let count = result?.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                    continuation.resume(returning: count)
+        guard let startTime = calendar.date(byAdding: .minute, value: -minutes, to: now) else { return [] }
+
+        var interval = DateComponents()
+        interval.minute = 1
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: stepType,
+                quantitySamplePredicate: HKQuery.predicateForSamples(
+                    withStart: startTime, end: now, options: .strictStartDate
+                ),
+                options: .cumulativeSum,
+                anchorDate: startTime,
+                intervalComponents: interval
+            )
+            query.initialResultsHandler = { _, results, _ in
+                var buckets: [Double] = []
+                results?.enumerateStatistics(from: startTime, to: now) { statistics, _ in
+                    let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                    buckets.append(steps)
                 }
-                healthStore.execute(query)
+                continuation.resume(returning: buckets)
             }
-            buckets.append(steps)
+            self.healthStore.execute(query)
         }
-        
-        return buckets.reversed() // Return in chronological order
     }
     
     /// Computes step statistics (mean and std) from minute buckets
@@ -1725,9 +1786,9 @@ class HealthKitManager: ObservableObject {
         do {
             workoutBuilder = HKWorkoutBuilder(healthStore: healthStore, configuration: configuration, device: .local())
             try await workoutBuilder?.beginCollection(at: Date())
-            print("✅ Started workout builder (note: does not trigger Watch HR - use Breathe app on Watch for high-freq HR)")
+            debugLog("✅ Started workout builder (note: does not trigger Watch HR - use Breathe app on Watch for high-freq HR)")
         } catch {
-            print("⚠️ Could not start workout session: \(error.localizedDescription)")
+            debugLog("⚠️ Could not start workout session: \(error.localizedDescription)")
             // Continue anyway - we'll still try to get passive HR data
         }
     }
@@ -1739,9 +1800,9 @@ class HealthKitManager: ObservableObject {
         do {
             try await builder.endCollection(at: Date())
             let workout = try await builder.finishWorkout()
-            print("✅ Ended workout session: \(workout?.duration ?? 0) seconds")
+            debugLog("✅ Ended workout session: \(workout?.duration ?? 0) seconds")
         } catch {
-            print("⚠️ Could not end workout session: \(error.localizedDescription)")
+            debugLog("⚠️ Could not end workout session: \(error.localizedDescription)")
         }
         
         workoutBuilder = nil
@@ -1768,7 +1829,7 @@ class HealthKitManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: heartRateType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) { _, samples, error in
                 if let error = error {
-                    print("⚠️ HR fetch error: \(error.localizedDescription)")
+                    debugLog("⚠️ HR fetch error: \(error.localizedDescription)")
                 }
                 let heartRateSamples = (samples as? [HKQuantitySample])?.map { sample in
                     HeartRateSample(
@@ -1869,8 +1930,8 @@ class HealthKitManager: ObservableObject {
         let durationSeconds = Int(endDate.timeIntervalSince(startDate))
         let isLikelyGuidedSession = durationSeconds >= 240 // 4+ min sessions should usually have more than 1 sample when Watch workout data syncs
         
-        print("📱 Fetching session metrics for '\(activityName)'")
-        print("   └─ Time range: \(dateFormatter.string(from: startDate)) - \(dateFormatter.string(from: endDate))")
+        debugLog("📱 Fetching session metrics for '\(activityName)'")
+        debugLog("   └─ Time range: \(dateFormatter.string(from: startDate)) - \(dateFormatter.string(from: endDate))")
         
         // Fetch all data concurrently
         async let heartRateSamples = fetchHeartRateSamples(from: startDate, to: endDate)
@@ -1881,7 +1942,7 @@ class HealthKitManager: ObservableObject {
         var hrSamples = await heartRateSamples
         let hrvData = await hrvSamples
         
-        print("   └─ Found \(hrSamples.count) HR samples, \(hrvData.count) HRV samples")
+        debugLog("   └─ Found \(hrSamples.count) HR samples, \(hrvData.count) HRV samples")
         
         // Retry when data is missing OR suspiciously sparse.
         // Watch workout sync often arrives in chunks over several seconds.
@@ -1894,7 +1955,7 @@ class HealthKitManager: ObservableObject {
             default: waitTime = 4.0
             }
             let reason = hrSamples.isEmpty ? "No heart rate data" : "Only \(hrSamples.count) heart rate sample"
-            print("⏳ \(reason), retrying in \(waitTime)s... (attempt \(retryCount + 1)/8)")
+            debugLog("⏳ \(reason), retrying in \(waitTime)s... (attempt \(retryCount + 1)/8)")
             try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
             return await fetchActivitySessionMetrics(activityName: activityName, from: startDate, to: endDate, retryCount: retryCount + 1)
         }
@@ -1902,14 +1963,14 @@ class HealthKitManager: ObservableObject {
         // If still no HR samples, try to get the most recent HR reading from before/during session
         // This helps when passive HR sampling is infrequent
         if hrSamples.isEmpty {
-            print("⚠️ No HR data in session window. Checking for recent HR samples...")
+            debugLog("⚠️ No HR data in session window. Checking for recent HR samples...")
             let recentHR = await fetchMostRecentHeartRate(before: endDate, within: 30 * 60) // Last 30 min
             if let recent = recentHR {
-                print("   └─ Found recent HR: \(Int(recent.bpm)) BPM at \(dateFormatter.string(from: recent.timestamp))")
+                debugLog("   └─ Found recent HR: \(Int(recent.bpm)) BPM at \(dateFormatter.string(from: recent.timestamp))")
                 // Use this single sample as a reference point
                 hrSamples = [recent]
             } else {
-                print("   └─ No HR samples found in last 30 minutes")
+                debugLog("   └─ No HR samples found in last 30 minutes")
                 await printHRDiagnostics()
             }
         }
@@ -1927,10 +1988,10 @@ class HealthKitManager: ObservableObject {
         
         // Log final results
         if let avg = avgHR {
-            print("   └─ HR stats: avg=\(Int(avg)), min=\(Int(minHR ?? 0)), max=\(Int(maxHR ?? 0))")
+            debugLog("   └─ HR stats: avg=\(Int(avg)), min=\(Int(minHR ?? 0)), max=\(Int(maxHR ?? 0))")
         }
         if let rmssdVal = rmssd {
-            print("   └─ Calculated RMSSD: \(String(format: "%.1f", rmssdVal))ms")
+            debugLog("   └─ Calculated RMSSD: \(String(format: "%.1f", rmssdVal))ms")
         }
         
         return ActivitySessionMetrics(
@@ -1985,7 +2046,7 @@ class HealthKitManager: ObservableObject {
         dateFormatter.timeStyle = .medium
         dateFormatter.dateStyle = .short
         
-        print("\n🔬 HR Diagnostics:")
+        debugLog("\n🔬 HR Diagnostics:")
         
         // Check last 24 hours of HR data
         let oneDayAgo = now.addingTimeInterval(-24 * 60 * 60)
@@ -1995,34 +2056,34 @@ class HealthKitManager: ObservableObject {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let query = HKSampleQuery(sampleType: heartRateType, predicate: predicate, limit: 10, sortDescriptors: [sortDescriptor]) { _, samples, error in
                 if let error = error {
-                    print("   └─ Error querying HR: \(error.localizedDescription)")
+                    debugLog("   └─ Error querying HR: \(error.localizedDescription)")
                     continuation.resume()
                     return
                 }
                 
                 guard let hrSamples = samples as? [HKQuantitySample], !hrSamples.isEmpty else {
-                    print("   └─ No HR samples found in last 24 hours!")
-                    print("   └─ Possible causes:")
-                    print("      • Apple Watch not worn or not connected")
-                    print("      • HealthKit permissions not fully granted")
-                    print("      • Watch battery depleted")
+                    debugLog("   └─ No HR samples found in last 24 hours!")
+                    debugLog("   └─ Possible causes:")
+                    debugLog("      • Apple Watch not worn or not connected")
+                    debugLog("      • HealthKit permissions not fully granted")
+                    debugLog("      • Watch battery depleted")
                     continuation.resume()
                     return
                 }
                 
-                print("   └─ Found \(hrSamples.count) recent HR samples (showing last 10):")
+                debugLog("   └─ Found \(hrSamples.count) recent HR samples (showing last 10):")
                 for sample in hrSamples.prefix(10) {
                     let hr = sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
                     let source = sample.sourceRevision.source.name
-                    print("      • \(Int(hr)) BPM at \(dateFormatter.string(from: sample.startDate)) from \(source)")
+                    debugLog("      • \(Int(hr)) BPM at \(dateFormatter.string(from: sample.startDate)) from \(source)")
                 }
                 
                 if let mostRecent = hrSamples.first {
                     let age = Int(now.timeIntervalSince(mostRecent.startDate) / 60)
-                    print("   └─ Most recent HR was \(age) minutes ago")
+                    debugLog("   └─ Most recent HR was \(age) minutes ago")
                     if age > 10 {
-                        print("   └─ ⚠️ HR data is stale. Watch may not be actively recording.")
-                        print("      Tip: Start a workout on your Watch (Breathe app works well) for high-frequency HR")
+                        debugLog("   └─ ⚠️ HR data is stale. Watch may not be actively recording.")
+                        debugLog("      Tip: Start a workout on your Watch (Breathe app works well) for high-frequency HR")
                     }
                 }
                 

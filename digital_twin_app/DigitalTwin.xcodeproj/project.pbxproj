@@ -13,6 +13,11 @@
 		020EE6552F510F8000E70379 /* CitationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020EE6542F510F8000E70379 /* CitationsView.swift */; };
 		027F471D2F244B67003E6708 /* ActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027F471C2F244B67003E6708 /* ActivityManager.swift */; };
 		027F471F2F244B68003E6708 /* BodyBatteryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027F471E2F244B68003E6708 /* BodyBatteryView.swift */; };
+		B2000001226B8D7B00F12345 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000226B8D7B00F12345 /* HapticManager.swift */; };
+		B2000003226B8D7B00F12345 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000002226B8D7B00F12345 /* SettingsView.swift */; };
+		B2000005226B8D7B00F12345 /* OnboardingWalkthroughView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000004226B8D7B00F12345 /* OnboardingWalkthroughView.swift */; };
+		B2000007226B8D7B00F12345 /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000006226B8D7B00F12345 /* PersistenceManager.swift */; };
+		B2000009226B8D7B00F12345 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B2000008226B8D7B00F12345 /* PrivacyInfo.xcprivacy */; };
 		A1000001226B8D7A00F12345 /* DigitalTwinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000226B8D7A00F12345 /* DigitalTwinApp.swift */; };
 		A1000003226B8D7A00F12345 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002226B8D7A00F12345 /* ContentView.swift */; };
 		A1000005226B8D7B00F12345 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000004226B8D7B00F12345 /* Assets.xcassets */; };
@@ -40,6 +45,11 @@
 		A100000A226B8D7B00F12345 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000012226B8D7B00F12345 /* AddActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddActivityView.swift; sourceTree = "<group>"; };
 		A1000014226B8D7B00F12345 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B2000000226B8D7B00F12345 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
+		B2000002226B8D7B00F12345 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B2000004226B8D7B00F12345 /* OnboardingWalkthroughView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWalkthroughView.swift; sourceTree = "<group>"; };
+		B2000006226B8D7B00F12345 /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
+		B2000008226B8D7B00F12345 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +94,11 @@
 				020334D62F3B05010010F178 /* ActivityClassifier.mlmodel */,
 				A1000012226B8D7B00F12345 /* AddActivityView.swift */,
 				A1000014226B8D7B00F12345 /* Theme.swift */,
+				B2000000226B8D7B00F12345 /* HapticManager.swift */,
+				B2000002226B8D7B00F12345 /* SettingsView.swift */,
+				B2000004226B8D7B00F12345 /* OnboardingWalkthroughView.swift */,
+				B2000006226B8D7B00F12345 /* PersistenceManager.swift */,
+				B2000008226B8D7B00F12345 /* PrivacyInfo.xcprivacy */,
 				020334D42F3B04FC0010F178 /* ActivityClassifier_preprocessing.json */,
 				020334D92F3B05370010F178 /* DigitalTwin.entitlements */,
 				A1000004226B8D7B00F12345 /* Assets.xcassets */,
@@ -159,6 +174,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				020334D52F3B04FC0010F178 /* ActivityClassifier_preprocessing.json in Resources */,
+				B2000009226B8D7B00F12345 /* PrivacyInfo.xcprivacy in Resources */,
 				A1000005226B8D7B00F12345 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -181,6 +197,10 @@
 				A1000011226B8D7B00F12345 /* Frameworks in Sources */,
 				A1000013226B8D7B00F12345 /* AddActivityView.swift in Sources */,
 				A1000015226B8D7B00F12345 /* Theme.swift in Sources */,
+				B2000001226B8D7B00F12345 /* HapticManager.swift in Sources */,
+				B2000003226B8D7B00F12345 /* SettingsView.swift in Sources */,
+				B2000005226B8D7B00F12345 /* OnboardingWalkthroughView.swift in Sources */,
+				B2000007226B8D7B00F12345 /* PersistenceManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,7 +360,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -378,7 +398,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

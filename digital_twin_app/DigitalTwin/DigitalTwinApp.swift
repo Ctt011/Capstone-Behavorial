@@ -24,6 +24,16 @@ struct DigitalTwinApp: App {
             if newPhase == .active {
                 // User is back - cancel any pending termination reminder
                 UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["terminationReminder"])
+                
+                // Refresh HealthKit data and catch up on missed stress predictions.
+                // While the app was suspended/background the stress prediction timer
+                // stops firing, leaving gaps in drain tracking. refreshAllData()
+                // pulls the latest samples, then catchUpMissedPredictions() fills
+                // in the missed intervals with a conservative drain estimate.
+                Task {
+                    await healthKitManager.refreshAllData()
+                    BodyBatteryManager.shared.catchUpMissedPredictions()
+                }
             }
         }
     }
@@ -32,10 +42,18 @@ struct DigitalTwinApp: App {
 // MARK: - App Delegate for Background Handling
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Migrate large data from UserDefaults to file storage (one-time)
+        PersistenceManager.migrateFromUserDefaultsIfNeeded()
+        
+        // Set notification default for existing users
+        if UserDefaults.standard.object(forKey: "notificationsEnabled") == nil {
+            UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        }
+        
         // Request notification permissions early
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if granted {
-                print("✅ Notification permission granted on launch")
+                debugLog("✅ Notification permission granted on launch")
             }
         }
         
