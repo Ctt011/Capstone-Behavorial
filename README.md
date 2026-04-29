@@ -11,6 +11,14 @@ Website: [PhysioTwin](https://ctt011.github.io/Capstone-Behavorial/)
 
 ---
 
+## Poster
+
+[![PhysioTwin Capstone Poster](images/Capstone_Poster_final.png)](images/Capstone_Poster_final.pdf)
+
+*Click the poster to open the PDF.*
+
+---
+
 ## Architecture
 
 ```
